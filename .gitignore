@@ -1,0 +1,40 @@
+# ── Secrets: NIEMALS einchecken ─────────────────────────────
+# Echte Konfiguration mit WLAN-Passwort, IPs, ntfy-Topics und HMAC-Schlüsseln.
+# Nur config.example.h gehört ins Repo.
+config.h
+**/config.h
+secrets.h
+**/secrets.h
+
+# ── Firmware / Build ────────────────────────────────────────
+build/
+*.bin
+*.elf
+*.map
+.esphome/
+*-env/
+esphome-env/
+
+# ── Audio (große Binärdateien; per Generator erzeugbar) ─────
+*.wav
+
+# ── KiCad: Auto-Backups, Caches, lokale Zustände ────────────
+*-backups/
+*.kicad_prl
+*.bak
+*.kicad_sch.bak*
+fp-info-cache
+*-cache.lib
+\#auto_saved_files#
+.history/
+
+# ── Editor / OS ─────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Python ──────────────────────────────────────────────────
+__pycache__/
+*.pyc
