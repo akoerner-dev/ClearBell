@@ -115,9 +115,6 @@ verifizieren — der reale Entwicklungsverlauf, nicht nur das Endergebnis.
 |---|---|
 | ![Prototyp](docs/img/prototyp.jpg) | ![Schaltplan](docs/img/schaltplan.jpg) |
 
-> Solange die Dateien fehlen, zeigt GitHub an diesen Stellen ein
-> „Bild kaputt"-Symbol. Sobald du echte Bilder unter den obigen Namen in
-> `docs/img/` ablegst, erscheinen sie automatisch.
 
 ---
 
