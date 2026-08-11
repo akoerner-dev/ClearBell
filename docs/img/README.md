@@ -4,8 +4,7 @@ Hier gehören die im Haupt-README verlinkten Bilder rein. Erwartete Dateinamen:
 
 | Datei | Inhalt |
 |---|---|
-| `hero.jpg`       | Bestes Gesamtbild (oben im README) |
-| `pcb_aussen.jpg` | Platine Außeneinheit (bestückt oder KiCad-3D-Render) |
+| `hero.jpg`       | Bestes Gesamtbild (oben im README; dient zugleich als „Außeneinheit PCB") |
 | `pcb_innen.jpg`  | Platine Inneneinheit |
 | `prototyp.jpg`   | Prototyp montiert / im Betrieb |
 | `schaltplan.jpg` | Aussagekräftiger Schaltplan-Ausschnitt |

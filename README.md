@@ -7,8 +7,7 @@ Das Projekt dokumentiert nicht nur *was* gebaut wurde, sondern die
 
 > Leitsatz des Projekts: **„Keep it simple, but working."**
 
-<!-- HERO-BILD: bestes Gesamtfoto (bestückte Platine oder Prototyp im Betrieb).
-     Datei nach docs/img/ legen und Namen unten anpassen. -->
+
 ![ClearBell – Prototyp](docs/img/hero.jpg)
 
 ---
@@ -110,7 +109,7 @@ verifizieren — der reale Entwicklungsverlauf, nicht nur das Endergebnis.
 
 | Außeneinheit (PCB) | Inneneinheit (PCB) |
 |---|---|
-| ![Außeneinheit PCB](docs/img/pcb_aussen.jpg) | ![Inneneinheit PCB](docs/img/pcb_innen.jpg) |
+| ![Außeneinheit PCB](docs/img/hero.jpg) | ![Inneneinheit PCB](docs/img/pcb_innen.jpg) |
 
 | Prototyp im Betrieb | Schaltplan (Ausschnitt) |
 |---|---|
