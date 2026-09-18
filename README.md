@@ -1,4 +1,4 @@
-# ClearBell — Smart-Doorbell (ESP32, Hardware + Firmware)
+# ClearBell — Smart-Doorbell (ESP32-S3, Hardware + Firmware)
 
 Selbst entwickeltes Türklingelsystem für ein Zweifamilienhaus — vollständig
 eigenentwickelt von der Schaltung über das PCB-Layout bis zur Firmware.
@@ -7,52 +7,62 @@ Das Projekt dokumentiert nicht nur *was* gebaut wurde, sondern die
 
 > Leitsatz des Projekts: **„Keep it simple, but working."**
 
+**Aktuelle Generation: V0.2** — Redesign auf den ESP32-S3. Beide Platinen sind fertig
+verlegt, geprüft und zur Fertigung eingereicht. Die erste Generation läuft im Haus und
+liegt im [Archiv](archiv/V0.1/).
 
-![ClearBell – Prototyp](docs/img/hero.jpg)
+| Außeneinheit V0.2 | Inneneinheit V0.2 |
+|---|---|
+| ![Außeneinheit V0.2 – KiCad-3D-Ansicht](docs/img/v0.2_aussen_3d.png) | ![Inneneinheit V0.2 – KiCad-3D-Ansicht](docs/img/v0.2_innen_3d.png) |
+| 110 × 60 mm, 4 Lagen, 12 V DC | 98 × 60 mm, 4 Lagen, USB-C |
 
 ---
 
 ## Überblick
 
 Eine **Außeneinheit** an der Haustür und zwei baugleiche **Inneneinheiten**
-(je eine pro Wohnung, EG/OG). Klingeln und Türöffnen laufen als quittierte,
+(je eine pro Wohnung). Klingeln und Türöffnen laufen als quittierte,
 gegen Replay abgesicherte Transaktionen über WLAN/UDP.
 
-| Merkmal | Umsetzung |
+| Merkmal | V0.2 |
 |---|---|
-| Controller | ESP32-WROOM-32E-N8 (beide Einheitstypen) |
-| Stromversorgung außen | 12 V SELV → 3,3 V, LMR33630 Step-Down |
-| Stromversorgung innen | USB-C 5 V → 3,3 V, TLV62568 Step-Down |
-| Bedienung | Kapazitive Touch-Taster (ESP32 Touch, externe Bronze-Elektroden) |
-| Audio | MAX98357A I2S Class-D + Visaton-Lautsprecher, WAV von SD-Karte |
-| Türöffner | IRLML6344 Low-Side-Switch |
-| Kommunikation | WLAN + UDP über Heim-Router, HMAC-SHA256-authentifiziert |
-| Benachrichtigung | Smartphone-Push via ntfy.sh (optional, Best-Effort) |
+| Controller | ESP32-S3-WROOM-1-N16R8 (16 MB Flash, 8 MB PSRAM), beide Einheiten |
+| Stromversorgung außen | 12 V DC (SELV) → 3,3 V mit LMR33630; Polyfuse, TVS-Diode, Verpolschutz |
+| Stromversorgung innen | USB-C 5 V → 3,3 V mit TLV62568 |
+| Programmierung | natives USB (USB-Serial-JTAG) — innen über die USB-C-Buchse, außen über eine zusätzliche Service-USB-C |
+| Bedienung | kapazitive Touch-Taster mit Bronze-Elektroden, ESD-geschützt |
+| Audio | MAX98357A I2S-Class-D, Visaton K 50 FL (außen) / K 50 SQ (innen) |
+| Mikrofon | Infineon IM72D128V01 (PDM, IP57) auf beiden Einheiten |
+| Anzeige | zweifarbige Status-LED (grün / rot, zusammen bernstein) |
+| Türöffner | Low-Side-MOSFET mit Freilaufdiode |
+| Kommunikation | WLAN + UDP über den Heim-Router, Türbefehl per HMAC-SHA256 authentifiziert |
 
 ---
 
-## Warum das Repo interessant ist
+## Was sich gegenüber V0.1 geändert hat — und warum
 
-Kein zusammengestecktes Breadboard-Bastelprojekt, sondern ein durchgezogener
-Entwicklungsprozess mit dokumentierten Abwägungen. Beispiele:
+- **ESP32-S3 statt ESP32.** Natives USB: Flashen und Logs ohne UART-Adapter und ohne
+  Tastendruck. PSRAM für Audiopuffer, Flash-Reserve für zwei OTA-Partitionen, vom
+  Hersteller zugesagte Verfügbarkeit bis 2033.
+- **Mikrofon auf beiden Einheiten** — als Vorbereitung für späteres Wechselsprechen.
+  Die Wahl fiel auf ein PDM-Mikrofon, das direkt an 3,3 V läuft: kein zweiter
+  Spannungsbereich, keine Pegelwandler.
+- **Keine SD-Karte mehr.** Die Klingeltöne sollen im Flash liegen und über die
+  Statusseite getauscht werden — ein Steckverbinder und ein mechanischer Fehlerpfad weniger.
+- **4 Lagen statt 2.** Beide Innenlagen sind Masse; jede Signallage hat ihre Bezugsfläche
+  direkt darunter. Grund: Bei 1,6 mm liegt der dicke Kern zwangsläufig zwischen den
+  Innenlagen, eine eigene Versorgungslage brächte dort kaum Flächenkapazität.
+- **Vias neben den Pads, nicht darin.** Ein Via im Pad zieht beim Reflow Lot ab. Der DRC
+  prüft das nicht — deshalb eigene Prüfskripte über alle Vias und Pads.
+- **Touch ohne Shield/Guard.** Die Bronze-Elektroden bleiben frei zugänglich. Gegen Drift
+  durch Feuchte ist eine adaptive Baseline in der Firmware vorgesehen; die ESD-Dioden haben
+  nur 0,5 pF, damit die Empfindlichkeit erhalten bleibt.
+- **Türöffner-Freilaufdiode auf 1 A ausgelegt** (SMA-Gehäuse). In V0.1 saß dort eine
+  Signaldiode, die für den Spulenstrom des Türöffners zu klein war.
 
-- **Funkstrecke real validiert statt angenommen.** ESP-NOW war gesetzt und
-  wurde nach systematischer RSSI-Messung an den echten Montageorten
-  **verworfen** — die Direktstrecke war dort funktional tot. Ergebnis:
-  Umstieg auf WLAN/UDP über den Router als besser positionierten Relay.
-  Siehe [`docs/Funkvalidierung_ESPNOW.md`](docs/Funkvalidierung_ESPNOW.md).
-- **Bibliothekswahl aus Hardware-Randbedingung.** Der verbaute
-  ESP32-WROOM-32E-**N8** hat kein PSRAM; die gängige `ESP32-audioI2S`-Lib
-  setzt PSRAM voraus. Lösung: eigener WAV-Player über `ESP_I2S` mit
-  1-KB-Chunk-Streaming direkt von SD.
-- **Analoge Realität im Layout beachtet.** DC-Bias-Derating bei X7R-Keramik
-  (10 µF/25 V bei 12 V ≈ 2,8 µF effektiv) → bewusste Parallelschaltung.
-- **Sicherheitsdenken über die Netzgrenze hinaus.** WPA2 sichert nur das
-  Netz; der Türbefehl selbst ist zusätzlich per HMAC-SHA256 mit rollierendem
-  Zähler (NVS) gegen Replay abgesichert.
-
-Die vollständige Begründungskette liegt in
-[`docs/Designentscheidungen.md`](docs/Designentscheidungen.md).
+Der Funk-Transport bleibt WLAN/UDP über den Router — ESP-NOW wurde an den echten
+Montageorten gemessen und verworfen, siehe
+[`docs/Funkvalidierung_ESPNOW.md`](docs/Funkvalidierung_ESPNOW.md).
 
 ---
 
@@ -60,80 +70,61 @@ Die vollständige Begründungskette liegt in
 
 ```
 clearbell/
-├── firmware/              ESP32-Firmware (Arduino Core 3.x)
-│   ├── ClearBell_produktiv/   Produktivfirmware (Außen/Innen per #define)
-│   │   ├── ClearBell_produktiv.ino
-│   │   └── config.example.h   → nach config.h kopieren und ausfüllen
-│   ├── common/                Gemeinsames Protokoll (clearbell_protocol.h)
-│   ├── Testsketche/           Inkrementelle Bring-up-Tests (I2S, SD, UDP, HMAC …)
-│   ├── tools/                 MAC-Reader, Bring-up-Programm
-│   ├── sounds/                Generator für die Klingel-/Feedbacktöne
-│   ├── README_Firmware.md     Detaillierte Firmware-Architektur
-│   └── Ablaufplan_Firmware.md
-├── hardware/              KiCad-Projekte
-│   ├── Ausseneinheit/         Schaltplan + PCB (98×60 mm, 2-lagig, DRC-sauber)
-│   ├── Inneneinheit/          Schaltplan + PCB + Gerber-Fertigungsdaten
-│   └── BOM/                   Stückliste (v15)
-├── dashboard/            Status-Dashboard (React/JSX)
-├── docs/                 Design-Doku, Funkvalidierung, PDF-Projektdoku
-└── PUSH_ANLEITUNG.md     Schritt-für-Schritt zum Veröffentlichen
+├── hardware/                  V0.2, KiCad 10
+│   ├── Ausseneinheit/         Schaltplan, Platine, Schaltplan.pdf
+│   │   └── fertigung/         Gerber-ZIP, Stückliste, Bestückungsdaten
+│   └── Inneneinheit/          dito
+├── docs/
+│   ├── img/                   3D-Ansichten V0.2
+│   └── Funkvalidierung_ESPNOW.md
+└── archiv/V0.1/               erste Generation: Hardware, Firmware, Dashboard, Dokumentation
 ```
 
 ---
 
-## Firmware bauen
+## Fertigung
 
-1. **Arduino IDE** 2.x, Board-Paket **„esp32" (Arduino Core 3.x)**, Board
-   „ESP32 Dev Module".
-2. In `firmware/ClearBell_produktiv/` die Datei `config.example.h` nach
-   `config.h` kopieren und ausfüllen (WLAN, IPs, ntfy-Topics, HMAC-Schlüssel).
-   **`config.h` wird nicht eingecheckt** (siehe `.gitignore`).
-3. In `ClearBell_produktiv.ino` genau **eine** Einheit aktivieren:
-   `CB_UNIT_AUSSEN`, `CB_UNIT_INNEN_EG` oder `CB_UNIT_INNEN_OG`.
-4. Kompilieren und flashen (115200 Baud).
+| | |
+|---|---|
+| Lagenaufbau | 4 Lagen, 1,6 mm, FR-4 (S1000H, TG150), 1 oz außen und innen, keine Impedanzkontrolle |
+| Oberfläche | ENIG, Lötstopplack grün, Bestückungsdruck weiß (nur oben) |
+| Bestückung | einseitig, maschinell — außen 56, innen 33 Bauteile |
+| Stückliste | je Einheit in `fertigung/`, mit Spalte „Ersatz zulässig" (kritische Teile ohne Ersatz) |
+| Prüfung | DRC und ERC ohne Befund |
 
-Die `Testsketche/` sind eigenständige Bring-up-Programme, die die einzelnen
-Teilsysteme (I2S-Audio, SD, UDP-Protokoll, HMAC, Touch, WLAN-RSSI) isoliert
-verifizieren — der reale Entwicklungsverlauf, nicht nur das Endergebnis.
+Leiterplatten und Bestückung der V0.2 übernimmt **[www.pcbway.com](https://www.pcbway.com)** im Rahmen eines Sponsorings.
 
 ---
 
-## Bilder
+## Firmware
 
-<!--
-  Lege deine Fotos/Renderings unter docs/img/ ab und passe die Dateinamen an.
-  Empfehlung: 2–4 aussagekräftige Bilder, quer, ~1200 px breit.
-  Was besonders gut wirkt: bestückte Platine (Nahaufnahme), PCB-3D-Render aus
-  KiCad, Prototyp montiert/im Betrieb, ggf. Schaltplan-Ausschnitt.
--->
-
-| Außeneinheit (PCB) | Inneneinheit (PCB) |
-|---|---|
-| ![Außeneinheit PCB](docs/img/hero.jpg) | ![Inneneinheit PCB](docs/img/pcb_innen.jpg) |
-
-| Prototyp im Betrieb | Schaltplan (Ausschnitt) |
-|---|---|
-| ![Prototyp](docs/img/prototyp.jpg) | ![Schaltplan](docs/img/schaltplan.jpg) |
-
+Die Firmware — Arduino Core, quittiertes UDP-Protokoll, HMAC-gesicherter Türbefehl,
+eigener WAV-Player — läuft auf V0.1 und liegt unter
+[`archiv/V0.1/firmware/`](archiv/V0.1/firmware/). Die Portierung auf den ESP32-S3
+(Pinbelegung, Töne im Flash statt auf SD, USB-Logging) folgt nach der Inbetriebnahme
+der V0.2-Platinen.
 
 ---
 
 ## Stand
 
-Hardware beider Platinen in Betrieb genommen, WLAN/UDP-Transport validiert
-(Stabilitätstest über Stunden ohne Paketverlust). Firmware läuft stabil auf
-dem Prototyp; die Produktivfassung ist in Entwicklung. Der GPIO-Puls des
-Türöffners ist noch Stub (Türöffner-Hardware ausstehend).
+- **V0.2:** Schaltpläne und Layouts beider Einheiten fertig, Fertigungsdaten eingereicht.
+  Als Nächstes: Inbetriebnahme (Versorgung → USB/Flash → Audio → Mikrofon → Touch → Türöffner),
+  danach die Firmware-Portierung.
+- **V0.1:** läuft im Haus; WLAN/UDP-Transport im Dauertest ohne Paketverlust.
 
 ---
 
 ## Hinweise
 
-- **Datenblätter** der verwendeten Bauteile (TI, Espressif, Visaton, Diodes …)
-  sind aus Urheberrechtsgründen **nicht** enthalten — sie sind über die
-  Herstellerseiten frei verfügbar; Typen stehen in der BOM.
-- Netzwerknamen, Passwörter und kryptografische Schlüssel sind bewusst durch
-  Platzhalter ersetzt.
+- **Datenblätter** der verwendeten Bauteile sind aus Urheberrechtsgründen **nicht** enthalten —
+  sie sind über die Herstellerseiten frei verfügbar; die Typen stehen in den Stücklisten.
+- Die eigene KiCad-Bibliothek ist in Schaltplan und Platine eingebettet. Die meisten
+  **3D-Modelle** stammen aus der KiCad-Standardbibliothek und erscheinen in jeder
+  KiCad-10-Installation; zehn Bauteile nutzen Herstellermodelle (Littelfuse, Panasonic,
+  Infineon, TI, WAGO), die aus Lizenzgründen nicht enthalten sind — dort zeigt die
+  3D-Ansicht nur die Pads.
+- Netzwerknamen, Passwörter und kryptografische Schlüssel sind nicht im Repo.
 
 ## Lizenz
 

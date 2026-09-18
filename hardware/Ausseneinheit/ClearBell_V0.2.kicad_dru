@@ -1,0 +1,48 @@
+(version 1)
+
+# ClearBell V0.2 Aussen - benutzerdefinierte Entwurfsregeln
+#
+# Hintergrund: KiCad wendet die Netzklassen-Clearance auch auf Bauteilpads an.
+# Touch (0,5 mm) und Audio_Out (0,3 mm) sind schaerfer als die Pinabstaende der
+# verwendeten Bauteile (U2: 0,37 mm, U3: 0,21 mm). Die Klassenwerte stehen
+# deshalb auf einem erfuellbaren Mass; der eigentlich gewollte groessere Abstand
+# wird hier zwischen Leiterbahnen und Vias gefordert - dort, wo er wirkt.
+# Gegen Bauteilpads gilt der Klassenwert: am QFN von U3 (0,5 mm Pitch) und
+# an U2 (0,37 mm Pinabstand) ist mehr geometrisch nicht moeglich.
+
+(rule "Touch: 0,5 mm Abstand zwischen Leiterbahnen und Vias"
+	(condition "A.NetClass == 'Touch' && A.Type != 'Pad' && B.Type != 'Pad'")
+	(constraint clearance (min 0.5mm)))
+
+(rule "Audio_Out: 0,3 mm Abstand zwischen Leiterbahnen und Vias"
+	(condition "A.NetClass == 'Audio_Out' && A.Type != 'Pad' && B.Type != 'Pad'")
+	(constraint clearance (min 0.3mm)))
+
+# Bohrungen in Bauteil-Footprints sind vom Hersteller vorgegeben und nicht frei
+# waehlbar - etwa die 12 thermischen Vias im Espressif-Referenzfootprint des
+# ESP32-S3-WROOM-1 (0,2 mm). 0,2 mm ist PCBWays Fertigungsgrenze.
+# Fuer selbst gesetzte Vias gilt weiterhin min_through_hole_diameter = 0,3 mm.
+(rule "Bauteileigene Bohrungen ab 0,2 mm"
+	(condition "A.Type == 'Pad'")
+	(constraint hole_size (min 0.2mm)))
+
+# Positionier- und Befestigungsloecher liegen in Steckerfootprints konstruktiv
+# dicht an den Massepads (USB-C-Buchse, Mikrofon).
+(rule "Positionierloecher in Steckerfootprints"
+	(condition "A.insideCourtyard('J_USB_SVC1') || A.insideCourtyard('U4')")
+	(constraint hole_clearance (min 0.15mm)))
+
+# --------------------------------------------------------------------------------------
+# Ausnahme 18.09.2026: Bestueckungsdruck von U2 an der Platinenkante
+#
+# Der Silk-Umriss des Espressif-Referenzfootprints ESP32-S3-WROOM-1 laeuft ueber den
+# Antennenausschnitt. Das ist footprintbedingt und nur durch Aendern des Footprints zu
+# beheben; der Fertiger schneidet den Druck an der Kante ohnehin ab.
+# Die Pruefung "Bestueckungsdruck durch Platinenkante abgeschnitten" (silk_edge_clearance)
+# steht deshalb in diesem Projekt auf "ignorieren":
+#     Platinenkonfiguration -> Schweregrade der Verstoesse -> Bestueckungsdruck
+# Dort auch wieder einschaltbar. Eine markergenaue Ausnahme waere enger, laesst sich aber
+# nur in der GUI setzen (KiCad serialisiert dafuer die Markerposition); benutzerdefinierte
+# Regeln wirken auf diese Pruefung nicht (KiCad-Issue 19260).
+# Alle uebrigen Bestueckungsdruck-Pruefungen (silk_over_copper, silk_overlap) bleiben aktiv.
+# --------------------------------------------------------------------------------------
