@@ -76,6 +76,8 @@ clearbell/
 │   └── Inneneinheit/          dito
 ├── docs/
 │   ├── img/                   3D-Ansichten V0.2
+│   ├── Softwarearchitektur_V0.2.md      Firmware-Architektur, Laufzeit, Sicherheit
+│   ├── Softwarearchitektur_V0.2.en.md   dasselbe auf Englisch
 │   └── Funkvalidierung_ESPNOW.md
 └── archiv/V0.1/               erste Generation: Hardware, Firmware, Dashboard, Dokumentation
 ```
@@ -100,9 +102,21 @@ Leiterplatten und Bestückung der V0.2 übernimmt **[www.pcbway.com](https://www
 
 Die Firmware — Arduino Core, quittiertes UDP-Protokoll, HMAC-gesicherter Türbefehl,
 eigener WAV-Player — läuft auf V0.1 und liegt unter
-[`archiv/V0.1/firmware/`](archiv/V0.1/firmware/). Die Portierung auf den ESP32-S3
-(Pinbelegung, Töne im Flash statt auf SD, USB-Logging) folgt nach der Inbetriebnahme
-der V0.2-Platinen.
+[`archiv/V0.1/firmware/`](archiv/V0.1/firmware/). Die V0.2-Firmware entsteht nach der
+Inbetriebnahme der V0.2-Platinen: Die Prinzipien des Protokolls werden übernommen,
+Paketformat, Türbefehl, Fern-Öffnen und Touch-Auswertung dagegen neu aufgesetzt.
+
+**Wie die V0.2-Firmware aufgebaut wird, beschreibt ein eigenes Dokument:** Architektur und
+Ausführungsmodell, authentifiziertes Protokoll, Startsequenz und Laufzeitverhalten,
+Datenhaltung und Flash-Aufteilung, ein Sicherheitskapitel mit Angreifermodell,
+**offen benannten Restrisiken** und einem Abgleich mit ETSI EN 303 645, Fehlerverhalten,
+Portierungsplan und Teststrategie. Die aktuelle Revision 2 ist das Ergebnis eines
+kritischen Reviews der ersten Fassung mit 29 Befunden.
+
+📄 [**Softwarearchitektur V0.2**](docs/Softwarearchitektur_V0.2.md) · 🇬🇧 [English version](docs/Softwarearchitektur_V0.2.en.md)
+
+Was dort bereits läuft und was noch Entwurf ist, ist durchgehend gekennzeichnet — ebenso die
+fünf Verhaltensfragen, die bewusst noch offen sind.
 
 ---
 
@@ -125,6 +139,8 @@ der V0.2-Platinen.
   Infineon, TI, WAGO), die aus Lizenzgründen nicht enthalten sind — dort zeigt die
   3D-Ansicht nur die Pads.
 - Netzwerknamen, Passwörter und kryptografische Schlüssel sind nicht im Repo.
+- **Sicherheitslücken** bitte vertraulich melden, nicht als Issue — wie, steht in
+  [`SECURITY.md`](SECURITY.md).
 
 ## Lizenz
 
