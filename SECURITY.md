@@ -47,19 +47,12 @@ ist. Wer möchte, wird im Sicherheitshinweis und in der Änderungshistorie genan
 | **V0.1** | archiviert unter `archiv/V0.1/` | nein — ihre bekannten Schwächen stehen in Kapitel 7.4 der Softwarearchitektur und werden mit V0.2 behoben |
 
 Dazu gehören Firmware, Schaltpläne und Platinen sowie das Sicherheitskonzept selbst
-([Kapitel 7](docs/Softwarearchitektur_V0.2.md#7-sicherheitskonzept)). Bewusst getragene Restrisiken beschreibt
+([Kapitel 7](docs/Softwarearchitektur_V0.2.md#7-sicherheitskonzept)). Dazu gehören auch Zugangsdaten, die
+versehentlich im Repository gelandet sind, auch in der Git-Historie. Bewusst getragene Restrisiken beschreibt
 Kapitel 7.5; Hinweise, wie sie sich verkleinern lassen, sind trotzdem willkommen.
 
 **Beim jeweiligen Projekt melden, nicht hier:** Schwachstellen in fremden Komponenten — ESP-IDF, Arduino-ESP32, der
 Push-Dienst ntfy. Betrifft eine solche Lücke ClearBell, gern zusätzlich hier.
-
-### Bitte beachten
-
-- **Nur am eigenen Aufbau oder am Code prüfen** — nie an einer fremden Installation. ClearBell steuert eine echte
-  Haustür.
-- Keine Daten anderer abrufen, keine Dienste stören, keine Last auf dem Push-Dienst erzeugen.
-- Zugangsdaten gehören nicht ins Repository. Findest du trotzdem welche — auch in der Git-Historie —, melde sie bitte
-  ebenfalls vertraulich.
 
 Diese Richtlinie folgt ETSI EN 303 645 V3.1.3, Bestimmung 5.2-1: Kontaktweg sowie Fristen für Eingangsbestätigung und
 Statusmeldungen.
@@ -109,23 +102,16 @@ will be credited in the security advisory and in the change history.
 | **V0.1** | archived in `archiv/V0.1/` | no — its known weaknesses are listed in section 7.4 of the software architecture and are resolved by V0.2 |
 
 In scope are the firmware, the schematics and boards, and the security concept itself
-([section 7](docs/Softwarearchitektur_V0.2.en.md#7-security-concept)). Residual risks that are deliberately accepted
-are described in section 7.5; suggestions for reducing them are still welcome.
+([section 7](docs/Softwarearchitektur_V0.2.en.md#7-security-concept)). This includes credentials that ended up in the
+repository by mistake, including in the Git history. Residual risks that are deliberately accepted are described in
+section 7.5; suggestions for reducing them are still welcome.
 
 **Report to the respective project, not here:** vulnerabilities in third-party components — ESP-IDF, Arduino-ESP32,
 the ntfy push service. If such a vulnerability affects ClearBell, feel free to report it here as well.
-
-### Please note
-
-- **Test only on your own build or on the code** — never on someone else's installation. ClearBell controls a real
-  front door.
-- Do not access other people's data, do not disrupt services, do not put load on the push service.
-- Credentials do not belong in the repository. If you find any anyway — including in the Git history — please report
-  them privately as well.
 
 This policy follows ETSI EN 303 645 V3.1.3, provision 5.2-1: a contact channel and timelines for acknowledgement of
 receipt and status updates.
 
 ---
 
-*Stand / as of 26.09.2026*
+*Stand / as of 27.09.2026*
