@@ -49,9 +49,13 @@ gegen Replay abgesicherte Transaktionen über WLAN/UDP.
   Spannungsbereich, keine Pegelwandler.
 - **Keine SD-Karte mehr.** Die Klingeltöne sollen im Flash liegen und über die
   Statusseite getauscht werden — ein Steckverbinder und ein mechanischer Fehlerpfad weniger.
-- **4 Lagen statt 2.** Beide Innenlagen sind Masse; jede Signallage hat ihre Bezugsfläche
-  direkt darunter. Grund: Bei 1,6 mm liegt der dicke Kern zwangsläufig zwischen den
-  Innenlagen, eine eigene Versorgungslage brächte dort kaum Flächenkapazität.
+- **4 Lagen statt 2.** Beide Innenlagen sind Masse; jede Signallage hat ihre Bezugsfläche direkt
+  darunter. Grund: Bei 1,6 mm liegt der dicke Kern zwangsläufig zwischen den Innenlagen, eine
+  eigene Versorgungslage brächte dort kaum Flächenkapazität. Bekannte Abweichung (Inneneinheit):
+  Eine 3,3-V-Leitung verläuft auf In2 und unterbricht dort die Massefläche.
+  USB D+/D−, I2S_BCLK, I2S_WS und LED_RED auf der Unterseite kreuzen diesen Schlitz; ihr Rückstrom
+  muss ausweichen. Funktional unkritisch bei USB Full Speed, aus EMV-Sicht aber vermeidbar.
+  Behebung in V0.3: Leitung auf eine Außenlage verlegen, In2 wieder geschlossen.
 - **Vias neben den Pads, nicht darin.** Ein Via im Pad zieht beim Reflow Lot ab. Der DRC
   prüft das nicht — deshalb eigene Prüfskripte über alle Vias und Pads.
 - **Touch ohne Shield/Guard.** Die Bronze-Elektroden bleiben frei zugänglich. Gegen Drift
