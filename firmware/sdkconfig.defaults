@@ -1,0 +1,67 @@
+# ClearBell V0.2 - build configuration shared by both unit types.
+#
+# Only deviations from the ESP-IDF defaults are listed, each with its reason. The unit type comes from the
+# overlay sdkconfig.defaults.aussen / .innen (tools/cb.py passes both files). The generated
+# build/<unit>/sdkconfig is a build artefact and not committed - this file is the source of truth.
+
+# --- Chip, flash, PSRAM: ESP32-S3-WROOM-1-N16R8 (16 MB QIO flash, 8 MB octal PSRAM) ---
+CONFIG_IDF_TARGET="esp32s3"
+CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
+CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+
+# --- Flash layout: own table, final before installation (partitions.csv) ---
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# --- Arduino as component: hard requirements of arduino-esp32 ---
+CONFIG_FREERTOS_HZ=1000
+CONFIG_AUTOSTART_ARDUINO=y
+# Arduino loop() on core 1, WiFi/lwIP on core 0 (Arduino default, kept).
+CONFIG_ARDUINO_RUN_CORE1=y
+CONFIG_ARDUINO_LOOP_STACK_SIZE=8192
+
+# --- Updates: a new image is only kept after it passed its own self-test (Softwarearchitektur 8.1) ---
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+
+# --- Watchdogs: everything is supervised from day one (Softwarearchitektur 3.2, rule 4) ---
+# Task watchdog with panic -> reboot after 5 s without a sign of life. Unlike the Arduino default, the
+# idle task of core 1 is supervised too: loop() must never hog the core (it yields every pass).
+CONFIG_ESP_TASK_WDT_EN=y
+CONFIG_ESP_TASK_WDT_INIT=y
+CONFIG_ESP_TASK_WDT_PANIC=y
+CONFIG_ESP_TASK_WDT_TIMEOUT_S=5
+CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU0=y
+CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU1=y
+CONFIG_ESP_INT_WDT=y
+CONFIG_ESP_BROWNOUT_DET=y
+
+# --- Crash diagnosis: core dump to the 64 KB flash partition (Softwarearchitektur 8.4) ---
+CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH=y
+CONFIG_ESP_COREDUMP_DATA_FORMAT_ELF=y
+
+# --- Console: as in the Arduino core. ROM/IDF output on UART0 (test points TXD0/RXD0) plus the native
+# USB (secondary). The firmware's own console is Arduino `Serial` on the same USB. ---
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG=y
+CONFIG_BOOTLOADER_LOG_LEVEL_WARN=y
+CONFIG_LOG_DEFAULT_LEVEL_WARN=y
+
+# --- Size and warnings ---
+CONFIG_COMPILER_OPTIMIZATION_SIZE=y
+CONFIG_COMPILER_CXX_EXCEPTIONS=y
+
+# --- WiFi security: WPA3/PMF capable (Softwarearchitektur 5.8) ---
+CONFIG_ESP_WIFI_ENABLE_WPA3_SAE=y
+
+# --- TLS for the push service (port step 9, Softwarearchitektur 4.5): certificate bundle (Mozilla list) ---
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
+# TLS buffers (2 connections x ~40 KB) in PSRAM: internal RAM stays for WiFi, stacks and DMA.
+CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y
+
+# --- Door pulse end must not wait for flash operations (NVS writes, firmware upload): the gptimer interrupt
+#     that switches GPIO47 off runs from IRAM even while the flash cache is disabled (port step 10). ---
+CONFIG_GPTIMER_ISR_IRAM_SAFE=y

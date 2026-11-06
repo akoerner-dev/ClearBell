@@ -1,0 +1,19 @@
+# ClearBell V0.2 - flash layout (16 MB, ESP32-S3-WROOM-1-N16R8)
+#
+# FINAL before the first installation: the partition table cannot be changed by an OTA update.
+# Based on the Arduino core's default_16MB (2 x 6.25 MB app, 64 KB coredump), the file system is
+# 64 KB smaller to make room for:
+#   fctry    - factory data written once by provisioning: role, link keys, WiFi, device password
+#              (Softwarearchitektur 6.1/6.2). Read-only in normal operation.
+#   nvs_keys - reserved for NVS encryption (hardening stage B, chapter 7.7). Unused until then,
+#              but it must exist now because the table cannot grow later.
+#
+# Name,    Type, SubType,  Offset,   Size,     Flags
+nvs,       data, nvs,      0x9000,   0x5000,
+otadata,   data, ota,      0xe000,   0x2000,
+app0,      app,  ota_0,    0x10000,  0x640000,
+app1,      app,  ota_1,    0x650000, 0x640000,
+littlefs,  data, littlefs, 0xc90000, 0x350000,
+fctry,     data, nvs,      0xfe0000, 0xf000,
+nvs_keys,  data, nvs_keys, 0xfef000, 0x1000,
+coredump,  data, coredump, 0xff0000, 0x10000,

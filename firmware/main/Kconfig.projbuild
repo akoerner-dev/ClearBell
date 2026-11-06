@@ -1,0 +1,17 @@
+# Unit type of the image. Exactly one per build (Softwarearchitektur 9: "Genau ein Einheitentyp je Image,
+# Prüfung zur Übersetzungszeit"). Set by sdkconfig.defaults.aussen / sdkconfig.defaults.innen - never by hand.
+# EG and OG share the indoor image; which flat a unit serves comes from provisioning, not from the build.
+menu "ClearBell"
+
+    choice CB_UNIT
+        prompt "Unit type"
+        default CB_UNIT_INDOOR
+
+        config CB_UNIT_OUTDOOR
+            bool "Outdoor unit (Ausseneinheit): two bell touch keys, door opener"
+
+        config CB_UNIT_INDOOR
+            bool "Indoor unit (Inneneinheit EG/OG): door touch key, ring tone"
+    endchoice
+
+endmenu

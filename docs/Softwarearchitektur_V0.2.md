@@ -694,9 +694,15 @@ Der Boot-Taster sitzt im Gehäuse. **Physische Anwesenheit ist damit der zweite 
 oder ihre Geheimnisse verändert — ohne Benutzerkonten, ohne Passwortverwaltung. Ein kurzer Druck schaltet wie in V0.1
 die Lautstärke weiter.
 
-Die Erstprovisionierung läuft über USB. Kommt eine Einheit später nicht mehr ins WLAN — etwa nach einem Routertausch —,
-öffnet sie in der Wartung einen eigenen Zugangspunkt für die Einrichtung; so muss niemand das Außengehäuse zum Flashen
-öffnen. Tastdauern und Zeitfenster sind Entwurfswerte.
+**Inbetriebnahme ohne PC (Revision 3, Verkaufsfähigkeit):** Per USB läuft nur noch der **Werksschritt** — Firmware,
+Werkstöne und ein zufälliger **Gerätecode** (16 Zeichen, Etikett mit QR). Der Käufer richtet alles über Webseiten ein:
+Eine nicht eingerichtete Einheit öffnet den Zugangspunkt `ClearBell-<Gerätenummer>` (WPA2-Passwort = Gerätecode,
+Captive Portal), dort WLAN und Wohnung wählen. Gekoppelt wird auf der Seite der Außeneinheit mit dem Gerätecode der
+Inneneinheit (Kapitel 7.3). Ohne WLAN seit 5 min — etwa nach einem Routertausch — geht der Zugangspunkt von selbst
+wieder auf, ohne Taster und ohne das Außengehäuse zu öffnen. Die Wartung der Außeneinheit lässt sich zusätzlich von einer
+gekoppelten Inneneinheit aus öffnen. Werksreset: in der Einrichtung Taster 15 s; er löscht nur die Käuferdaten, der
+Gerätecode bleibt. Befunde und Begründung: `firmware/docs/Produktreife.md`. Tastdauern und Zeitfenster sind
+Entwurfswerte.
 
 ---
 
@@ -731,10 +737,11 @@ belegt.
 | Partition | Inhalt | Geschrieben |
 |---|---|---|
 | `nvs` | Lautstärke, Touch-Kalibrierung, Protokoll der Öffnungen, Schema-Version | im Betrieb |
-| `fctry` | Rolle, Schlüssel, WLAN-Zugang, Gerätepasswort | nur in der Einrichtung; gelöscht nur durch den Werksreset |
+| `nvs`, Bereich `cb_user` | **Käuferdaten:** WLAN, Wohnung, Verbindungsschlüssel und Gerätenummern der Gegenstellen, Handys, eigenes Passwort | Einrichtungsseite, Kopplung; gelöscht durch den Werksreset |
+| `fctry` | **Werk:** Gerätecode (Etikett) | einmal im Werk; bleibt beim Werksreset |
 
-Die Trennung sorgt dafür, dass ein Zurücksetzen der Einstellungen die Schlüssel nicht mitnimmt — und umgekehrt ein
-Werksreset wirklich alles Geheime löscht. Die Türbefehl-Zähler aus V0.1 entfallen mit Challenge–Response ganz.
+Revision 3: Der Werksreset löscht genau die Käuferdaten (samt Einstellungen, Öffnungsprotokoll, eigenen Tönen) — das
+Etikett bleibt gültig, das Gerät ist danach wieder verkaufsfertig. Die Türbefehl-Zähler aus V0.1 entfallen mit Challenge–Response ganz.
 
 ### 6.3 Töne ohne PC
 
@@ -1179,6 +1186,8 @@ Betriebsmodi (5.9) · Blinkmuster und Anzeige der Wartung (8.2) · Signaturverfa
 | R21 | Build als ESP-IDF-Projekt mit Arduino als Komponente |
 | R22 | Härtung in Stufen; Stufe C nur außen, nach Montage und stabilem Betrieb |
 | R23 | Bezeichner und Kommentare im Code englisch |
+| R24 | *(06.11.2026, Verkaufsabsicht)* Der Käufer flasht nie: Werksschritt per USB, alles andere über Webseiten (Gerätecode auf dem Etikett, Einrichtungs-Zugangspunkt, Kopplung per Code, Handys über die eigene Inneneinheit) |
+| R25 | *(06.11.2026)* Updates vorerst ohne Signaturschlüssel (Upload in der Wartung, Image-Prüfung, Rollback nach Probezeit); später Herstellerschlüssel mit Übernahme durch den Besitzer; Stufe C für Verkaufsgeräte nur mit Besitzer-Schlüssel |
 
 ---
 
@@ -1259,7 +1268,8 @@ die V0.2 unbrauchbar oder unsicher machen — die Befunde des Reviews gehören d
 | 1 | 20.09.2026 | Erstfassung |
 | 1a | 26.09.2026 | Diagramme korrigiert: Topologie (Inneneinheit OG vollständig, Mikrofone innen, HTTPS über den Router), Schichten, Reihenfolge; im Türbefehl-Diagramm Quittung vor Öffnen wie im Code |
 | 2 | 26.09.2026 | Überarbeitung nach einem Review mit 29 Befunden: Pfad ② entfällt; Protokoll v2 mit Authentifizierung aller Nachrichten und Sitzungen; Challenge–Response statt Zähler; Fern-Öffnen mit Handy-Signatur; Scharfschaltfenster innen; Betriebsmodi und Provisionierung; ESP-IDF mit Arduino-Komponente; Rollback nach Selbsttest; Watchdog für alle Tasks; Protokoll der Türöffnungen je Haushalt; Härtung in Stufen; neu: Qualitätsziele, Abgleich mit EN 303 645, Glossar |
+| 3 | 06.11.2026 | Verkaufsfähigkeit (R24, R25): Inbetriebnahme ohne PC (5.9), Werk- und Käuferdaten getrennt (6.2), Kopplung per Gerätecode, Nachrichtentyp *Event* (Wartung von innen, Handy-Schlüssel), Topics des Fern-Öffnens aus dem EG-Schlüssel abgeleitet, Updates ohne Signaturschlüssel mit Probezeit; Portierungsschritte 10a–10c. Einzelheiten in `firmware/docs/Produktreife.md` und im Kopf der Module |
 
 ---
 
-*ClearBell V0.2 · Softwarearchitektur · Revision 2 · 26.09.2026*
+*ClearBell V0.2 · Softwarearchitektur · Revision 3 · 06.11.2026*

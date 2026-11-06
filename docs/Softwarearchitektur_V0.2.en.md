@@ -687,9 +687,14 @@ The boot button sits inside the housing. **Physical presence is therefore the se
 changes the firmware or its secrets — without user accounts, without password management. A short press steps the
 volume, as in V0.1.
 
-Initial provisioning runs over USB. If a unit later cannot join the WLAN — for instance after a router replacement —, in
-maintenance it opens its own access point for setup; so nobody has to open the outdoor housing to reflash it. Press
-durations and time windows are design values.
+**Setup without a PC (revision 3, saleability):** only the **factory step** runs over USB — firmware, factory tones
+and a random **device code** (16 characters, label with QR). The buyer sets everything up through web pages: a unit that
+is not set up opens the access point `ClearBell-<unit number>` (WPA2 password = device code, captive portal), where the
+WLAN and the flat are chosen. Pairing happens on the outdoor unit's page with the indoor unit's device code (section
+7.3). Without WLAN for 5 min — e.g. after a router replacement — the access point reopens by itself, without a button and
+without opening the outdoor housing. The outdoor unit's maintenance can also be opened from a paired indoor unit. Factory
+reset: in setup hold the button 15 s; it erases only the buyer's data, the device code stays. Findings and reasoning:
+`firmware/docs/Produktreife.md`. Press durations and time windows are design values.
 
 ---
 
@@ -724,10 +729,11 @@ taken about 6 MB.
 | Partition | Content | Written |
 |---|---|---|
 | `nvs` | volume, touch calibration, door-opening log, schema version | during operation |
-| `fctry` | role, keys, WLAN credentials, device password | only in setup; erased only by a factory reset |
+| `nvs`, namespace `cb_user` | **buyer's data:** WLAN, flat, link keys and unit numbers of the peers, phones, own password | setup page, pairing; erased by a factory reset |
+| `fctry` | **factory:** device code (label) | once at the factory; kept by a factory reset |
 
-The separation ensures that resetting the settings does not take the keys with it — and conversely that a factory
-reset really erases everything secret. The door-command counters of V0.1 disappear entirely with challenge–response.
+Revision 3: the factory reset erases exactly the buyer's data (with settings, door-opening log, own tones) — the label
+stays valid and the unit is ready to be sold again. The door-command counters of V0.1 disappear entirely with challenge–response.
 
 ### 6.3 Changing chimes without a PC
 
@@ -1165,6 +1171,8 @@ of the operating modes (5.9) · blink patterns and the maintenance indication (8
 | R21 | Build as an ESP-IDF project with Arduino as a component |
 | R22 | Hardening in stages; stage C only outdoors, after mounting and stable operation |
 | R23 | Identifiers and comments in the code in English |
+| R24 | *(2026-11-06, intention to sell)* The buyer never flashes: factory step over USB, everything else through web pages (device code on the label, setup access point, pairing by code, phones via the own indoor unit) |
+| R25 | *(2026-11-06)* Updates without a signing key for now (upload in maintenance, image check, rollback after probation); later a manufacturer key with owner takeover; stage C for sold units only with an owner key |
 
 ---
 
@@ -1245,7 +1253,8 @@ defects that would make V0.2 unusable or unsafe — the findings of the review b
 | 1 | 2026-09-20 | First version |
 | 1a | 2026-09-26 | Diagrams corrected: topology (UF indoor unit complete, indoor microphones, HTTPS via the router), layers, order of work; in the door command diagram acknowledgement before opening, as in the code |
 | 2 | 2026-09-26 | Revision after a review with 29 findings: path ② removed; protocol v2 with authentication of every message and sessions; challenge–response instead of a counter; remote opening with phone signature; arming window indoors; operating modes and provisioning; ESP-IDF with Arduino component; rollback after a self-test; watchdog for all tasks; door-opening log per household; hardening in stages; new: quality goals, alignment with EN 303 645, glossary |
+| 3 | 2026-11-06 | Saleability (R24, R25): setup without a PC (5.9), factory and buyer data separated (6.2), pairing by device code, message type *Event* (maintenance from inside, phone keys), remote-opening topics derived from the GF key, updates without a signing key with probation; porting steps 10a–10c. Details in `firmware/docs/Produktreife.md` and in the module headers |
 
 ---
 
-*ClearBell V0.2 · Software architecture · Revision 2 · 2026-09-26*
+*ClearBell V0.2 · Software architecture · Revision 3 · 2026-11-06*

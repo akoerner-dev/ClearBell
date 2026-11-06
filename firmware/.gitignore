@@ -1,0 +1,8 @@
+# Build output (the real builds go to %USERPROFILE%\clearbell-build, see tools/cb.py)
+build/
+# Junction to %USERPROFILE%\clearbell-build\managed_components (downloaded Arduino core, ~600 MB)
+managed_components
+# Generated per build directory; the sources of truth are sdkconfig.defaults*
+sdkconfig
+sdkconfig.old
+# dependencies.lock IS committed: it pins the exact component versions.

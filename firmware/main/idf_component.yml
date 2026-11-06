@@ -1,0 +1,6 @@
+# Pinned versions (Softwarearchitektur 2.1): ESP-IDF and the Arduino core are only used as a matching
+# pair. Arduino-ESP32 3.3.12 is built on ESP-IDF v5.5.5 (see versions.txt of the core). Change both
+# together, and commit the regenerated dependencies.lock.
+dependencies:
+  idf: "==5.5.5"
+  espressif/arduino-esp32: "==3.3.12"

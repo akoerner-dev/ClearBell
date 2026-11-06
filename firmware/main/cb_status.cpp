@@ -1,0 +1,431 @@
+// cb_status.cpp - see cb_status.h.
+#include "cb_status.h"
+
+#include <Arduino.h>
+#include <LittleFS.h>
+#include <Preferences.h>
+#include <esp_http_server.h>
+#include <esp_timer.h>
+#include <lwip/sockets.h>
+
+#include <atomic>
+#include <cstring>
+#include <ctime>
+
+#include "cb_audio.h"
+#include "cb_config.h"
+#include "cb_console.h"
+#include "cb_crypto.h"
+#include "cb_door.h"
+#include "cb_http_auth.h"
+#include "cb_json.h"
+#include "cb_log.h"
+#include "cb_modes.h"
+#include "cb_net.h"
+#include "cb_provisioning.h"
+#include "cb_remote.h"
+#include "cb_status_page.h"
+#include "cb_system.h"
+#include "cb_touch.h"
+#include "cb_update.h"
+#include "cb_setup.h"
+#include "cb_setup_page.h"
+#include "cb_pairing.h"
+#include "cb_phones.h"
+
+namespace {
+
+constexpr const char *kUser = "clearbell";
+constexpr size_t kMaxUpload = 1024 * 1024;  // 1 MB = 11 s mono at 44.1 kHz; the ring tone has 0.3 MB
+constexpr size_t kFsReserve = 32 * 1024;    // keep this much of LittleFS free
+constexpr const char *kTmpFile = "/upload.tmp";
+constexpr uint32_t kWallClockValid = 1700000000;  // 2023-11: anything earlier means "NTP has not set it"
+
+// ---- Door log (SA 6.4) -------------------------------------------------------------------------------------
+cb::DoorLog dlog;
+bool dlog_loaded = false;
+
+void dlog_save() {
+  uint8_t blob[cb::DoorLog::kBlobSize];
+  dlog.serialize(blob);
+  Preferences p;
+  if (p.begin("cb_dlog", false)) {
+    if (p.putBytes("log", blob, sizeof blob) != sizeof blob) cb_log("status: door log NOT saved (NVS full?)");
+    p.end();
+  }
+}
+
+void dlog_load() {
+  uint8_t blob[cb::DoorLog::kBlobSize];
+  Preferences p;
+  size_t n = 0;
+  if (p.begin("cb_dlog", true)) {
+    n = p.getBytesLength("log") == sizeof blob ? p.getBytes("log", blob, sizeof blob) : 0;
+    p.end();
+  }
+  dlog_loaded = true;
+  if (n && !dlog.load(blob, n)) cb_log("status: door log damaged or old format - starting empty");
+}
+
+void fmt_time(const cb::DoorLogEntry &e, char *out, size_t n) {
+  if (e.wall) {
+    time_t t = (time_t)e.time;
+    struct tm tm;
+    localtime_r(&t, &tm);
+    strftime(out, n, "%Y-%m-%d %H:%M:%S", &tm);
+  } else {
+    snprintf(out, n, "Start #%u + %lu s", (unsigned)e.boot, (unsigned long)e.time);
+  }
+}
+
+void dlog_json(cb::Json &j) {
+  j.key("doorlog");
+  j.begin_obj();
+#if CB_IS_OUTDOOR
+  // SA 6.4: openings by the indoor keys only as a sum - no time, no flat.
+  j.kv("indoor_key_openings", (unsigned long)dlog.local_count());
+  j.kv("scope", "outdoor: remote and service openings one by one, indoor-key openings only as sum");
+#else
+  j.kv("scope", "own flat only");
+#endif
+  j.key("entries");
+  j.begin_arr();
+  for (int i = 0; i < dlog.size(); i++) {
+    cb::DoorLogEntry e = dlog.newest(i);
+    char t[32];
+    fmt_time(e, t, sizeof t);
+    j.begin_obj();
+    j.kv("time", t);
+    j.kv("event", cb::door_event_name(e.event));
+    j.end_obj();
+  }
+  j.end_arr();
+  j.kv("total", (unsigned long)dlog.total_added());
+  j.end_obj();
+}
+
+void cmd_doorlog(const char *args) {
+  if (!strcmp(args, "clear JA")) {
+    dlog.clear();
+    dlog_save();
+    cb_log("doorlog: cleared");
+    return;
+  }
+#if CB_IS_OUTDOOR
+  cb_log("doorlog: openings by indoor keys (sum only): %lu", (unsigned long)dlog.local_count());
+#endif
+  cb_log("doorlog: %d entries (of %lu ever), newest first:", dlog.size(), (unsigned long)dlog.total_added());
+  for (int i = 0; i < dlog.size(); i++) {
+    cb::DoorLogEntry e = dlog.newest(i);
+    char t[32];
+    fmt_time(e, t, sizeof t);
+    cb_log("  %-22s %s", t, cb::door_event_name(e.event));
+  }
+}
+
+// ---- Snapshot: the web task asks, loop() builds ------------------------------------------------------------
+SemaphoreHandle_t snap_req = nullptr, snap_done = nullptr;
+char snap_buf[8192];
+size_t snap_len = 0;
+bool snap_ok = false;
+uint32_t snap_ms_max = 0;
+
+void build_snapshot() {
+  uint32_t t0 = micros();
+  cb::Json j(snap_buf, sizeof snap_buf);
+  j.begin_obj();
+  cb_system_json(j);
+  if (cb_prov().valid) cb_net_json(j);
+  cb_touch_json(j);
+  cb_door_json(j);
+  cb_remote_json(j);
+  cb_pairing_json(j);
+  cb_phones_json(j);
+  dlog_json(j);
+  cb_audio_json(j);
+  cb_update_json(j);
+  j.end_obj();
+  snap_ok = j.ok();
+  snap_len = j.len();
+  uint32_t dt = (micros() - t0) / 1000;
+  if (dt > snap_ms_max) snap_ms_max = dt;
+}
+
+// ---- Web server --------------------------------------------------------------------------------------------
+httpd_handle_t server = nullptr;
+cb::DigestAuth auth;
+char www_auth[200];  // must outlive httpd_resp_send
+uint32_t req_count = 0, upload_ok = 0, upload_failed = 0;
+std::atomic<bool> maintenance_activity{false};  // web task -> loop: restart the 10-min window
+
+uint32_t now_s() {
+  return (uint32_t)(esp_timer_get_time() / 1000000);
+}
+
+void peer_ip(httpd_req_t *req, char *out, size_t n) {
+  struct sockaddr_in6 a = {};
+  socklen_t len = sizeof a;
+  out[0] = 0;
+  if (getpeername(httpd_req_to_sockfd(req), (struct sockaddr *)&a, &len) == 0) {
+    if (a.sin6_family == AF_INET6) inet_ntop(AF_INET, &a.sin6_addr.un.u32_addr[3], out, n);  // v4-mapped
+    else inet_ntop(AF_INET, &((struct sockaddr_in *)&a)->sin_addr, out, n);
+  }
+}
+
+bool authorize(httpd_req_t *req) {
+  req_count++;
+  // Over the setup access point the WPA2 password (= device code) already proved possession (cb_setup.h).
+  if (cb_setup_from_ap(req)) return true;
+  char hdr[512];
+  const char *h = nullptr;
+  size_t l = httpd_req_get_hdr_value_len(req, "Authorization");
+  if (l && l < sizeof hdr && httpd_req_get_hdr_value_str(req, "Authorization", hdr, sizeof hdr) == ESP_OK) h = hdr;
+  const char *method = http_method_str((enum http_method)req->method);  // GET, PUT, POST ...
+  cb::AuthResult r = auth.check(h, method, req->uri, now_s());
+  if (r == cb::AuthResult::Ok) return true;
+  if (r != cb::AuthResult::Missing && r != cb::AuthResult::Stale) {
+    char ip[16];
+    peer_ip(req, ip, sizeof ip);
+    cb_log("web: login %s from %s (%s %s)%s", cb::auth_result_name(r), ip, method, req->uri,
+           auth.locked(now_s()) ? " - LOCKED for 30 s" : "");
+  }
+  httpd_resp_set_hdr(req, "Connection", "close");  // the body of a refused upload is not read
+  if (r == cb::AuthResult::LockedOut) {
+    httpd_resp_set_status(req, "429 Too Many Requests");
+    httpd_resp_sendstr(req, "Zu viele falsche Passwoerter - 30 s warten.\n");
+    return false;
+  }
+  auth.challenge(now_s(), r == cb::AuthResult::Stale, www_auth, sizeof www_auth);
+  httpd_resp_set_status(req, "401 Unauthorized");
+  httpd_resp_set_hdr(req, "WWW-Authenticate", www_auth);
+  httpd_resp_sendstr(req, "Anmeldung noetig: Benutzer clearbell, Geraetepasswort der Einheit.\n");
+  return false;
+}
+
+void security_headers(httpd_req_t *req) {
+  httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+  httpd_resp_set_hdr(req, "X-Content-Type-Options", "nosniff");
+  httpd_resp_set_hdr(req, "X-Frame-Options", "DENY");
+  // Only our own inline script and same-origin fetches; nothing from outside.
+  httpd_resp_set_hdr(req, "Content-Security-Policy",
+                     "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'");
+}
+
+esp_err_t h_page(httpd_req_t *req) {
+  if (!authorize(req)) return ESP_OK;
+  security_headers(req);
+  httpd_resp_set_type(req, "text/html; charset=utf-8");
+  // Setup page in setup mode, over the access point, or while not set up; otherwise the status page.
+  bool setup = cb_mode() == cb::Mode::Setup || cb_setup_from_ap(req) || !cb_prov().valid;
+  return httpd_resp_send(req, setup ? kSetupPage : kStatusPage, HTTPD_RESP_USE_STRLEN);
+}
+
+esp_err_t h_status(httpd_req_t *req) {
+  if (!authorize(req)) return ESP_OK;
+  security_headers(req);
+  xSemaphoreTake(snap_done, 0);  // drop a late answer to an earlier, timed-out request
+  xSemaphoreGive(snap_req);
+  if (xSemaphoreTake(snap_done, pdMS_TO_TICKS(1000)) != pdTRUE) {
+    httpd_resp_set_status(req, "503 Service Unavailable");
+    return httpd_resp_sendstr(req, "{\"error\":\"main loop did not answer\"}");
+  }
+  httpd_resp_set_type(req, "application/json");
+  if (!snap_ok) {
+    httpd_resp_set_status(req, "500 Internal Server Error");
+    return httpd_resp_sendstr(req, "{\"error\":\"snapshot too large\"}");
+  }
+  return httpd_resp_send(req, snap_buf, snap_len);
+}
+
+esp_err_t reply_upload(httpd_req_t *req, const char *status, const char *msg) {
+  char body[200];
+  cb::Json j(body, sizeof body);
+  j.begin_obj();
+  j.kv("ok", status[0] == '2');
+  j.kv("message", msg);
+  j.end_obj();
+  httpd_resp_set_status(req, status);
+  httpd_resp_set_type(req, "application/json");
+  if (status[0] != '2') {
+    upload_failed++;
+    cb_log("web: tone upload %s refused: %s", req->uri, msg);
+  }
+  return httpd_resp_send(req, body, j.len());
+}
+
+// PUT /ton/<name>: body = the WAV file. Written to a temp file, checked as 16-bit PCM WAV, then renamed into
+// place while no tone plays (SA 6.3) - an aborted upload never leaves half a ring tone.
+esp_err_t h_upload(httpd_req_t *req) {
+  if (!authorize(req)) return ESP_OK;
+  security_headers(req);
+  if (cb_mode() != cb::Mode::Maintenance)
+    return reply_upload(req, "403 Forbidden", "nur in der Wartung (Boot-Taster 5 s halten)");
+  maintenance_activity = true;  // using the page in maintenance keeps maintenance open
+  bool known = false;
+  cb::Sound s = cb_audio_parse_sound(req->uri + strlen("/ton/"), &known);
+  if (!known) return reply_upload(req, "404 Not Found", "unbekannter Ton (ring, ok, error, nonet, tick)");
+  size_t len = req->content_len;
+  if (len < 44 || len > kMaxUpload) return reply_upload(req, "413 Payload Too Large", "WAV 44 B ... 1 MB");
+  if (!cb_audio_fs_ok()) return reply_upload(req, "500 Internal Server Error", "Dateisystem nicht eingehaengt");
+  size_t free_b = LittleFS.totalBytes() - LittleFS.usedBytes();
+  if (len + kFsReserve > free_b) return reply_upload(req, "507 Insufficient Storage", "kein Platz im Dateisystem");
+
+  File f = LittleFS.open(kTmpFile, "w");
+  if (!f) return reply_upload(req, "500 Internal Server Error", "Zwischendatei nicht anlegbar");
+  static uint8_t chunk[1024];
+  size_t got = 0;
+  bool ok = true;
+  while (got < len) {
+    int n = httpd_req_recv(req, (char *)chunk, len - got > sizeof chunk ? sizeof chunk : len - got);
+    if (n == HTTPD_SOCK_ERR_TIMEOUT) continue;  // slow sender: keep waiting (the socket timeout ends it)
+    if (n <= 0 || f.write(chunk, n) != (size_t)n) {
+      ok = false;
+      break;
+    }
+    got += n;
+  }
+  f.close();
+  if (!ok) {
+    LittleFS.remove(kTmpFile);
+    return reply_upload(req, "400 Bad Request", "Upload abgebrochen - alter Ton bleibt");
+  }
+  char msg[96];
+  if (!cb_audio_install(kTmpFile, s, msg, sizeof msg)) {
+    LittleFS.remove(kTmpFile);
+    return reply_upload(req, "422 Unprocessable Entity", msg);
+  }
+  upload_ok++;
+  return reply_upload(req, "200 OK", msg);
+}
+
+// PUT /update: body = the firmware image ("clearbell.bin"). Maintenance only. Details in cb_update.h.
+esp_err_t h_update(httpd_req_t *req) {
+  if (!authorize(req)) return ESP_OK;
+  security_headers(req);
+  if (cb_mode() != cb::Mode::Maintenance)
+    return reply_upload(req, "403 Forbidden", "nur in der Wartung (Boot-Taster 5 s halten)");
+  maintenance_activity = true;
+  char msg[120];
+  if (!cb_update_start(req->content_len, msg, sizeof msg)) return reply_upload(req, "413 Payload Too Large", msg);
+  static uint8_t chunk[2048];
+  size_t got = 0, len = req->content_len;
+  bool ok = true;
+  msg[0] = 0;
+  while (got < len) {
+    int n = httpd_req_recv(req, (char *)chunk, len - got > sizeof chunk ? sizeof chunk : len - got);
+    if (n == HTTPD_SOCK_ERR_TIMEOUT) continue;
+    if (n <= 0) {
+      snprintf(msg, sizeof msg, "Upload abgebrochen - alte Firmware bleibt");
+      ok = false;
+      break;
+    }
+    if (!cb_update_write(chunk, n, msg, sizeof msg)) {
+      ok = false;
+      break;
+    }
+    got += n;
+  }
+  if (ok) ok = cb_update_finish(msg, sizeof msg);
+  if (!ok) {
+    cb_update_abort();
+    return reply_upload(req, "422 Unprocessable Entity", msg);
+  }
+  upload_ok++;
+  return reply_upload(req, "200 OK", msg);
+}
+
+void start_server() {
+  // Per-boot secret for the login nonces: a reboot makes every old nonce worthless.
+  uint8_t secret[32];
+  cb::random_bytes(secret, sizeof secret);
+  char realm[48];
+  snprintf(realm, sizeof realm, "ClearBell %s", cb_prov().name);
+  auth.begin(secret, realm, kUser, cb_prov().dev_pass);
+  memset(secret, 0, sizeof secret);
+
+  httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
+  cfg.max_open_sockets = 3;      // a phone and a PC at the same time are plenty; each socket costs RAM
+  cfg.lru_purge_enable = true;   // a stuck client does not lock others out
+  cfg.stack_size = 8192;
+  cfg.task_priority = 2;         // below door (5), audio (3) and loop-related work: the page comes last (SA 8.1)
+  cfg.core_id = 0;
+  cfg.recv_wait_timeout = 10;
+  cfg.send_wait_timeout = 10;
+  cfg.uri_match_fn = httpd_uri_match_wildcard;
+  cfg.max_uri_handlers = 16;
+  if (httpd_start(&server, &cfg) != ESP_OK) {
+    cb_log("status: web server NOT started");
+    server = nullptr;
+    return;
+  }
+  httpd_uri_t page = {"/", HTTP_GET, h_page, nullptr};
+  httpd_uri_t status = {"/status.json", HTTP_GET, h_status, nullptr};
+  httpd_uri_t upload = {"/ton/*", HTTP_PUT, h_upload, nullptr};
+  httpd_uri_t update = {"/update", HTTP_PUT, h_update, nullptr};
+  httpd_register_uri_handler(server, &page);
+  httpd_register_uri_handler(server, &status);
+  httpd_register_uri_handler(server, &upload);
+  httpd_register_uri_handler(server, &update);
+  cb_setup_register(server);
+  cb_pairing_register(server);
+  cb_phones_register(server);
+  cb_setup_register_catchall(server);  // last: matches everything else (captive portal)
+  cb_log("status: web server on port 80, user '%s', realm '%s'", kUser, realm);
+}
+
+void cmd_web(const char *) {
+  cb_log("web: %s, requests %lu, logins ok %lu, wrong %lu, locks %lu, uploads ok %lu / refused %lu, "
+         "slowest snapshot %lu ms (%u of %u B)",
+         server ? "running" : "NOT running", (unsigned long)req_count, (unsigned long)auth.ok_count(),
+         (unsigned long)auth.fail_count(), (unsigned long)auth.lock_count(), (unsigned long)upload_ok,
+         (unsigned long)upload_failed, (unsigned long)snap_ms_max, (unsigned)snap_len, (unsigned)sizeof snap_buf);
+}
+
+}  // namespace
+
+void cb_status_begin() {
+  dlog_load();
+  snap_req = xSemaphoreCreateBinary();
+  snap_done = xSemaphoreCreateBinary();
+  cb_console_add("doorlog", "door log of this unit (doorlog clear JA = erase)", cmd_doorlog);
+  cb_console_add("web", "status page: server state and login counters", cmd_web);
+  // Runs also while not set up: it serves the setup page over the access point (cb_setup).
+  if (cb_prov().factory_ok) start_server();
+  else cb_log("status: no device code (factory step missing) - web server off");
+}
+
+void cb_status_poll() {
+  if (maintenance_activity.exchange(false)) cb_modes_activity();
+  if (snap_req && xSemaphoreTake(snap_req, 0) == pdTRUE) {
+    build_snapshot();
+    xSemaphoreGive(snap_done);
+  }
+}
+
+bool cb_status_authorize(httpd_req_t *req) {
+  return authorize(req);
+}
+
+bool cb_status_web_running() {
+  return server != nullptr;
+}
+
+uint32_t cb_status_now(bool *wall) {
+  time_t t = time(nullptr);
+  *wall = t >= (time_t)kWallClockValid;
+  return *wall ? (uint32_t)t : (uint32_t)(millis() / 1000);
+}
+
+void cb_status_door_event(cb::DoorEvent e) {
+  if (!dlog_loaded) return;
+  bool wall;
+  uint32_t t = cb_status_now(&wall);
+  dlog.add(e, t, wall, (uint16_t)cb_system_boot_count());
+  dlog_save();
+}
+
+void cb_status_door_local() {
+  if (!dlog_loaded) return;
+  dlog.count_local();
+  dlog_save();
+}

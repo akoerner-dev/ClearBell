@@ -1,0 +1,2 @@
+# Overlay for the outdoor unit image (Außeneinheit). Used by: python tools/cb.py bauen aussen
+CONFIG_CB_UNIT_OUTDOOR=y
