@@ -63,13 +63,16 @@ void log_line(uint32_t now) {
 void cmd_touch(const char *) {
   log_line(millis());
 #if CB_IS_OUTDOOR
-  cb_log("touch: rejected (both keys at once) %lu, relearned EG %lu / OG %lu, slowest read %lu us",
+  cb_log("touch: rejected (both keys at once) %lu, relearned EG %lu / OG %lu, offset taken over EG %lu / OG %lu, "
+         "slowest read %lu us",
          (unsigned long)keys.rejected_count(), (unsigned long)keys.eg().relearn_count(),
-         (unsigned long)keys.og().relearn_count(), (unsigned long)read_us_max);
+         (unsigned long)keys.og().relearn_count(), (unsigned long)keys.eg().offset_adopt_count(),
+         (unsigned long)keys.og().offset_adopt_count(), (unsigned long)read_us_max);
 #else
-  cb_log("touch: window %s, rejected %lu, relearned %lu, slowest read %lu us",
+  cb_log("touch: window %s, rejected %lu, relearned %lu, offset taken over %lu, slowest read %lu us",
          key.armed(millis()) ? "ARMED (tap opens)" : "closed (hold 3 s)", (unsigned long)key.rejected_count(),
-         (unsigned long)key.channel().relearn_count(), (unsigned long)read_us_max);
+         (unsigned long)key.channel().relearn_count(), (unsigned long)key.channel().offset_adopt_count(),
+         (unsigned long)read_us_max);
 #endif
   cb_log("touch: touchRead() since last query: %lu calls, mean %lu us, max %lu us", (unsigned long)read_n,
          (unsigned long)(read_n ? read_us_sum / read_n : 0), (unsigned long)read_us_max);
@@ -145,9 +148,12 @@ void cb_touch_poll() {
 #if CB_IS_OUTDOOR
   uint32_t eg = sample(0, CB_PIN_TOUCH_EG, now), og = sample(1, CB_PIN_TOUCH_OG, now);
   bool was_ready = keys.eg().ready() && keys.og().ready();
+  uint32_t adopts = keys.eg().offset_adopt_count() + keys.og().offset_adopt_count();
   cb::BellKeys::Out o = keys.update(eg, og, now);
   if (!was_ready && keys.eg().ready() && keys.og().ready())
     cb_log("touch: baseline EG %.0f, OG %.0f", keys.eg().baseline(), keys.og().baseline());
+  if (keys.eg().offset_adopt_count() + keys.og().offset_adopt_count() != adopts)
+    cb_log("touch: steady offset taken over - baseline EG %.0f, OG %.0f", keys.eg().baseline(), keys.og().baseline());
   if (o == cb::BellKeys::Out::RingEG || o == cb::BellKeys::Out::RingOG) {
     cb::UnitId flat = o == cb::BellKeys::Out::RingEG ? cb::UnitId::EG : cb::UnitId::OG;
     cb_log("touch: bell %s pressed", cb::unit_name(flat));
@@ -158,8 +164,11 @@ void cb_touch_poll() {
 #else
   uint32_t raw = sample(0, CB_PIN_TOUCH, now);
   bool was_ready = key.channel().ready();
+  uint32_t adopts = key.channel().offset_adopt_count();
   cb::DoorKey::Out o = key.update(raw, now);
   if (!was_ready && key.channel().ready()) cb_log("touch: baseline %.0f", key.channel().baseline());
+  if (key.channel().offset_adopt_count() != adopts)
+    cb_log("touch: steady offset taken over - baseline %.0f", key.channel().baseline());
   switch (o) {
     case cb::DoorKey::Out::Open:
       cb_log("touch: door key released - %s", key.armed(now) ? "tap in the armed window" : "after the 3-s hold");

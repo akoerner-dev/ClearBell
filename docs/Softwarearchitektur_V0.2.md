@@ -1161,8 +1161,10 @@ Fehlerton.
 **F-2 · Rückmeldung bei fehlgeschlagenem Türbefehl.** Heute: Fehlerton innen.
 > **Empfehlung: Ton beibehalten, Grund auf der Statusseite ergänzen** (kein WLAN / keine Antwort / abgelehnt).
 
-**F-3 · Impulsdauer des Türöffners.** Heute: 2000 ms als Startwert, nie an echter Hardware gefahren.
-> **Empfehlung: im Bring-up am realen Türöffner ermitteln** und samt Messbedingung festhalten.
+**F-3 · Impulsdauer des Türöffners.** ✅ **Entschieden 07.11.2026: 2000 ms.** Gefahren im Bring-up (IBN außen 6.5,
+Firmware-Testprotokoll 7.10) am effeff 118W, 12 V aus dem Labornetzteil, Spulenstrom 270 mA, Freilauf `D_FLY1` auf der
+Platine: 10/10 Pulse geschaltet, kein Neustart, Q2 und `D_FLY1` handwarm. Käufer mit anderem Öffner stellen die Länge auf
+der Webseite der Außeneinheit ein (100–5000 ms, Schritt 10b).
 
 **F-4 · Verhalten der Außeneinheit ohne WLAN.** Heute: sofortiger Fehlerton.
 > **Empfehlung: ein unterscheidbarer Hinweiston statt eines Klingeltons** — ein Klingelton würde dem Besucher

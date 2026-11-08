@@ -6,8 +6,9 @@
 
 namespace cb {
 
-// Draft values - pulse length F-3 is decided with the real opener (effeff 118W); the hard maximum stays.
-constexpr uint32_t kDoorPulseMs = 2000;      // default pulse (V0.1 start value)
+// Pulse length F-3 fixed at 2000 ms (07.11.2026, effeff 118W at 12 V / 270 mA, 10/10 switched). The lock-out is
+// still a draft; the hard maximum stays. Buyers with another opener set their own length on the web page (10b).
+constexpr uint32_t kDoorPulseMs = 2000;      // default pulse (F-3)
 constexpr uint32_t kDoorPulseMinMs = 100;
 constexpr uint32_t kDoorPulseMaxMs = 5000;   // hard upper bound of the on-time, also for the dry-run command
 constexpr uint32_t kDoorLockoutMs = 5000;    // after the START of an opening, for ALL paths

@@ -35,7 +35,7 @@ Belege stehen im [Testprotokoll](docs/Testprotokoll.md).
 | 10a Inbetriebnahme | Werk ↔ Käufer, Einrichtungs-WLAN mit Captive Portal, Werksreset per Taster ([Produktreife](docs/Produktreife.md)) | ✓ übers Heimnetz und per Scan; Handy/QR in der Sammelliste |
 | 10b Kopplung | per Gerätecode der Inneneinheit, eindeutige Namen, Wartung außen von innen, Pulslänge einstellbar | ✓ |
 | 10c Handys | über die Webseite der EG-Inneneinheit: ntfy-Link und Kurzbefehl-Import, Entfernen | ✓ mit dem PC als Handy; echtes Handy in der Sammelliste |
-| 11 Abnahme | 7 h, dann 72 h Dauertest | offen |
+| 11 Abnahme | 7 h, dann 72 h Dauertest (`tools/dauertest.py`) | 7 h lautlos ✓ (08.11.2026), 72 h offen |
 
 ## 3 Schnellstart
 
@@ -227,6 +227,7 @@ R23), jede Zeile beginnt mit der Laufzeit in Sekunden.
 | `audio-check ring` / `audio-check 2000` | **Selbstprüfung:** spielt den Ton und misst ihn mit dem eigenen Mikrofon → „HEARD“ / „NOT HEARD“ |
 | `listen 5` / `listen 5 2000` | Mikrofonpegel alle 250 ms, z. B. um zu hören, ob das *andere* Board klingelt |
 | `web` | Statusseite: läuft sie?, Anmeldungen ok/falsch, Sperren, Uploads, Dauer der Momentaufnahme |
+| `web-pass <neu>` / `web-pass label` | eigenes Passwort der Statusseite setzen / zurück zum Etikett-Passwort (danach für die PC-Werkzeuge `cb.py anlage-webpasswort <Einheit> <neu>`) |
 | `doorlog` / `doorlog clear JA` | Protokoll der Türöffnungen dieser Einheit zeigen / löschen |
 | `led-balance` / `led-balance 30` | Helligkeit grün relativ zu rot (5–100 %, Standard 40, wird gespeichert) |
 | `setup-wifi <ssid> <pw>` / `setup-role eg` | Entwicklung/Werk: WLAN bzw. Wohnung ohne Einrichtungsseite (danach `reboot`) |

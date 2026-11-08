@@ -13,6 +13,7 @@ void TouchChannel::relearn(uint32_t now_ms) {
   settle_start_ = now_ms;
   settle_n_ = 0;
   settle_sum_ = 0;
+  offset_n_ = 0;
   relearns_++;
 }
 
@@ -60,6 +61,31 @@ TouchChannel::Event TouchChannel::update(uint32_t raw, uint32_t now_ms) {
     baseline_ += ((float)raw - baseline_) * k;
   }
 
+  // Steady offset between the tracking band and the release threshold (FW-B-06): watch for kOffsetAdoptMs; if the
+  // value stays within kSettleSpread the whole time, it is the new rest value. A finger is far above +kOffPercent,
+  // a hand or wiping cloth does not stay this steady.
+  if (!pressed_ && delta_ >= kTrackBand && delta_ < kOffPercent) {
+    if (offset_n_ == 0) {
+      offset_start_ = now_ms;
+      offset_min_ = offset_max_ = raw;
+      offset_sum_ = 0;
+    }
+    offset_min_ = raw < offset_min_ ? raw : offset_min_;
+    offset_max_ = raw > offset_max_ ? raw : offset_max_;
+    offset_sum_ += raw;
+    offset_n_++;
+    if (100.0f * (offset_max_ - offset_min_) / offset_min_ > kSettleSpread) {
+      offset_n_ = 0;  // not steady: start watching again with the next sample
+    } else if (now_ms - offset_start_ >= kOffsetAdoptMs) {
+      baseline_ = (float)(offset_sum_ / offset_n_);
+      delta_ = 100.0f * ((float)raw - baseline_) / baseline_;
+      offset_n_ = 0;
+      adopts_++;
+    }
+  } else {
+    offset_n_ = 0;
+  }
+
   bool above_on = delta_ >= kOnPercent;
   bool below_off = delta_ < kOffPercent;
   if (above_on && !raised_) raised_at_ = now_ms;
@@ -90,6 +116,13 @@ BellKeys::Out BellKeys::update(uint32_t raw_eg, uint32_t raw_og, uint32_t now_ms
   if (e2 == TouchChannel::Event::Released || e2 == TouchChannel::Event::Stuck) fired_og_ = false;
 
   bool both = (eg_.pressed() || eg_.raised()) && (og_.pressed() || og_.raised());
+  // During the guard time of a press, the other key only has to be clearly on its way up (FW-B-07).
+  auto guarding = [now_ms](const TouchChannel &c, bool fired) {
+    return c.pressed() && !fired && now_ms - c.pressed_since() < kBellMinHoldMs + kBellBothGuardMs;
+  };
+  if ((guarding(eg_, fired_eg_) && og_.delta_percent() >= kOffPercent) ||
+      (guarding(og_, fired_og_) && eg_.delta_percent() >= kOffPercent))
+    both = true;
   if (both) {
     // Plausibility: a finger presses one key. Both at once = wetting (or a hand on both) -> never ring.
     if (!fired_eg_ || !fired_og_) {
@@ -99,11 +132,11 @@ BellKeys::Out BellKeys::update(uint32_t raw_eg, uint32_t raw_og, uint32_t now_ms
     }
     return Out::None;
   }
-  if (eg_.pressed() && !fired_eg_ && now_ms - eg_.pressed_since() >= kBellMinHoldMs) {
+  if (eg_.pressed() && !fired_eg_ && now_ms - eg_.pressed_since() >= kBellMinHoldMs + kBellBothGuardMs) {
     fired_eg_ = true;
     return Out::RingEG;
   }
-  if (og_.pressed() && !fired_og_ && now_ms - og_.pressed_since() >= kBellMinHoldMs) {
+  if (og_.pressed() && !fired_og_ && now_ms - og_.pressed_since() >= kBellMinHoldMs + kBellBothGuardMs) {
     fired_og_ = true;
     return Out::RingOG;
   }

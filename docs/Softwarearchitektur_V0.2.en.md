@@ -1145,9 +1145,10 @@ Five behavioural questions are deliberately open. None affects the board; all ca
 **F-2 · Feedback on a failed door command.** Today: failure tone indoors.
 > **Recommendation: keep the tone, add the reason to the status page** (no WLAN / no answer / rejected).
 
-**F-3 · Door opener pulse duration.** Today: 2000 ms as a starting value, never exercised on real hardware.
-> **Recommendation: determine it during bring-up on the actual door opener** and record it together with the
-> measurement conditions.
+**F-3 · Door opener pulse duration.** ✅ **Decided 07.11.2026: 2000 ms.** Exercised during bring-up (outdoor IBN
+6.5, firmware test log 7.10) on the effeff 118W, 12 V from the bench supply, coil current 270 mA, flyback diode
+`D_FLY1` on the board: 10/10 pulses switched, no restart, Q2 and `D_FLY1` hand-warm. Buyers with another opener set the
+length on the outdoor unit's web page (100–5000 ms, step 10b).
 
 **F-4 · Outdoor unit behaviour without WLAN.** Today: immediate failure tone.
 > **Recommendation: a distinguishable notice tone rather than a chime** — a chime would falsely signal to the visitor

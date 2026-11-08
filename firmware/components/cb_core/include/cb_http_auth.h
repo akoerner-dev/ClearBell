@@ -52,6 +52,23 @@ bool parse_digest(const char *header, DigestFields *out);
 // The expected `response` for qop=auth: MD5(MD5(user:realm:pass):nonce:nc:cnonce:auth:MD5(method:uri)).
 void digest_response(const DigestFields &f, const char *password, const char *method, char out[33]);
 
+// ---- Own password (Produktreife 8, Meister 08.11.2026) -------------------------------------------------------
+// The page runs over plain HTTP, so the NEW password must not cross the WiFi in clear text (SA 7.2 attacker F,
+// 8.3). The page asks for the current password too and sends
+//   enc = new (zero-padded to 32 bytes) XOR [MD5(cur:nonce:k1) | MD5(cur:nonce:k2)]   (64 hex)
+//   mac = MD5(cur:nonce:new)                                                            (32 hex)
+// with a one-time nonce from the unit. Someone who records it lacks `cur` (the random label password, or an own
+// one) and learns nothing; a wrong current password fails the mac. Empty new password = back to the label.
+constexpr size_t kPasswordMin = 4;   // short own passwords are the buyer's choice; the page recommends 10+
+constexpr size_t kPasswordMax = 32;  // = CbProvisioning::dev_pass
+bool password_allowed(const char *pw);  // length, printable ASCII, no leading/trailing space
+// -> true and `out` = the new password ("" = label) if the mac fits and the password is allowed.
+bool password_change_open(const char *cur, const char *nonce, const char *enc_hex, const char *mac_hex, char *out,
+                          size_t cap, bool *wrong_current);
+// The page's side, for the PC tests and tools.
+void password_change_seal(const char *cur, const char *nonce, const char *pw, char enc_hex[2 * kPasswordMax + 1],
+                          char mac_hex[33]);
+
 // ---- Server side --------------------------------------------------------------------------------------------
 enum class AuthResult : uint8_t {
   Ok,
@@ -74,6 +91,8 @@ class DigestAuth {
 
   // secret: random per boot (device: hardware RNG). realm is shown by the browser in the login dialog.
   void begin(const uint8_t secret[32], const char *realm, const char *user, const char *password);
+  // Own password set on the page: takes effect at once; resets the wrong-password counter.
+  void set_password(const char *password);
 
   // Value for the WWW-Authenticate header. now_s: monotonic seconds (uptime).
   void challenge(uint32_t now_s, bool stale, char *out, size_t n);

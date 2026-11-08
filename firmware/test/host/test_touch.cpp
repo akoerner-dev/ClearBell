@@ -122,6 +122,73 @@ TEST(bell_both_keys_at_once_is_wetting_no_ring) {
   CHECK_EQ(k.rejected_count(), 1);
 }
 
+// FW-B-07_Beide_Tasten_klingelt (08.11.2026, AU-1): a flat hand on both keys raised EG 21 ms before OG; the ring
+// went out before the plausibility rule saw both. Now the ring waits for a guard time.
+TEST(bell_hand_on_both_keys_staggered_no_ring) {
+  const uint32_t lags[] = {20, 60, 100, 140};  // OG rises this many ms after EG
+  for (uint32_t lag : lags) {
+    BellKeys k;
+    uint32_t t = 0;
+    int eg = 0, og = 0;
+    bell(k, t, 1500, kRest, kRest);
+    bell(k, t, lag, kFinger, kRest, &eg, &og);
+    bell(k, t, 3000, kFinger, kFinger, &eg, &og);
+    bell(k, t, 500, kRest, kRest, &eg, &og);
+    CHECK_EQ(eg + og, 0);
+    CHECK_EQ(k.rejected_count(), 1);
+  }
+}
+
+TEST(bell_single_finger_rings_despite_neighbour_crosstalk) {
+  BellKeys k;
+  uint32_t t = 0;
+  int eg = 0, og = 0;
+  bell(k, t, 1500, kRest, kRest);
+  bell(k, t, 1000, kFinger, pct(30), &eg, &og);  // finger on EG, OG sees +30 % (below the release threshold)
+  bell(k, t, 300, kRest, kRest, &eg, &og);
+  CHECK_EQ(eg, 1);
+  CHECK_EQ(og, 0);
+}
+
+TEST(bell_ring_latency_includes_guard) {
+  BellKeys k;
+  uint32_t t = 0;
+  bell(k, t, 1500, kRest, kRest);
+  uint32_t start = t, rang_at = 0;
+  for (uint32_t x = 0; x < 1000 && !rang_at; x += kStep, t += kStep)
+    if (k.update(kFinger, kRest, t) == BellKeys::Out::RingEG) rang_at = t;
+  CHECK(rang_at != 0);
+  // raised + debounce (60) + ring min hold (60) + guard (120), sampled every 20 ms: well within SA 1.3 (0.5 s total)
+  CHECK(rang_at - start <= 2 * kBellMinHoldMs + kBellBothGuardMs + 2 * kStep);
+}
+
+// FW-B-06_Baseline_eingefroren (08.11.2026, AU-1): rest sat at +11 ... +14 % for hours - above the tracking band,
+// so the baseline was frozen for good.
+TEST(touch_steady_offset_is_taken_over) {
+  TouchChannel c;
+  uint32_t t = 0;
+  for (int i = 0; i < 60; i++, t += kStep) c.update(kRest, t);
+  for (uint32_t x = 0; x < kOffsetAdoptMs + 2000; x += kStep, t += kStep)  // +13.6 %, +-0.3 % noise
+    c.update(pct(13.6f + ((x / kStep) % 3 - 1) * 0.3f), t);
+  CHECK_EQ(c.offset_adopt_count(), 1);
+  CHECK(c.delta_percent() > -2 && c.delta_percent() < 2);
+  for (int i = 0; i < 20; i++, t += kStep) c.update(kFinger, t);  // a finger still works
+  CHECK(c.pressed());
+}
+
+TEST(touch_unsteady_or_short_offset_is_not_taken_over) {
+  TouchChannel c;
+  uint32_t t = 0;
+  for (int i = 0; i < 60; i++, t += kStep) c.update(kRest, t);
+  for (int i = 0; i < 3000; i++, t += kStep) c.update(pct(i % 2 ? 8 : 40), t);  // 60 s wiping/hand moving
+  for (uint32_t x = 0; x < kOffsetAdoptMs - 5000; x += kStep, t += kStep) c.update(pct(20), t);  // 25 s hand
+  CHECK_EQ(c.offset_adopt_count(), 0);
+  CHECK(c.baseline() < kRest * 1.01f);
+  // a resting finger (far above the release threshold) is never taken over either
+  for (int i = 0; i < 400; i++, t += kStep) c.update(kFinger, t);
+  CHECK_EQ(c.offset_adopt_count(), 0);
+}
+
 TEST(door_tap_in_window_opens_outside_not) {
   uint32_t t = 0;
   DoorKey k = ready_door(t);

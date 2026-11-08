@@ -5,6 +5,29 @@ Versionen nach SemVer; `version.txt` ist die Quelle. Solange die Portierung läu
 
 ## 0.2.0-dev (in Arbeit)
 
+### Touch-Befunde aus den Handprüfungen, Dauertest (08.11.2026)
+
+- **FW-B-06_Baseline_eingefroren:** Ein ruhiger Versatz zwischen +5 und +50 % (Schwankung ≤ 2 %) wird nach 30 s als
+  neue Baseline übernommen (`kOffsetAdoptMs`); vorher blieb AU-1 stundenlang bei +11 … +14 % stehen. Log „steady
+  offset taken over“, Zähler in `touch`.
+- **FW-B-07_Beide_Tasten_klingelt:** Das Klingeln wartet nach der Mindest-Haltedauer noch 120 ms
+  (`kBellBothGuardMs`); steigt die andere Taste in der Zeit über +50 %, gilt es als „beide“ → kein Klingeln. Eine
+  flache Hand hatte EG 21 ms vor OG erkannt und geklingelt. Langsames Drüberschieben (≈ 0,4 s) klingelt weiter
+  (Meister: so lassen).
+- Neue PC-Tests (5), 118 Tests / 2800 Prüfungen. `tools/dauertest.py` (lautloser Dauertest), 7 h bestanden.
+- **Statusseite:** Karte „Einstellungen“ (`POST /settings`): Lautstärke in jedem Modus, Probeton, LED-Abgleich und
+  Pulslänge nur in der Wartung; `settings` im JSON. Akzent Dunkelgrün, Handy-Layout (einspaltig unter 640 px,
+  große Bedienflächen), Spaltenabstand in Tabellen. Update per Browser auf beiden Einheiten geprüft (10.9).
+- **Eigenes Passwort der Statusseite** (Produktreife 8): Wartung → Karte „Einstellungen“, verschlüsselt übertragen
+  (`password_change_open/seal`, `/settings/pw-nonce`, `/settings/password`), Konsole `web-pass`, leer = Etikett,
+  Werksreset = Etikett. Seite hört bei 401/429 auf abzufragen (sonst hielte ein alter Tab die Sperre aufrecht).
+  PC-Werkzeuge: `cb.py anlage-webpasswort <Einheit> <pw>|label`. `max_uri_handlers` 16 → 24. 120 Tests.
+
+### Türöffner am echten Gerät (07.11.2026)
+
+- **Pulslänge 2000 ms festgelegt** (Entscheidung F-3) nach 10 Pulsen am effeff 118W (12 V, 270 mA, Testprotokoll 7.10). Wert
+  unverändert, nur Kommentar in `cb_door_logic.h` und `door-status`-Text („pulse fixed F-3, lock-out draft“).
+
 ### Schritte 10, 10a–10c – Updates und Inbetriebnahme ohne PC (06.11.2026, Verkaufsabsicht)
 
 - **10 Updates:** `PUT /update` in der Wartung (Statusseite, `cb.py update`); Image-Kopf geprüft (ESP32-S3, Projekt,

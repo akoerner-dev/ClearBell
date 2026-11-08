@@ -44,9 +44,15 @@ def _host(u: dict) -> str:
     return f"clearbell-{u['seriennummer']}.local" if u.get("seriennummer") else HOSTS[u["rolle"]]
 
 
+def _password(u: dict) -> str:
+    # Own status-page password (set on the page or with the console "web-pass"), recorded in the installation file
+    # as "webpasswort" by `cb.py anlage-webpasswort`; otherwise the label password.
+    return u.get("webpasswort") or u["geraetepasswort"]
+
+
 def _base(name: str, ip: str | None) -> tuple[str, str]:
     u = _unit(name)
-    return f"http://{ip or _host(u)}", u["geraetepasswort"]
+    return f"http://{ip or _host(u)}", _password(u)
 
 
 def fetch_status(name: str, ip: str | None = None) -> dict:
@@ -135,5 +141,6 @@ def update(name: str, image: str, ip: str | None) -> int:
 
 def passwort(name: str) -> int:
     u = _unit(name)
-    print(f"{name}: http://{_host(u)}/  user {USER}  password {u['geraetepasswort']}")
+    own = f"  (own password: {u['webpasswort']})" if u.get("webpasswort") else ""
+    print(f"{name}: http://{_host(u)}/  user {USER}  label password {u['geraetepasswort']}{own}")
     return 0

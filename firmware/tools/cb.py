@@ -23,6 +23,7 @@ Status page (port step 8, details in tools/statusseite.py; --ip <address> if .lo
     python tools/cb.py status AU-1 [--json]                     what the unit's status page shows
     python tools/cb.py ton-hochladen IN-1 ring datei.wav        replace a tone (unit in maintenance mode)
     python tools/cb.py anlage-zeigen --passwort IN-1            device password for the browser login
+    python tools/cb.py anlage-webpasswort IN-1 <pw>|label       record an own status-page password for the tools
     python tools/cb.py update IN-1 [datei.bin]                  firmware update over the status page (maintenance)
 
 Remote opening (port step 9, details in tools/fern.py):
@@ -228,6 +229,19 @@ def main(argv: list[str]) -> int:
             return statusseite.passwort(argv[3])
         if action == "anlage-zeigen":
             return prov.anlage_zeigen()
+        if action == "anlage-webpasswort" and len(argv) == 4:
+            # Records the own status-page password of a unit (set on the page / console "web-pass") so the PC tools
+            # log in with it; "label" removes it again (label password).
+            data = prov._load()
+            if argv[2] not in data["einheiten"]:
+                raise SystemExit(f"unit {argv[2]} not in the installation file")
+            if argv[3] == "label":
+                data["einheiten"][argv[2]].pop("webpasswort", None)
+            else:
+                data["einheiten"][argv[2]]["webpasswort"] = argv[3]
+            prov._save(data)
+            print(f"{argv[2]}: tools now log in with the {'label' if argv[3] == 'label' else 'own'} password")
+            return 0
         if action == "anlage-fern":
             link = argv[argv.index("--link") + 1] if "--link" in argv[:-1] else None
             return prov.anlage_fern("--test" in argv, link, "--echt" in argv)

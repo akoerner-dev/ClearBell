@@ -345,6 +345,14 @@ void cb_audio_volume_step() {
   cb_audio_play(Sound::Feedback);
 }
 
+bool cb_audio_set_volume(uint8_t v) {
+  if (!cb::volume_valid(v)) return false;
+  volume = v;
+  save_volume();
+  cb_log("volume %u %% (status page)", (unsigned)v);
+  return true;
+}
+
 uint8_t cb_audio_volume() {
   return volume;
 }

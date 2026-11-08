@@ -19,7 +19,9 @@
 #include "cb_door.h"
 #include "cb_http_auth.h"
 #include "cb_json.h"
+#include "cb_led.h"
 #include "cb_log.h"
+#include "cb_setup_logic.h"
 #include "cb_modes.h"
 #include "cb_net.h"
 #include "cb_provisioning.h"
@@ -144,6 +146,13 @@ void build_snapshot() {
   dlog_json(j);
   cb_audio_json(j);
   cb_update_json(j);
+  // Settings card of the page: what can be changed there, and under which condition.
+  j.key("settings");
+  j.begin_obj();
+  j.kv("volume", (unsigned)cb_audio_volume());
+  j.kv("led_green_percent", (unsigned)cb_led_green_percent());
+  j.kv("own_password", cb_prov_has_own_web_pass());
+  j.end_obj();
   j.end_obj();
   snap_ok = j.ok();
   snap_len = j.len();
@@ -334,6 +343,147 @@ esp_err_t h_update(httpd_req_t *req) {
   return reply_upload(req, "200 OK", msg);
 }
 
+// ---- Settings (status page card "Einstellungen") ------------------------------------------------------------
+// POST /settings, form fields (each optional): vol=15|30|50|75|100 (any mode - the boot button changes it without a
+// login anyway, Meister 08.11.2026), led=5..100 (maintenance only, like every other change), tone=1 (test tone at
+// the current volume). The answer is the same JSON shape as the uploads: {ok, message}.
+esp_err_t reply_settings(httpd_req_t *req, const char *status, const char *msg) {
+  char body[160];
+  cb::Json j(body, sizeof body);
+  j.begin_obj();
+  j.kv("ok", status[0] == '2');
+  j.kv("message", msg);
+  j.end_obj();
+  httpd_resp_set_status(req, status);
+  httpd_resp_set_type(req, "application/json");
+  if (status[0] != '2') cb_log("web: setting refused: %s", msg);
+  return httpd_resp_send(req, body, j.len());
+}
+
+esp_err_t h_settings(httpd_req_t *req) {
+  if (!authorize(req)) return ESP_OK;
+  security_headers(req);
+  char body[96], v[8];
+  size_t len = req->content_len, got = 0;
+  if (len == 0 || len >= sizeof body) return reply_settings(req, "400 Bad Request", "Wert fehlt");
+  while (got < len) {
+    int n = httpd_req_recv(req, body + got, len - got);
+    if (n == HTTPD_SOCK_ERR_TIMEOUT) continue;
+    if (n <= 0) return reply_settings(req, "400 Bad Request", "Anfrage abgebrochen");
+    got += n;
+  }
+  body[got] = 0;
+  char msg[96];
+  msg[0] = 0;
+  if (cb::form_get(body, "led", v, sizeof v)) {
+    if (cb_mode() != cb::Mode::Maintenance)
+      return reply_settings(req, "403 Forbidden", "LED-Abgleich nur in der Wartung (Boot-Taster 5 s halten)");
+    maintenance_activity = true;
+    int x = atoi(v);  // range check on the int: a cast to uint8_t would turn 261 into 5
+    if (x < 5 || x > 100 || !cb_led_set_green_percent((uint8_t)x)) return reply_settings(req, "400 Bad Request", "LED-Abgleich 5 bis 100 %");
+    snprintf(msg, sizeof msg, "LED-Abgleich %d %% gespeichert", atoi(v));
+  }
+  if (cb::form_get(body, "vol", v, sizeof v)) {
+    int x = atoi(v);
+    if (x < 15 || x > 100 || !cb_audio_set_volume((uint8_t)x))
+      return reply_settings(req, "400 Bad Request", "Lautstärke 15, 30, 50, 75 oder 100 %");
+    snprintf(msg, sizeof msg, "Lautstärke %d %% gespeichert", atoi(v));
+  }
+  if (cb::form_get(body, "tone", v, sizeof v)) {
+    cb_audio_play(cb::Sound::Success);
+    if (!msg[0]) snprintf(msg, sizeof msg, "Probeton bei %u %%", (unsigned)cb_audio_volume());
+  }
+  if (!msg[0]) return reply_settings(req, "400 Bad Request", "nichts zu ändern");
+  return reply_settings(req, "200 OK", msg);
+}
+
+// ---- Own password (cb_http_auth.h: password_change_open) ----------------------------------------------------
+// GET /settings/pw-nonce -> {"nonce": 32 hex}, one at a time, valid 5 min, used once.
+// POST /settings/password  enc=<64 hex>&mac=<32 hex>  - maintenance only. 5 wrong current passwords -> 60 s lock.
+portMUX_TYPE pw_lock = portMUX_INITIALIZER_UNLOCKED;
+char pw_nonce[33] = "";
+uint32_t pw_nonce_at = 0, pw_wrong = 0, pw_locked_until = 0;
+
+esp_err_t h_pw_nonce(httpd_req_t *req) {
+  if (!authorize(req)) return ESP_OK;
+  security_headers(req);
+  uint8_t r[16];
+  cb::random_bytes(r, sizeof r);
+  char n[33];
+  for (int i = 0; i < 16; i++) snprintf(n + 2 * i, 3, "%02x", r[i]);
+  taskENTER_CRITICAL(&pw_lock);
+  memcpy(pw_nonce, n, sizeof n);
+  pw_nonce_at = now_s();
+  taskEXIT_CRITICAL(&pw_lock);
+  char body[64];
+  snprintf(body, sizeof body, "{\"nonce\":\"%s\"}", n);
+  httpd_resp_set_type(req, "application/json");
+  return httpd_resp_sendstr(req, body);
+}
+
+esp_err_t h_password(httpd_req_t *req) {
+  if (!authorize(req)) return ESP_OK;
+  security_headers(req);
+  if (cb_mode() != cb::Mode::Maintenance)
+    return reply_settings(req, "403 Forbidden", "Passwort ändern nur in der Wartung (Boot-Taster 5 s halten)");
+  maintenance_activity = true;
+  if (pw_locked_until && (int32_t)(pw_locked_until - now_s()) > 0)
+    return reply_settings(req, "429 Too Many Requests", "zu oft falsches aktuelles Passwort - 1 min warten");
+  char body[160], enc[70], mac[40];
+  size_t len = req->content_len, got = 0;
+  if (len == 0 || len >= sizeof body) return reply_settings(req, "400 Bad Request", "Anfrage unvollständig");
+  while (got < len) {
+    int n = httpd_req_recv(req, body + got, len - got);
+    if (n == HTTPD_SOCK_ERR_TIMEOUT) continue;
+    if (n <= 0) return reply_settings(req, "400 Bad Request", "Anfrage abgebrochen");
+    got += n;
+  }
+  body[got] = 0;
+  if (!cb::form_get(body, "enc", enc, sizeof enc) || !cb::form_get(body, "mac", mac, sizeof mac))
+    return reply_settings(req, "400 Bad Request", "Anfrage unvollständig");
+  char nonce[33];
+  taskENTER_CRITICAL(&pw_lock);
+  bool fresh = pw_nonce[0] && now_s() - pw_nonce_at < 300;
+  memcpy(nonce, pw_nonce, sizeof nonce);
+  pw_nonce[0] = 0;  // used once, whatever the outcome
+  taskEXIT_CRITICAL(&pw_lock);
+  if (!fresh) return reply_settings(req, "409 Conflict", "Sitzung abgelaufen - Seite neu laden und nochmal");
+  char pw[cb::kPasswordMax + 1];
+  bool wrong = false;
+  if (!cb::password_change_open(cb_prov().dev_pass, nonce, enc, mac, pw, sizeof pw, &wrong)) {
+    if (wrong && ++pw_wrong >= 5) {
+      pw_wrong = 0;
+      pw_locked_until = now_s() + 60;
+    }
+    return reply_settings(req, "400 Bad Request",
+                          wrong ? "aktuelles Passwort falsch" : "neues Passwort: 4 bis 32 Zeichen, ohne Umlaute");
+  }
+  pw_wrong = 0;
+  if (!cb_prov_set_web_pass(pw)) return reply_settings(req, "500 Internal Server Error", "nicht gespeichert");
+  auth.set_password(cb_prov().dev_pass);
+  memset(pw, 0, sizeof pw);
+  cb_log("web: status-page password %s", cb_prov_has_own_web_pass() ? "changed (own)" : "back to the label");
+  return reply_settings(req, "200 OK",
+                        cb_prov_has_own_web_pass() ? "Passwort geändert - bitte gleich neu anmelden"
+                                                   : "Etikett-Passwort gilt wieder - bitte gleich neu anmelden");
+}
+
+// Console (USB = physical access): web-pass <new> / web-pass label
+void cmd_web_pass(const char *args) {
+  const char *pw = !strcmp(args, "label") ? "" : args;
+  if (!*args || (*pw && !cb::password_allowed(pw))) {
+    cb_log("usage: web-pass <4..32 printable ASCII characters> | web-pass label   (now: %s)",
+           cb_prov_has_own_web_pass() ? "own password" : "label password");
+    return;
+  }
+  if (!cb_prov_set_web_pass(pw)) {
+    cb_log("web-pass: NOT saved");
+    return;
+  }
+  auth.set_password(cb_prov().dev_pass);
+  cb_log("web-pass: %s", *pw ? "own password set" : "back to the label password");
+}
+
 void start_server() {
   // Per-boot secret for the login nonces: a reboot makes every old nonce worthless.
   uint8_t secret[32];
@@ -352,7 +502,7 @@ void start_server() {
   cfg.recv_wait_timeout = 10;
   cfg.send_wait_timeout = 10;
   cfg.uri_match_fn = httpd_uri_match_wildcard;
-  cfg.max_uri_handlers = 16;
+  cfg.max_uri_handlers = 24;   // outdoor 16, indoor 17 registered (08.11.2026)
   if (httpd_start(&server, &cfg) != ESP_OK) {
     cb_log("status: web server NOT started");
     server = nullptr;
@@ -362,7 +512,13 @@ void start_server() {
   httpd_uri_t status = {"/status.json", HTTP_GET, h_status, nullptr};
   httpd_uri_t upload = {"/ton/*", HTTP_PUT, h_upload, nullptr};
   httpd_uri_t update = {"/update", HTTP_PUT, h_update, nullptr};
+  httpd_uri_t settings = {"/settings", HTTP_POST, h_settings, nullptr};
   httpd_register_uri_handler(server, &page);
+  httpd_register_uri_handler(server, &settings);
+  httpd_uri_t pwn = {"/settings/pw-nonce", HTTP_GET, h_pw_nonce, nullptr};
+  httpd_uri_t pwc = {"/settings/password", HTTP_POST, h_password, nullptr};
+  httpd_register_uri_handler(server, &pwn);
+  httpd_register_uri_handler(server, &pwc);
   httpd_register_uri_handler(server, &status);
   httpd_register_uri_handler(server, &upload);
   httpd_register_uri_handler(server, &update);
@@ -389,6 +545,7 @@ void cb_status_begin() {
   snap_done = xSemaphoreCreateBinary();
   cb_console_add("doorlog", "door log of this unit (doorlog clear JA = erase)", cmd_doorlog);
   cb_console_add("web", "status page: server state and login counters", cmd_web);
+  cb_console_add("web-pass", "web-pass <new> | label - own status-page password", cmd_web_pass);
   // Runs also while not set up: it serves the setup page over the access point (cb_setup).
   if (cb_prov().factory_ok) start_server();
   else cb_log("status: no device code (factory step missing) - web server off");

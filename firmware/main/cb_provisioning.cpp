@@ -220,6 +220,23 @@ bool cb_prov_set_role(cb::UnitId role) {
 #endif
 }
 
+bool cb_prov_set_web_pass(const char *pw) {
+  if (!pw || strlen(pw) >= sizeof prov.dev_pass) return false;
+  bool ok = user_write(
+      [](nvs_handle_t h, const void *a) {
+        const char *p = static_cast<const char *>(a);
+        if (*p) nvs_set_str(h, "web_pass", p);
+        else nvs_erase_key(h, "web_pass");
+      },
+      pw);
+  if (ok) snprintf(prov.dev_pass, sizeof prov.dev_pass, "%s", *pw ? pw : prov.dev_code);
+  return ok;
+}
+
+bool cb_prov_has_own_web_pass() {
+  return strcmp(prov.dev_pass, prov.dev_code) != 0;
+}
+
 bool cb_prov_factory_reset() {
   bool ok = true;
   for (const char *ns : {kUserNs, "cb_set", "cb_dlog"}) {

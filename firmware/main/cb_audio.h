@@ -28,6 +28,7 @@ void cb_audio_play(cb::Sound s);       // queue a tone, never blocks
 void cb_audio_tone(uint16_t hz, uint16_t ms);  // queue a pure sine (diagnosis / acoustic self-check)
 void cb_audio_volume_step();           // boot button short press: next step, store, play a tick
 uint8_t cb_audio_volume();             // current user volume (15..100 %)
+bool cb_audio_set_volume(uint8_t v);   // status page: one of 15/30/50/75/100, stored; false if not allowed
 bool cb_audio_busy();                  // a tone is playing right now
 bool cb_audio_fs_ok();                 // LittleFS mounted
 // "ring" | "ok" | "error" | "nonet" | "tick" -> Sound (console and upload URL use the same names).

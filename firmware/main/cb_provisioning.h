@@ -64,6 +64,10 @@ bool cb_prov_remove_link(cb::UnitId peer);
 // Phones (10c). store: same id = replace, else a free slot; key_hex "" on the indoor unit. -> slot or -1 (full).
 int cb_prov_phone_store(const char *id, const char *key_hex);
 bool cb_prov_phone_forget(const char *id);
+// Own status-page password (stored in cb_user "web_pass", takes effect at once in cb_prov().dev_pass);
+// "" = back to the device code from the label. The factory reset erases it too.
+bool cb_prov_set_web_pass(const char *pw);
+bool cb_prov_has_own_web_pass();
 // Factory reset: erases the buyer's data (WiFi, keys, phones, own password, settings, door log). The device code
 // stays - the label keeps working. Own tones are restored by the caller (cb_audio). Returns true on success.
 bool cb_prov_factory_reset();

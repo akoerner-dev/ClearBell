@@ -36,20 +36,22 @@ void out(bool red, bool green) {
   }
 }
 
+bool set_green(int v) {
+  if (v < 5 || v > 100) return false;
+  green_percent = (uint8_t)v;
+  Preferences p;
+  if (p.begin("cb_set", false)) {
+    p.putUChar("led_g", green_percent);
+    p.end();
+  }
+  last_phase = -1;  // force a rewrite
+  return true;
+}
+
 void cmd_led_balance(const char *args) {
-  if (*args) {
-    int v = atoi(args);
-    if (v < 5 || v > 100) {
-      cb_log("usage: led-balance [5..100]  - green brightness in %% of red (default %u)", kGreenPercentDefault);
-      return;
-    }
-    green_percent = (uint8_t)v;
-    Preferences p;
-    if (p.begin("cb_set", false)) {
-      p.putUChar("led_g", green_percent);
-      p.end();
-    }
-    last_phase = -1;  // force a rewrite
+  if (*args && !set_green(atoi(args))) {
+    cb_log("usage: led-balance [5..100]  - green brightness in %% of red (default %u)", kGreenPercentDefault);
+    return;
   }
   cb_log("led: green at %u %% of red (PWM %lu Hz)%s", green_percent, (unsigned long)kPwmHz,
          pwm_ok ? "" : " - PWM NOT available, plain on/off");
@@ -85,6 +87,12 @@ CbLed cb_led_get() {
 
 uint8_t cb_led_green_percent() {
   return green_percent;
+}
+
+bool cb_led_set_green_percent(uint8_t v) {
+  if (!set_green(v)) return false;
+  cb_log("led: green at %u %% of red (status page)", (unsigned)v);
+  return true;
 }
 
 void cb_led_poll() {

@@ -277,3 +277,50 @@ TEST(json_writer_too_small_buffer_is_reported) {
   CHECK(!j.ok());
   CHECK(strlen(buf) < sizeof buf);
 }
+
+// Own password over plain HTTP (cb_http_auth.h): the page seals, the unit opens.
+TEST(password_change_roundtrip_wrong_current_and_label) {
+  const char *nonce = "0123456789abcdef0123456789abcdef";
+  char enc[2 * kPasswordMax + 1], mac[33], out[kPasswordMax + 1];
+  bool wrong = true;
+  password_change_seal("Etikett-Code-123", nonce, "IN-1", enc, mac);
+  CHECK(strstr(enc, "494e2d31") == nullptr);  // "IN-1" does not appear in clear
+  CHECK(password_change_open("Etikett-Code-123", nonce, enc, mac, out, sizeof out, &wrong));
+  CHECK(!wrong);
+  CHECK(strcmp(out, "IN-1") == 0);
+  // the 32-character maximum
+  password_change_seal("cur", nonce, "abcdefghijklmnopqrstuvwxyz012345", enc, mac);
+  CHECK(password_change_open("cur", nonce, enc, mac, out, sizeof out, &wrong));
+  CHECK(strcmp(out, "abcdefghijklmnopqrstuvwxyz012345") == 0);
+  // wrong current password: refused and reported as such
+  password_change_seal("falsch", nonce, "geheim123", enc, mac);
+  CHECK(!password_change_open("Etikett-Code-123", nonce, enc, mac, out, sizeof out, &wrong));
+  CHECK(wrong);
+  CHECK(out[0] == 0);
+  // another nonce (replay of a recorded change): refused
+  password_change_seal("Etikett-Code-123", nonce, "geheim123", enc, mac);
+  CHECK(!password_change_open("Etikett-Code-123", "ffffffffffffffffffffffffffffffff", enc, mac, out, sizeof out, &wrong));
+  // empty = back to the label
+  password_change_seal("IN-1", nonce, "", enc, mac);
+  CHECK(password_change_open("IN-1", nonce, enc, mac, out, sizeof out, &wrong));
+  CHECK(out[0] == 0);
+  // not allowed: too short, umlaut, leading space - even with the right current password
+  const char *bads[] = {"abc", "Gr\xc3\xbc\xc3\x9f" "e12", " abcdef"};
+  for (const char *bad : bads) {
+    password_change_seal("cur", nonce, bad, enc, mac);
+    CHECK(!password_change_open("cur", nonce, enc, mac, out, sizeof out, &wrong));
+    CHECK(!wrong);
+  }
+  CHECK(password_allowed("AU-1"));
+  CHECK(!password_allowed("abcdefghijklmnopqrstuvwxyz0123456"));  // 33
+}
+
+// The page's JavaScript MD5 is checked against this: md5("cur:n:k1") as the page computes it.
+TEST(password_change_known_vector_for_the_page) {
+  char enc[2 * kPasswordMax + 1], mac[33];
+  password_change_seal("cur", "n", "IN-1", enc, mac);
+  printf("  vector: enc %s mac %s\n", enc, mac);
+  char h[33];
+  md5_hex("cur:n:IN-1", h);
+  CHECK(strcmp(h, mac) == 0);
+}

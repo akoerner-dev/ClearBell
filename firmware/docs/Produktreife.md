@@ -1,7 +1,7 @@
 # Produktreife der Firmware – Prüfung der Schritte 1–9 und Konzept „Inbetriebnahme ohne PC“
 
 Stand 06.11.2026. **Umgesetzt in den Portierungsschritten 10, 10a, 10b, 10c (06.11.2026); Belege im
-[Testprotokoll](Testprotokoll.md). Offen: eigenes Statusseiten-Passwort wählen, Ländercode als Einstellung,
+[Testprotokoll](Testprotokoll.md). Offen: ~~eigenes Statusseiten-Passwort wählen~~ (✓ 08.11.2026), Ländercode als Einstellung,
 iOS-Verfahren, Etikett-Entscheidung.** Anlass: ClearBell soll unter Umständen verkauft werden. Daraus zwei Maßstäbe (Meister 06.11.2026):
 
 1. **Nichts hängt an einer Person.** Kein Schlüssel, ohne den Käufer festsitzen (deshalb Updates vorerst ohne
@@ -47,7 +47,7 @@ Schwere: **A** = verhindert den Verkauf, **B** = muss vor dem Verkauf geändert 
 | 5 Audio | Töne per Webseite tauschbar ✓; nach dem Werksreset müssen die **Werkstöne** zurückkommen | B | Werkstöne als Kopie im Dateisystem, Werksreset stellt sie wieder her |
 | 6 Touch | Schwellen sind Entwürfe für **unsere** Holzfront | C | nach der Montage festlegen; später Empfindlichkeit als Einstellung |
 | 7 Türöffner | Pulslänge 2000 ms fest – der Käufer hat **einen anderen Türöffner** (F-3) | **B** | Pulslänge auf der Webseite der Außeneinheit einstellbar (100–5000 ms, Wartung) |
-| 8 Statusseite | Webseite ✓, Gerätepasswort je Gerät ✓; bisher kein eigenes Passwort wählbar | C | Passwort ändern in der Wartung; Rückkehr zum Etikett-Passwort per Werksreset |
+| 8 Statusseite | Webseite ✓, Gerätepasswort je Gerät ✓, **eigenes Passwort ✓ (08.11.2026)** | – | Passwort ändern in der Wartung (verschlüsselt übertragen); Rückkehr zum Etikett-Passwort per leerem Feld oder Werksreset |
 | 8 Wartung | Wartung **nur über den Boot-Taster im Gehäuse** – für die Außeneinheit heißt das: Gehäuse öffnen | B | Wartung der Außeneinheit zusätzlich **von einer gekoppelten Inneneinheit aus** freigeben (dort Taster = physische Anwesenheit in der Wohnung); Hardwarefrage siehe Abschnitt 5 |
 | 9 Fern-Öffnen | Topics und Handy-Schlüssel nur per PC; Link braucht die Kurzbefehl-ID vom Handy | **A** | Handy hinzufügen auf der Webseite der **eigenen Inneneinheit**: zwei Links/QR – ntfy abonnieren, Kurzbefehl importieren (mit Schlüssel und festem Link, ohne Abtippen) |
 | 9 Fern-Öffnen | Wer Handys verwaltet: heute die Anlagendatei. Die Außeneinheit gehört beiden Haushalten | B | Handys verwaltet **jeder Haushalt an seiner Inneneinheit**; sie gibt den Schlüssel verschlüsselt über die gekoppelte Verbindung an die Außeneinheit |

@@ -237,6 +237,79 @@ void DigestAuth::begin(const uint8_t secret[32], const char *realm, const char *
   snprintf(pass_, sizeof(pass_), "%s", password);
 }
 
+void DigestAuth::set_password(const char *password) {
+  snprintf(pass_, sizeof(pass_), "%s", password);
+  failures_ = 0;  // the browsers still hold the old password: their next request fails once, then they ask
+}
+
+// ---- Own password, changed over plain HTTP ----------------------------------------------------------------
+
+bool password_allowed(const char *pw) {
+  size_t n = strlen(pw);
+  if (n < kPasswordMin || n > kPasswordMax || pw[0] == ' ' || pw[n - 1] == ' ') return false;
+  for (size_t i = 0; i < n; i++)
+    if (pw[i] < 0x20 || pw[i] > 0x7e) return false;  // printable ASCII: every browser hashes it the same way
+  return true;
+}
+
+namespace {
+int hexval(char c) {
+  return c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
+}
+bool hex_bytes(const char *in, uint8_t *out, size_t n) {
+  if (strlen(in) != 2 * n) return false;
+  for (size_t i = 0; i < n; i++) {
+    int h = hexval(in[2 * i]), l = hexval(in[2 * i + 1]);
+    if (h < 0 || l < 0) return false;
+    out[i] = (uint8_t)(h << 4 | l);
+  }
+  return true;
+}
+void keystream(const char *cur, const char *nonce, uint8_t ks[kPasswordMax]) {
+  for (int b = 0; b < 2; b++) {
+    char h[33];
+    const char *p[] = {cur, nonce, b ? "k2" : "k1"};
+    md5_joined_hex(p, 3, h);
+    hex_bytes(h, ks + 16 * b, 16);
+  }
+}
+}  // namespace
+
+bool password_change_open(const char *cur, const char *nonce, const char *enc_hex, const char *mac_hex, char *out,
+                          size_t cap, bool *wrong_current) {
+  *wrong_current = false;
+  uint8_t enc[kPasswordMax], ks[kPasswordMax];
+  if (cap < kPasswordMax + 1 || !hex_bytes(enc_hex, enc, sizeof enc) || strlen(mac_hex) != 32) return false;
+  keystream(cur, nonce, ks);
+  size_t n = 0;
+  for (; n < kPasswordMax; n++) {
+    out[n] = (char)(enc[n] ^ ks[n]);
+    if (!out[n]) break;
+  }
+  out[n] = 0;
+  for (size_t i = n; i < kPasswordMax; i++)
+    if ((enc[i] ^ ks[i]) != 0) out[0] = 0;  // garbage after the end: wrong current password (checked below)
+  char expect[33];
+  const char *p[] = {cur, nonce, out};
+  md5_joined_hex(p, 3, expect);
+  if (strcmp(expect, mac_hex) != 0) {  // hex from the page is lower case
+    *wrong_current = true;
+    out[0] = 0;
+    return false;
+  }
+  return out[0] == 0 || password_allowed(out);  // "" = back to the label password
+}
+
+void password_change_seal(const char *cur, const char *nonce, const char *pw, char enc_hex[2 * kPasswordMax + 1],
+                          char mac_hex[33]) {
+  uint8_t ks[kPasswordMax];
+  keystream(cur, nonce, ks);
+  size_t n = strlen(pw);
+  for (size_t i = 0; i < kPasswordMax; i++) snprintf(enc_hex + 2 * i, 3, "%02x", (uint8_t)((i < n ? pw[i] : 0) ^ ks[i]));
+  const char *p[] = {cur, nonce, pw};
+  md5_joined_hex(p, 3, mac_hex);
+}
+
 // nonce = 8 hex sequence number | 8 hex issue time | 24 hex HMAC(secret, "cbnonce" seq time)[0..11]
 bool DigestAuth::make_nonce(uint32_t seq, uint32_t ts, char out[41]) const {
   uint8_t msg[8], mac[kMacLen];

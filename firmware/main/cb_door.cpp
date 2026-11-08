@@ -107,7 +107,7 @@ void cmd_door_status(const char *) {
   cb_log("door: openings %lu, last by %s, measured %lu ms, pulse errors %lu, now %s, pin %s",
          (unsigned long)guard.count(), last_who, (unsigned long)last_len_ms, (unsigned long)pulse_errors,
          allowed ? "ready" : "LOCKED OUT", gpio_get_level((gpio_num_t)CB_PIN_DOOR_DRV) ? "HIGH" : "LOW");
-  cb_log("door: pulse %lu ms, max %lu ms, lock-out %lu ms (drafts until the real opener)",
+  cb_log("door: pulse %lu ms, max %lu ms, lock-out %lu ms (pulse fixed F-3, lock-out draft)",
          (unsigned long)cb::kDoorPulseMs, (unsigned long)cb::kDoorPulseMaxMs, (unsigned long)cb::kDoorLockoutMs);
 }
 

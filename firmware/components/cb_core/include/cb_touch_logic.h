@@ -13,8 +13,12 @@
 //     * relearned when something lies on the key for longer than kStuckMs (cloth, towel - M-34 a).
 //   "Pressed" with hysteresis (on above +kOnPercent, off below +kOffPercent) and a minimum hold time.
 //
-// 2 BellKeys (outdoor, two channels EG/OG) - a ring per press, decided after the minimum hold. Plausibility
-//   (SA 5.6 #3): if BOTH keys are raised at the same time, it is not a finger but wetting -> no ring.
+//     * taken over when it sits STEADY above the tracking band but clearly below a touch for kOffsetAdoptMs
+//       (FW-B-06_Baseline_eingefroren).
+//
+// 2 BellKeys (outdoor, two channels EG/OG) - a ring per press, decided after the minimum hold plus a short guard
+//   time. Plausibility (SA 5.6 #3): if BOTH keys are raised at the same time - or the other one rises during the
+//   guard time (FW-B-07_Beide_Tasten_klingelt) - it is not a finger but wetting -> no ring.
 //
 // 3 DoorKey (indoor, one channel) - a wrong trigger here opens the front door, so (SA 5.6 a-f, R18):
 //     * triggers only on RELEASE (a permanently wet sensor never triggers),
@@ -42,7 +46,14 @@ constexpr uint32_t kTrackTauMs = 60000;   // tracking time constant
 constexpr uint32_t kSettleMs = 1000;      // calm phase needed to learn the baseline after start
 constexpr float kSettleSpread = 2.0f;     // "calm" = max-min within 2 % during the settle phase
 constexpr uint32_t kStuckMs = 10000;      // raised longer than this: something lies on it -> relearn
+// FW-B-06_Baseline_eingefroren: a STEADY offset above the tracking band but below the release threshold
+// (+kTrackBand ... +kOffPercent, spread within kSettleSpread) is no finger - take it over as the new baseline after
+// kOffsetAdoptMs. Otherwise a step (warm-up after start, temperature, moved cable) freezes the baseline for good.
+constexpr uint32_t kOffsetAdoptMs = 30000;
 constexpr uint32_t kBellMinHoldMs = 60;   // outdoor: minimum hold before a ring
+// FW-B-07_Beide_Tasten_klingelt: a hand on both keys raises them some ms apart (08.11.2026: 21 ms). The ring waits
+// this long after the minimum hold; if the OTHER key rises above +kOffPercent meanwhile, it is "both" -> no ring.
+constexpr uint32_t kBellBothGuardMs = 120;
 constexpr uint32_t kDoorMinHoldMs = 150;  // indoor: minimum hold (longer than outdoors, SA 5.6 c)
 constexpr uint32_t kTapMaxMs = 2000;      // indoor: a tap is shorter than this (SA 5.6 a)
 constexpr uint32_t kHoldMs = 3000;        // indoor outside the window: hold this long ...
@@ -65,12 +76,16 @@ class TouchChannel {
   float delta_percent() const { return delta_; }
   uint32_t raw() const { return raw_; }
   uint32_t relearn_count() const { return relearns_; }
+  uint32_t offset_adopt_count() const { return adopts_; }
   void relearn(uint32_t now_ms);  // forget the baseline, learn anew once calm
 
  private:
   bool ready_ = false, pressed_ = false, raised_ = false;
   float baseline_ = 0, delta_ = 0;
-  uint32_t raw_ = 0, last_ms_ = 0, raised_at_ = 0, pressed_at_ = 0, relearns_ = 0;
+  uint32_t raw_ = 0, last_ms_ = 0, raised_at_ = 0, pressed_at_ = 0, relearns_ = 0, adopts_ = 0;
+  // steady offset (FW-B-06)
+  uint32_t offset_start_ = 0, offset_min_ = 0, offset_max_ = 0, offset_n_ = 0;
+  double offset_sum_ = 0;
   // settle phase
   bool settling_ = true;
   uint32_t settle_start_ = 0, settle_min_ = 0, settle_max_ = 0;

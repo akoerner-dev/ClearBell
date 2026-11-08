@@ -13,19 +13,36 @@ static const char kStatusPage[] = R"HTML(<!doctype html>
 <html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ClearBell Status</title>
 <style>
-:root{--bg:#f6f6f4;--card:#fff;--fg:#1d1d1b;--mute:#6b6b66;--line:#e2e2dd;--ok:#2f7d32;--bad:#b3261e;--warn:#a15c00}
-@media (prefers-color-scheme:dark){:root{--bg:#161615;--card:#21211f;--fg:#ececea;--mute:#9a9a94;--line:#33332f;--ok:#7bc47f;--bad:#f28b82;--warn:#f0b35a}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,sans-serif}
-header{padding:16px;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline}
-h1{font-size:20px;margin:0}#sub{color:var(--mute)}
+:root{--bg:#f4f6f4;--card:#fff;--fg:#1b1d1b;--mute:#62675f;--line:#dfe3dd;--ok:#2f7d32;--bad:#b3261e;--warn:#a15c00;
+ --acc:#1f5c3a;--acc-fg:#fff;--acc-soft:#e3efe7;--head:#1f5c3a;--head-fg:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#121412;--card:#1c201d;--fg:#e9ece8;--mute:#9aa197;--line:#2f3530;--ok:#7bc47f;
+ --bad:#f28b82;--warn:#f0b35a;--acc:#2f7a50;--acc-fg:#fff;--acc-soft:#203528;--head:#163d27;--head-fg:#e9f3ec}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,sans-serif;-webkit-text-size-adjust:100%}
+header{padding:14px 16px;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:4px 16px;align-items:baseline;background:var(--head);color:var(--head-fg)}
+h1{font-size:20px;margin:0}#sub{opacity:.8}
 main{display:grid;gap:12px;padding:0 16px 24px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
-section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
-h2{font-size:15px;margin:0 0 8px}table{border-collapse:collapse;width:100%}
-td,th{padding:3px 0;border-bottom:1px solid var(--line);vertical-align:top;text-align:left}
-td:last-child,th:last-child{text-align:right;font-variant-numeric:tabular-nums}
+section{background:var(--card);border:1px solid var(--line);border-top:3px solid var(--acc);border-radius:10px;padding:12px 14px;min-width:0}
+h2{font-size:15px;margin:0 0 8px;color:var(--acc)}table{border-collapse:collapse;width:100%}
+@media (prefers-color-scheme:dark){h2{color:#8fcca6}}
+td,th{padding:3px 10px 3px 0;border-bottom:1px solid var(--line);vertical-align:top;text-align:left}
+td{overflow-wrap:break-word}th{white-space:nowrap;font-size:13px}
+td:last-child,th:last-child{padding-right:0;text-align:right;font-variant-numeric:tabular-nums}
 tr:last-child td{border-bottom:0}.ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}
 .mute{color:var(--mute);font-size:13px}#err{color:var(--bad);padding:0 16px}
-input,select,button{font:inherit;margin:4px 4px 0 0}button{padding:4px 12px}section div h2{margin-top:14px}
+input,select,button{font:inherit;margin:4px 4px 0 0;border-radius:8px}
+input,select{padding:5px 8px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+button{padding:6px 14px;border:1px solid var(--acc);background:var(--acc);color:var(--acc-fg);cursor:pointer}
+button.alt{background:transparent;color:var(--fg);border-color:var(--line)}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}section div h2{margin-top:14px}
+.seg{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}.seg button{margin:0;flex:1 1 0;min-width:0;padding:6px 4px;white-space:nowrap;
+ background:var(--acc-soft);color:var(--fg);border-color:var(--line)}.seg button.on{background:var(--acc);color:var(--acc-fg);border-color:var(--acc)}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.row input{width:7em}
+/* Phones and small tablets: one column, full-width controls, finger-sized targets, 16 px inputs (no zoom on iOS) */
+@media (max-width:640px){header{padding:12px}h1{font-size:18px}#sub{font-size:13px;width:100%}
+ main{padding:0 10px 20px;gap:10px;grid-template-columns:1fr}section{padding:10px 12px}
+ input,select,button{font-size:16px}input[type=file],select,.row input{width:100%}
+ section>button,section div>button,.row button{width:100%;margin:6px 0 0}}
+@media (pointer:coarse){button,input,select{min-height:44px}}
 </style></head><body>
 <header><h1 id="title">ClearBell</h1><span id="sub">lädt …</span></header>
 <div id="err"></div>
@@ -54,6 +71,7 @@ function render(d){
   document.getElementById('title').textContent='ClearBell '+(sy.name||sy.image);
   const mode={normal:'Normalbetrieb',maintenance:'Wartung',setup:'Einrichtung'}[sy.mode]||sy.mode;
   document.getElementById('sub').textContent=mode+' · '+(sy.time||'Uhrzeit unbekannt (kein NTP)')+' · aktualisiert '+new Date().toLocaleTimeString('de-DE');
+  if(d.settings)m.append(settings(d.settings,sy.mode,d.door));
   if(d.radio){const r=d.radio;m.append(card('Funk',[
     ['WLAN',[{up:'verbunden',connecting:'verbindet',waiting:'wartet'}[r.wifi]||r.wifi,r.wifi==='up'?'ok':'bad']],
     ['Signal',r.wifi==='up'?[r.rssi+' dBm',r.rssi>-70?'ok':r.rssi>-80?'warn':'bad']:'–'],
@@ -77,7 +95,7 @@ function render(d){
     ['Ausgang',o.pin_high?['AN','warn']:['aus','ok']],['Öffnungen seit Start',o.openings_since_boot],
     ['letzter Puls',o.last_pulse_ms?o.last_pulse_ms+' ms':'–'],['Pulsfehler',[o.pulse_errors,o.pulse_errors?'bad':'ok']],
     ['Puls / Sperrzeit',o.pulse_ms+' ms / '+o.lockout_ms+' ms']]);
-    if(sy.mode==='maintenance')dc.append(pulseform(o.pulse_ms));m.append(dc)}
+    m.append(dc)}
   if(d.pairing)m.append(pairing(d.pairing,sy.mode));
   if(d.phones&&d.phones.available)m.append(phones(d.phones,sy.mode));
   if(d.remote&&d.remote.enabled){const f=d.remote;m.append(card('Fern-Öffnen (Push)',[
@@ -107,9 +125,56 @@ function render(d){
 async function post(url,data){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(data)});
   try{return await r.json()}catch(e){return {ok:false,message:'HTTP '+r.status}}}
 function show(el,r){el.textContent=r.message;el.className=r.ok?'ok':'bad'}
-function pulseform(ms){const s=$('div');s.append($('h2','','Pulslänge einstellen'));const i=$('input');i.type='number';i.min=100;i.max=5000;i.step=100;i.value=ms;
-  const b=$('button','','Speichern');const o=$('p','mute','100–5000 ms. So lang, dass Ihr Türöffner sicher freigibt; danach mit „door-test“ bzw. Klingeln prüfen.');
-  b.onclick=async()=>{show(o,await post('/door/pulse',{ms:i.value}))};s.append(i,b,o);paused=true;return s}
+// Card "Einstellungen": volume in every mode (Meister 08.11.2026), everything else only in maintenance.
+function settings(st,mode,door){
+  const s=$('section');s.append($('h2','','Einstellungen'));const out=$('p','mute','');
+  s.append($('div','','Lautstärke'));const seg=$('div','seg');
+  for(const v of [15,30,50,75,100]){const b=$('button',v===st.volume?'on':'',v+' %');b.type='button';b.setAttribute('aria-pressed',v===st.volume);
+    b.onclick=async()=>{show(out,await post('/settings',{vol:v}));load()};seg.append(b)}
+  const tb=$('button','alt','Probeton');tb.type='button';tb.onclick=async()=>{show(out,await post('/settings',{tone:'1'}))};
+  s.append(seg,tb,out);
+  const t=$('table');const row=(a,b)=>{const tr=$('tr');tr.append($('td','',a),$('td','',b));t.append(tr)};
+  row('LED-Abgleich (Grün zu Rot)',st.led_green_percent+' %');if(door)row('Pulslänge Türöffner',door.pulse_ms+' ms');
+  s.append(t);
+  row('Passwort der Statusseite',st.own_password?'eigenes':'vom Etikett');
+  if(mode!=='maintenance'){s.append($('p','mute','LED-Abgleich'+(door?', Pulslänge':'')+' und Passwort: Wartung einschalten (Boot-Taster 5 s halten).'));return s}
+  const d=$('div');d.append($('h2','','LED-Abgleich einstellen'));const r=$('div','row');const i=$('input');i.type='number';i.min=5;i.max=100;i.step=5;i.value=st.led_green_percent;
+  const b=$('button','','Speichern');const o=$('p','mute','5–100 % (Standard 40). Grün und Rot sollen gleich hell wirken – am besten mit der Front davor.');
+  b.onclick=async()=>{show(o,await post('/settings',{led:i.value}))};r.append(i,b);d.append(r,o);s.append(d);paused=true;
+  if(door)s.append(pulseform(door.pulse_ms));
+  s.append(pwform(st.own_password));
+  return s}
+// MD5 (RFC 1321) for the password change: the new password never crosses the WiFi in clear text (cb_http_auth.h).
+function md5(str){const K=[],S=[7,12,17,22,5,9,14,20,4,11,16,23,6,10,15,21];for(let i=0;i<64;i++)K[i]=Math.floor(Math.abs(Math.sin(i+1))*4294967296)|0;
+  const b=Array.from(str,c=>c.charCodeAt(0)&255),n=b.length;b.push(128);while(b.length%64!==56)b.push(0);
+  for(let i=0;i<8;i++)b.push(i<4?((n*8)>>>(8*i))&255:0);
+  let a0=0x67452301,b0=0xefcdab89|0,c0=0x98badcfe|0,d0=0x10325476;
+  for(let o=0;o<b.length;o+=64){const M=[];for(let i=0;i<16;i++)M[i]=b[o+4*i]|b[o+4*i+1]<<8|b[o+4*i+2]<<16|b[o+4*i+3]<<24;
+    let A=a0,B=b0,C=c0,D=d0;
+    for(let i=0;i<64;i++){let F,g;const r=i>>4;
+      if(r===0){F=(B&C)|(~B&D);g=i}else if(r===1){F=(D&B)|(~D&C);g=(5*i+1)%16}else if(r===2){F=B^C^D;g=(3*i+5)%16}else{F=C^(B|~D);g=(7*i)%16}
+      const s=S[r*4+i%4];const t=(A+F+K[i]+M[g])|0;A=D;D=C;C=B;B=(B+((t<<s)|(t>>>(32-s))))|0}
+    a0=(a0+A)|0;b0=(b0+B)|0;c0=(c0+C)|0;d0=(d0+D)|0}
+  return [a0,b0,c0,d0].map(v=>{let h='';for(let i=0;i<4;i++)h+=((v>>>(8*i))&255).toString(16).padStart(2,'0');return h}).join('')}
+function pwform(own){
+  const s=$('div');s.append($('h2','','Passwort der Statusseite'));
+  s.append($('p','mute',(own?'Ein eigenes Passwort ist gesetzt.':'Es gilt das Passwort vom Etikett.')+' Leer lassen und speichern = wieder das Etikett-Passwort. Werksreset stellt es ebenfalls her.'));
+  const f=(ph,ac)=>{const i=$('input');i.type='password';i.placeholder=ph;i.autocomplete=ac;i.maxLength=32;i.style.width='100%';return i};
+  const cur=f('aktuelles Passwort','current-password'),nw=f('neues Passwort (4–32 Zeichen)','new-password'),rp=f('neues Passwort wiederholen','new-password');
+  const b=$('button','','Passwort speichern');const o=$('p','mute','Mindestens 10 Zeichen sind sicherer. Keine Umlaute.');
+  b.onclick=async()=>{
+    if(nw.value!==rp.value){show(o,{ok:false,message:'Die beiden neuen Passwörter sind verschieden.'});return}
+    if(nw.value&&(nw.value.length<4||/[^\x20-\x7e]/.test(nw.value))){show(o,{ok:false,message:'4 bis 32 Zeichen, ohne Umlaute.'});return}
+    if(!confirm(nw.value?'Passwort jetzt ändern?':'Wieder das Etikett-Passwort verwenden?'))return;
+    try{const n=(await (await fetch('/settings/pw-nonce',{cache:'no-store'})).json()).nonce;
+      const ks=md5(cur.value+':'+n+':k1')+md5(cur.value+':'+n+':k2');let enc='';
+      for(let i=0;i<32;i++){const c=i<nw.value.length?nw.value.charCodeAt(i):0;enc+=(c^parseInt(ks.substr(2*i,2),16)).toString(16).padStart(2,'0')}
+      const r=await post('/settings/password',{enc,mac:md5(cur.value+':'+n+':'+nw.value)});show(o,r);
+      if(r.ok){cur.value=nw.value=rp.value='';setTimeout(()=>location.reload(),2500)}}catch(e){show(o,{ok:false,message:'Fehler: '+e})}};
+  s.append(cur,nw,rp,b,o);return s}
+function pulseform(ms){const s=$('div');s.append($('h2','','Pulslänge einstellen'));const r=$('div','row');const i=$('input');i.type='number';i.min=100;i.max=5000;i.step=100;i.value=ms;
+  const b=$('button','','Speichern');const o=$('p','mute','100–5000 ms (Standard 2000). So lang, dass Ihr Türöffner sicher freigibt; danach mit Klingeln und Öffnen prüfen.');
+  b.onclick=async()=>{show(o,await post('/door/pulse',{ms:i.value}))};r.append(i,b);s.append(r,o);paused=true;return s}
 function pairing(p,mode){
   const s=$('section');s.append($('h2','','Kopplung'));const t=$('table');
   const row=(a,b)=>{const tr=$('tr');tr.append($('td','',a));const v=Array.isArray(b)?b:[b];tr.append($('td',v[1]||'',v[0]));t.append(tr)};
@@ -163,7 +228,11 @@ function upload(files){
     const j=await r.json();out.textContent=j.message;out.className=j.ok?'ok':'bad';if(j.ok)load()}catch(e){out.textContent='Fehler: '+e;out.className='bad'}};
   s.append(sel,inp,b,out);paused=true;return s}
 let paused=false;
-async function load(){try{const r=await fetch('/status.json',{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);
+async function load(){try{const r=await fetch('/status.json',{cache:'no-store'});
+  // Password changed elsewhere: stop polling at once - every further try would count towards the 30-s lock.
+  if(r.status===401||r.status===429){paused=true;document.getElementById('err').textContent=
+    r.status===401?'Anmeldung nicht mehr gültig (Passwort geändert?) – Seite neu laden und neu anmelden.':'Zu viele falsche Passwörter – 30 s warten, dann Seite neu laden.';return}
+  if(!r.ok)throw new Error('HTTP '+r.status);
   render(await r.json());document.getElementById('err').textContent=''}catch(e){document.getElementById('err').textContent='Keine Daten: '+e.message}}
 load();setInterval(()=>{if(!paused)load()},5000);
 </script></body></html>

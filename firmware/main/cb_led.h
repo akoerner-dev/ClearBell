@@ -27,3 +27,4 @@ void cb_led_set(CbLed pattern);
 CbLed cb_led_get();
 void cb_led_poll();  // from loop(): advances blink patterns
 uint8_t cb_led_green_percent();  // brightness balance green vs red (PWM, console "led-balance")
+bool cb_led_set_green_percent(uint8_t v);  // status page (maintenance): 5..100, stored; false if out of range

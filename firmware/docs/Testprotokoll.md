@@ -22,33 +22,51 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 | Zeile | Board | Was tun | Erwartung |
 |---|---|---|---|
 | 1.8 | AU-1 | LED-Ersatzlast an `J_DOOR1`, 12 V aus/an, Reset-Taster | Last bleibt dunkel |
-| 2.7 | beide | Boot-Taster 5 s halten, nochmal 5 s, dann kurz | Wartung (grün blinkend) → Einrichtung (rot/grün) → Normalbetrieb |
-| 2.9 | beide | LED ansehen; `ring eg` an AU-1, `door` an IN-1 | IN-1 grün, AU-1 rot (OG fehlt); 2 s bernstein |
 | 5.11 | beide | Boot-Taster kurz | Lautstärke eine Stufe weiter, Tipp-Ton, bleibt nach `reboot` |
 | 5.12 | beide | `play ring`, `play ok`, `play error`, `play nonet` | gefällt, unterscheidbar, kein Knacken |
-| 6.10 | beide | `touch-log 30` mitlaufen lassen, Elektroden nacheinander antippen, 2 s und 5 s halten | Ruhe ±2 %, Finger deutlich über +100 %; Werte notieren (Grundlage für die endgültige Schwelle) |
-| 6.11 | AU-1 | EG-Elektrode kurz antippen, dann OG | je ein Klingeln, an IN-1 klingelt es bei EG; OG-Fehlerton (keine OG-Einheit) |
-| 6.12 | AU-1 | beide Elektroden mit einer Hand oder nassem Tuch gleichzeitig | kein Klingeln, Log „BOTH keys raised“ |
-| 6.13 | AU-1 → IN-1 | außen EG tippen, innen binnen 2 min kurz tippen | Tür „OPENED“ (AU-1: DOOR OPEN), Erfolgston innen |
-| 6.14 | IN-1 | ohne vorheriges Klingeln: kurz tippen; dann 3 s halten bis Tipp-Ton, loslassen | Tipp ignoriert; nach dem Ton loslassen öffnet |
-| 6.15 | IN-1 | Finger 10 s auflegen; feuchtes Tuch auflegen und liegen lassen | öffnet nicht; nach Wegnehmen funktioniert ein normaler Tipp wieder |
-| 6.16 | beide | direkt nach dem Einschalten die Elektrode berühren, dann loslassen | Baseline wird erst gelernt, wenn 1 s Ruhe ist; danach normal |
+| 6.10 | ~~AU-1~~ (beide ✓ 08.11., nach Behebung FW-B-06) – offen nur: Werte für die endgültige Schwelle am montierten Gerät | `touch-log 30` mitlaufen lassen, Elektroden nacheinander antippen, 2 s und 5 s halten | Ruhe ±2 %, Finger deutlich über +100 %; Werte notieren (Grundlage für die endgültige Schwelle) |
+| 6.17 | beide | `play error`/`play nonet` mit **75 %**, dabei `touch-log 15`, nichts berühren (tagsüber) | kein „door key ignored“ ohne Berührung |
 | 7.8 | AU-1 | LED-Ersatzlast an `J_DOOR1`; `door-test`, dann `door-test 300` nach 6 s | LED leuchtet 2 s bzw. kurz, sonst dunkel; Multimeter an `TP_DOOR_SW1` |
 | 7.9 | AU-1 | Ersatzlast, IN-1 Türtaste 3 s halten und loslassen | LED 2 s an |
-| 7.10 | AU-1 | **echter Öffner effeff 118W** (nach Lieferung, zusammen mit Bring-up 6.5): 10 × `door-test` mit 6 s Abstand; Pulslänge F-3 festlegen | Tür öffnet, kein Neustart, Q2/`D_FLY1` höchstens handwarm |
-| 8.14 | beide | LED ansehen (am besten mit Lichtleiter/Diffusor): grün, rot, bernstein; `led-balance 20` … `led-balance 70` probieren | grün und rot wirken gleich hell, bernstein ist als Mischfarbe erkennbar; gewählten Wert notieren (Standard 40) |
-| 8.15 | IN-1 | Handy oder PC im WLAN: `http://clearbell-eg.local/` öffnen, Anmeldung `clearbell` + Passwort aus `cb.py anlage-zeigen --passwort IN-1` | Anmeldefenster, danach die Statusseite; aktualisiert sich alle 5 s; lesbar auf dem Handy |
+| 8.14 | beide | **verschoben bis Front/Diffusor vorhanden** (Meister 08.11.2026: ohne Front nur ein vorläufiger Wert; bis dahin Standard 40). LED ansehen (am besten mit Lichtleiter/Diffusor): grün, rot, bernstein; `led-balance 20` … `led-balance 70` probieren | grün und rot wirken gleich hell, bernstein ist als Mischfarbe erkennbar; gewählten Wert notieren (Standard 40) |
+| 8.15 | IN-1 (PC ✓ 08.11.; offen: Handy) | Handy im WLAN: `http://clearbell-f3ac94.local/` (seit 10b; `clearbell-eg.local` gibt es nicht mehr) bzw. `http://192.168.1.176/` öffnen, Anmeldung `clearbell` + Passwort aus `cb.py anlage-zeigen --passwort IN-1` | Anmeldefenster, danach die Statusseite; aktualisiert sich alle 5 s; lesbar auf dem Handy |
 | 8.16 | IN-1 | echten Boot-Taster 5 s halten (Wartung), auf der Seite einen Ton hochladen (z. B. `ok`), danach Taster kurz | Upload-Feld erscheint nur in der Wartung; Ton ersetzt und hörbar (`play ok`); danach wieder Normalbetrieb |
 | 9.12 | AU-1 + Handy | Handy einrichten nach `cb.py fern-handy-anleitung <ID>` (Apps „ntfy“ und „HTTP Shortcuts“), Link setzen (`anlage-fern --link …`), AU-1 neu provisionieren; an EG klingeln, in der Push „Tür öffnen“ tippen | Push „Es klingelt – EG“ mit Knopf; Kurzbefehl läuft; Puls „for app <ID>“; Push „Tür per App geöffnet“ |
 | 9.13 | AU-1 + Handy | AU-1 stromlos machen und wieder einschalten | Push „ClearBell neu gestartet. Grund: power-on“ |
 | 9.14 | – | ~~echte Topics statt Test-Topics~~ – entfällt: seit 10c werden die Topics aus der EG-Kopplung abgeleitet | – |
-| 10.9 | AU-1 | Wartung, im Browser „Firmware aktualisieren“ mit `clearbell.bin` aus `%USERPROFILE%\clearbell-build\aussen` | Fortschrittsmeldung, Neustart, Seite lädt nach 25 s neu, „Probezeit“ verschwindet nach ≈ 1 min |
+| 8.18 | IN-1 + Handy | Wartung, auf dem Handy Passwort ändern (aktuelles `IN-1`, neues frei wählbar), neu anmelden; danach leer speichern → Etikett-Passwort; zum Schluss wieder `IN-1` (Konsole `web-pass IN-1`) | Anmeldung nur mit dem jeweils gültigen Passwort; andere offene Tabs zeigen „Anmeldung nicht mehr gültig“ statt die Sperre auszulösen |
 | 10a.12 | IN-1 | Werksreset (Taster 2 × 5 s, dann 15 s), mit dem Handy den QR-Code aus `Geheimnisse/etiketten/f3ac94.png` bzw. die Daten aus der `.txt` scannen | Handy verbindet sich mit `ClearBell-f3ac94`, Einrichtungsseite öffnet sich von selbst (Captive Portal); WLAN wählen, EG, Speichern → Einheit im Heim-WLAN |
 | 10a.13 | – | Etikett ansehen (`.txt`/`.png`): passt Inhalt und Größe zum geplanten Aufkleber? | Entscheidung Etikett |
 | 10b.10 | AU-1 + IN-1 | nach 10a.12: auf der Seite der Außeneinheit „Inneneinheiten suchen“, Gerätecode vom Etikett eintippen | gekoppelt, beide starten neu, Klingeln geht |
 | 10c.8 | IN-1 + Handy | Wartung an IN-1, Seite **auf dem Handy** öffnen, „Handy hinzufügen“, dann die beiden Links antippen (Apps ntfy und HTTP Shortcuts vorher installieren) | ntfy abonniert; HTTP Shortcuts zeigt den Import „ClearBell Tür öffnen“; nach dem nächsten Klingeln öffnet der Knopf in der Push den Kurzbefehl und die Tür |
 
 ---
+
+## Schritt 11 – Abnahme: Dauertests (SA 10.3)
+
+**7-h-Dauertest, lautlos (07.11.2026 21:12 – 08.11.2026 04:07, `tools/dauertest.py --stunden 7 --takt 300`).** Beide
+Boards im Normalbetrieb mit Modem-Sleep, Gastnetz „DingDong“, AU-1 mit Firmware vom 07.11. (F-3-Text), IN-1 Stand
+06.11. Auf Wunsch des Meisters nachts **ohne Klingeln, Töne und Türpulse**: Der PC liest nur alle 5 min `info` und `net`
+mit; Netzverkehr ist der Herzschlag zwischen den Einheiten. Rohdaten: `V0.2/05_Inbetriebnahme/Dauertest/dauertest_20261107_2112.csv`
+und `.log` im OneDrive-Projektordner.
+
+| # | Prüfung | Erwartung | AU-1 | IN-1 |
+|---|---|---|---|---|
+| 11.1 | Abfragen gelesen | alle | 84/84 | 84/84 |
+| 11.2 | kein Neustart | Startzähler gleich, Laufzeit steigt | ✓ Start #55, 384 → 25 285 s | ✓ Start #53, 2945 → 27 845 s |
+| 11.3 | kein Coredump, Selbsttest | no / OK | ✓ | ✓ |
+| 11.4 | kein Speicherleck | freier Heap ohne Abwärtstrend | ✓ 8 507 331 → 8 507 371 B (+40), kleinster Wert = Anfang | ✓ 8 569 119 → 8 569 123 B (+4), kleinster Wert 8 568 891 |
+| 11.5 | kein Paketverlust | Wiederholungen, verworfene, doppelte Pakete, volle Warteschlange: kein Zuwachs | ✓ alle 0 | ✓ alle 0 |
+| 11.6 | Verbindung | WLAN-Abbrüche 0, Gegenstelle bei jeder Abfrage erreichbar | ✓ 0, 84/84 | ✓ 0, 84/84 |
+| 11.7 | Herzschlag | gesendet = empfangen | IN-1 → AU-1: 1660 gesendet / 1660 empfangen | AU-1 → IN-1: 1660 empfangen |
+| 11.8 | Funk | – | RSSI −43 … −40 dBm | RSSI −52 … −39 dBm |
+
+11.7: AU-1 zählt 6640 gesendete Rahmen, genau das Vierfache der bei IN-1 angekommenen. Vermutlich zählt der Zähler auch
+Rahmen an die nicht vorhandene OG-Einheit mit, die ohne Adresse gar nicht gesendet werden (`link_send` verwirft sie).
+Nicht im Einzelnen geprüft, kein Verlust: Retries und Erreichbarkeit sind sauber.
+
+**Nicht abgedeckt** (lautlos): Klingelwege und Türbefehl unter Dauerlast. Die laufen vor dem 72-h-Test tagsüber mit,
+z. B. `ring eg` in größerem Abstand bei kleiner Lautstärke. **72-h-Test:** offen (vor dem Einbau).
 
 ## Schritt 10c – Handys über die Webseite der Inneneinheit (06.11.2026)
 
@@ -116,6 +134,7 @@ Prüfung des Image-Kopfs, SHA-256 des Images, Probezeit mit Rückfall.
 | 10.6 | `update-fault nowifi`, Update | kein WLAN in der Probezeit → Rückfall nach 5 min | ✓ erst Absturz (Befund FW-B-05), nach der Korrektur: „NOT healthy (WiFi down, peers 0x00 of 0x02) – ROLLBACK“ bei 300 s, zurück in app0, wieder im WLAN |
 | 10.7 | Türpuls während Flash-Schreibvorgängen | Timer-Interrupt läuft aus IRAM (`CONFIG_GPTIMER_ISR_IRAM_SAFE`) | ✓ konfiguriert; Pulse 2000/800 ms exakt gemessen |
 | 10.8 | Versionsstring | `0.2.0-dev+innen` / `+aussen` im Image | ✓ |
+| 10.9 | **Handprüfung** (08.11.2026, Meister): Update im Browser auf AU-1 und IN-1, Wartung, „Firmware aktualisieren“ | Fortschritt, Neustart, Probezeit endet; falsches Image abgewiesen | ✓ beide: falsches Image (innen auf außen) abgewiesen (Meister); danach `update-status` „running … from app1, confirmed“, Start #57 / #56, kein Coredump, Selbsttest OK. Inhalt: Statusseite mit Karte „Einstellungen“, Dunkelgrün, Handy-Layout (siehe 8.17) |
 
 **Befund FW-B-05 (behoben):** Mit dem Testfehler „nowifi“ startete der Webserver ohne Netzwerk-Stack und die Firmware
 stürzte ab (sie fiel trotzdem zurück). Der Stack startet jetzt immer; „nowifi“ verhindert nur das Verbinden. Relevant
@@ -183,6 +202,9 @@ Daten lokal geprüft (Desktop und 375 px Handybreite, kein waagrechtes Scrollen)
 | 8.11 | Öffnungsprotokoll AU-1 nach den Befehlen von IN-1, dann `door-test 300`, `reboot` | Innentasten-Öffnungen **nur als Summe** (2), Service-Puls einzeln mit Uhrzeit; nach Neustart erhalten; JSON ohne „wer zuletzt“ | ✓ |
 | 8.12 | 25 Klingeln, währenddessen 90 Abrufe der Statusseite (beide Einheiten) | alle quittiert, Zeiten wie ohne Seite (Schritt 3: Median 71 ms) | ✓ 25/25, Median 73 ms, max 136 ms |
 | 8.13 | Dauer der Momentaufnahme in der Hauptschleife (`web`) | wenige ms | ✓ 3–5 ms (vorher 23 ms, siehe Befund) |
+| 8.15 | **Handprüfung PC** (08.11.2026, Meister, Firefox): IN-1 im Browser | Anmeldung, Statusseite, lesbar | ✓ über `http://192.168.1.176/`; alle Karten gefüllt (Funk, Protokoll, Touch −1,3 %, Kopplung f41138, Handys, Türöffnungen mit den 3 Öffnungen vom 08.11., Audio 15 %, System Start 55). `clearbell-eg.local` löst nicht auf – richtig, seit 10b heißt die Einheit `clearbell-f3ac94.local` (Anleitung der Sammelliste veraltet, korrigiert). **Meister 08.11.2026: keine Zusatznamen wie `clearbell-eg.local`** – die Nummern-Namen trennen mehrere Anlagen im Verkauf. Nachgemessen: beide Einheiten beantworten mDNS 20/20 (≤ 0,25 s, Mitschnitt); dass Windows auf dem TOWER `clearbell-f3ac94.local` zeitweise sofort ablehnt, liegt an einer zwischengespeicherten Fehlantwort von einer Abfrage während des Neustarts (`ipconfig /flushdns` als Administrator). Kosmetik: Spaltenköpfe der Touch-Tabelle klebten zusammen („RohwertBaselineAbweichung“) → Zellenabstand 10 px ergänzt (`cb_status_page.h`), seit 10.9 (08.11.) auf beiden Einheiten. Handy offen |
+| 8.17 | **Statusseite überarbeitet** (Meister 08.11.2026): Karte „Einstellungen“ oben – Lautstärke 15/30/50/75/100 % auch im Normalbetrieb (Entscheidung Meister: der Boot-Taster ändert sie ohnehin ohne Anmeldung), Probeton; LED-Abgleich und Pulslänge nur in der Wartung (`POST /settings`, sonst 403; Werte außerhalb des Bereichs abgelehnt, auch 261 → nicht als 5 gedeutet). Akzent Dunkelgrün (Kopfleiste, Kartenrand, Überschriften, Knöpfe) hell/dunkel; unter 640 px einspaltig, Knöpfe/Felder volle Breite, ≥ 44 px bei Touch, 16-px-Felder | Vorschau mit echter `status.json` von AU-1: Desktop dunkel, Handy 375 px hell, Normalbetrieb und Wartung | ✓ Darstellung (Vorschau); Bedienung am Gerät ✓ (Meister 08.11.2026, Handy) |
+| 8.18 | **Eigenes Passwort der Statusseite** (Meister 08.11.2026; Produktreife 8): in der Wartung auf der Karte „Einstellungen“ (aktuelles + neues Passwort), Konsole `web-pass <neu>` / `web-pass label`; gespeichert in `cb_user` „web_pass“, Werksreset → Etikett. Das neue Passwort geht **verschlüsselt** über das WLAN (XOR mit MD5-Schlüsselstrom aus aktuellem Passwort und Einmal-Nonce, MAC prüft das aktuelle Passwort, `cb_http_auth.h`); 5 falsche aktuelle Passwörter → 60 s Sperre | PC-Tests (Hin/Rück, falsches aktuelles, anderer Nonce, leer = Etikett, zu kurz/Umlaut/Leerzeichen); JS-MD5 = C-Ergebnis; am Gerät per HTTP | ✓ 120 Tests / 2821 Prüfungen; Seite und Firmware liefern denselben Vektor (`enc ac46…5b6f`, `mac b3ba…e58e`), md5("abc") und 100 × „a“ richtig. IN-1 über HTTP: falsches aktuelles → „aktuelles Passwort falsch“, „ab“ → abgelehnt, Wechsel → Anmeldung mit neuem ok, Rückwechsel ok. **Gefunden dabei:** urllib wiederholt mit altem Passwort 5× → 30-s-Sperre für alle; ein offener Browser-Tab hätte sie alle 5 s neu ausgelöst → Seite stoppt die Abfrage bei 401/429 und bittet um Neuladen. Gesetzt (Meister): AU-1 → `AU-1`, IN-1 → `IN-1` (`cb.py anlage-webpasswort`, damit die PC-Werkzeuge mitkommen) |
 
 **Befund FW-B-03 (behoben):** Die erste Fassung las die Belegung des Dateisystems bei jeder Momentaufnahme
 (`LittleFS.usedBytes()` geht alle Blöcke durch) und hielt die Hauptschleife damit 23 ms auf. Jetzt wird die Belegung
@@ -205,7 +227,8 @@ nur beim Start und nach einem Upload ermittelt: 3–5 ms.
 
 Ab hier schaltet die Außeneinheit GPIO47 wirklich. Am Prüfplatz hängt kein echter Öffner. Geprüft per Rücklesen des
 Pins (Ein-/Ausgang) und Zeitmessung im Timer-Interrupt; Last und echter Öffner in der Sammelliste (7.8–7.10).
-Entwurfswerte: Puls 2000 ms, harte Obergrenze 5000 ms, Sperrzeit 5000 ms ab Beginn, für alle Pfade.
+Werte: Puls 2000 ms (F-3, festgelegt 07.11.2026 nach 7.10), harte Obergrenze 5000 ms, Sperrzeit 5000 ms ab Beginn
+(Entwurf), für alle Pfade.
 
 | # | Prüfung | Erwartung | Ergebnis |
 |---|---|---|---|
@@ -216,6 +239,7 @@ Entwurfswerte: Puls 2000 ms, harte Obergrenze 5000 ms, Sperrzeit 5000 ms ab Begi
 | 7.5 | zweiter `door-test` in der Sperrzeit; `door-test 300`; `door-test 9000` | abgelehnt; 300 ms; außerhalb der Grenze abgelehnt | ✓ |
 | 7.6 | `door-test 2000`, sofort `wdt-test` (Hauptschleife hängt) | Puls endet trotzdem nach 2000 ms, danach Watchdog-Neustart, Pin LOW | ✓ Ende nach 2000 ms während des Hängers; nach Neustart LOW |
 | 7.7 | IN-1 `touch-sim 400 3500`, danach `door` | Puls 2000 ms „for EG“; zweiter Befehl: „refused: lock-out time“ | ✓ OPENED nach 112 ms, Puls 2000 ms, zweiter abgelehnt |
+| 7.10 | **echter Öffner effeff 118W** an `J_DOOR1` (12 V Labornetzteil, Spulenstrom 270 mA, Freilauf `D_FLY1` auf der Platine): 10 × `door-test` (2000 ms) mit ≈ 6 s Abstand (07.11.2026, zusammen mit Bring-up 6.5) | Öffner schaltet, kein Neustart, Q2/`D_FLY1` höchstens handwarm | ✓ 10/10 geschaltet (Meister), je 2000 ms gemessen, 0 Pulsfehler, kein Neustart (Start #54 durchgehend), Q2/`D_FLY1` handwarm bestätigt (Meister). Pulslänge F-3 damit auf 2000 ms festgelegt (Meister) |
 
 **Hinweis:** Ein Neustart der Außeneinheit setzt die Sperrzeit zurück (sie liegt im RAM). Ein Neustart dauert länger
 als ein paar Sekunden und ist im Log sichtbar; bewusst so belassen.
@@ -237,6 +261,29 @@ Schwellen sind Entwürfe: ein +100 %, aus +50 %, Mindest-Haltedauer außen 60 ms
 | 6.7 | IN-1 `touch-sim 400 3500` außerhalb des Fensters | nach 3 s Tipp-Ton, beim Loslassen Tür auf | ✓ OPENED nach 97 ms |
 | 6.8 | IN-1 `touch-sim 400 9000` / `37 5000` / `20 8000` | zu lang: ignoriert; Wischen und Annäherung: nichts | ✓ |
 | 6.9 | AU-1 `touch-sim both 400 1000`, dann `og 400 300` | beide: kein Klingeln (Nässe); OG: Klingeln, Fehler nach 1,2 s (keine OG-Einheit) | ✓ |
+
+**Handprüfungen mit dem Finger (08.11.2026, Meister, Lautstärke 15 %).** Mitschnitte `touch_IN1_20261108*.txt` in
+`V0.2/05_Inbetriebnahme/` (OneDrive-Projektordner).
+
+| # | Prüfung | Erwartung | Ergebnis |
+|---|---|---|---|
+| 6.10 IN-1 | `touch-log 30`, Finger auflegen | Ruhe ±2 %, Finger ≫ +100 % | ✓ Ruhe −0,7 … +1,1 %, Finger +394 … +500 % (Baseline 28 828); beim Loslassen einmal kurz +20 % im Zustand „rest“ |
+| 6.13 IN-1 | Klingeln (`ring eg` an AU-1 statt Finger außen), innen kurz tippen | Tür öffnet, Fenster endet | ✓ „tap in the armed window“, OPENED nach 90 ms; zwei weitere Tipps danach ignoriert. Teil „außen mit Finger“ offen (6.11) |
+| 6.14 IN-1 | ohne Fenster ≈ 2 s halten; 3,5 s halten und loslassen | ignoriert; nach dem Tipp-Ton öffnet | ✓ ignoriert; „held 3 s“, OPENED nach 49 ms |
+| 6.15 IN-1 | Finger ≈ 7,5 s auflegen | öffnet nicht | ✓ „held 3 s“, beim Loslassen nach 7,5 s ignoriert; danach Ruhe +0,7 %. Feuchtes Tuch offen |
+| 6.10 AU-1 | `touch-log 30`, EG und OG antippen, EG ≈ 5 s halten | Ruhe ±2 %, Finger ≫ +100 % | ✗ **Ruhe +13,6 % (EG) / +11,0 … +14,1 % (OG) über den ganzen Mitschnitt** → FW-B-06_Baseline_eingefroren. Finger: EG +368 … +450 %, OG +356 % (`touch_AU1_20261108.txt`) |
+| 6.11 AU-1 | EG kurz, OG kurz | je ein Klingeln; OG-Fehler | ✓ EG quittiert nach 51 ms; OG „FAILED – flat did not answer“ nach 1201 ms; EG 5 s halten → genau ein Klingeln (38 ms) |
+| 6.12 AU-1 | flache Hand auf beide Elektroden ≈ 4,5 s | kein Klingeln | ✗ **EG wurde 21 ms vor OG als gedrückt erkannt, das Klingeln ging trotz „BOTH keys raised – wetting, no ring“ raus** (quittiert 125 ms) → FW-B-07_Beide_Tasten_klingelt. Werte bis +6400 % (EG) / +6200 % (OG), steigend |
+| 6.18 | **Nach Behebung FW-B-06 und FW-B-07** (beide Boards neu geflasht 08.11.2026; `cb.py test` 118 Tests, 2800 Prüfungen, 0 fehlgeschlagen; Gegenprobe ohne die Korrekturen: 4 Prüfungen in den neuen Tests rot) | | |
+| 6.10 AU-1 (2) | Ruhe nach dem Neustart, Finger | Ruhe ±2 % | ✓ −0,9 … +1,1 % vor den Berührungen; nach der flachen Hand kurz +4 … +17 %, 20 s später wieder −0,8 / −1,1 %. Finger EG +253 … +310 %, OG +235 % (`touch_AU1_20261108_nachpruefung.txt`) |
+| 6.11 AU-1 (2) | EG kurz, OG kurz | wie oben | ✓ EG quittiert nach 102 ms, OG-Fehler nach 1201 ms |
+| 6.12 AU-1 (2) | flache Hand auf beide Tasten | kein Klingeln | ✓ OG 100 ms vor EG erkannt, „BOTH keys raised“, **kein Klingeln** |
+| 6.12b AU-1 | flache Hand von der EG-Seite her über beide Tasten geschoben | (offen, siehe Text) | EG ≈ 0,4 s allein gedrückt → Klingeln EG (98 ms), erst danach OG → „BOTH“. Liegt jenseits der Wartezeit (60 + 60 + 120 ms) und ist von „EG gedrückt, dann OG gestreift“ nicht zu unterscheiden. **Meister 08.11.2026: so lassen** (längere Wartezeit würde SA 1.3 ≤ 0,5 s reißen) |
+| 6.12c AU-1 | nasses Tuch ≈ 15 s über beide Tasten, wegnehmen, EG tippen | kein Klingeln; danach normal | ✓ kein Klingeln; Tuch hob beide nur auf **+11,4 … +12,0 %** (beim Auflegen kurz bis +78 % EG / +30 % OG), weit unter +100 % – daher auch kein Neulernen nötig; nach dem Wegnehmen sofort ±0,5 %; EG-Tipp quittiert nach 84 ms (`touch_AU1_20261108_tuch.txt`) |
+| 6.15b IN-1 | Finger > 10 s auflegen, loslassen, dann 3 s halten | Neulernen, keine Öffnung; danach öffnet das 3-s-Halten | ✓ (Meister, ohne Mitschnitt) – Zähler danach: relearned 1, rejected 1; Öffnungsprotokoll 06:31:55 „opened“; Ruhe −1,5 % |
+| 6.15c IN-1 | nasses Tuch | – | entfällt (Meister 08.11.2026): Inneneinheit hängt innen; das Tuch hob an AU-1 nur +12 % und deckt den Neulern-Pfad nicht ab – der ist mit 6.15b am Gerät belegt |
+| 6.16 IN-1 | Finger auflegen, `reboot`, ≈ 40 s weiter halten, loslassen | keine Auslösung; nach dem Loslassen normaler Ruhewert | ✓ mit Einschränkung der Erwartung: Ein still aufgelegter Finger gilt als „Ruhe“ → Baseline **mit Finger** gelernt (187 695, Rohwert ≈ 192 000, Δ +2 … +3 %), keine Auslösung. Nach dem Loslassen schnelle Nachführung nach unten: Baseline 29 204, Δ −2,0 → −1,9 % (danach langsame Nachführung). Kein Ereignis, kein Neulernen. AU-1 nicht eigens geprüft (gleiche `TouchChannel`-Logik) |
+| 6.17 IN-1 | Klingelton (15 %) ohne Berührung | Touch unbeeinflusst | ✓ −0,2 … +0,6 %, kein Ereignis. **Offen bei 75 %:** beim Ton-Abspielen mit 75 % (5.12, 08.11.) kam dreimal „door key ignored“ ohne Berührung – Verdacht Lautsprecher → Touch, tagsüber wiederholen |
 
 **Abweichung von SA 5.6, vom Nutzer bestätigt am 06.11.2026** (ebenso: Scharfschaltfenster endet mit der ersten
 Öffnung, offen in SA 12): Die Baseline wird **in der Firmware** geführt (`cb_touch_logic`), nicht
@@ -333,9 +380,9 @@ Netz: Gastnetz des Heim-Routers (Name absichtlich nicht im öffentlichen Repo), 
 | 2.4 | richtig provisionieren (`cb.py provisionieren AU-1 COM4` / `IN-1 COM3`) | Name, Rolle, WLAN im Log, **keine Geheimnisse im Log**, `mode: normal` | ✓ | ✓ |
 | 2.5 | `factory-reset JA` im Normalbetrieb | abgelehnt | ✓ | |
 | 2.6 | `factory-reset` im Einrichtungsmodus | erst Rückfrage, mit `JA` gelöscht, Neustart als „not provisioned“ | ✓ | |
-| 2.7 | **Handprüfung:** Boot-Taster 5 s halten | Wartung, LED grün blinkend; nochmals 5 s → Einrichtung, rot/grün im Wechsel; kurzer Druck → Normalbetrieb | ⏳ | ⏳ |
+| 2.7 | **Handprüfung:** Boot-Taster 5 s halten | Wartung, LED grün blinkend; nochmals 5 s → Einrichtung, rot/grün im Wechsel; kurzer Druck → Normalbetrieb | ✓ 08.11.2026: erstes Halten vor Mitschnitt-Start (Meister), Log setup (AP `ClearBell-f41138` an) → normal (AP aus), WLAN ohne Abbruch | ✓ 08.11.2026: Log maintenance → setup (AP `ClearBell-f3ac94` an) → normal (AP aus), WLAN ohne Abbruch; LED wie erwartet (Meister) |
 | 2.8 | **Handprüfung:** kurzer Druck im Normalbetrieb | Log „volume step“ | ⏳ | ⏳ |
-| 2.9 | **Handprüfung:** LED im Normalbetrieb | IN-1 grün (Außeneinheit erreichbar); AU-1 **rot**, weil die OG-Einheit fehlt; bernstein 2 s nach `ring eg` | ⏳ | ⏳ |
+| 2.9 | **Handprüfung:** LED im Normalbetrieb | IN-1 grün (Außeneinheit erreichbar); AU-1 **rot**, weil die OG-Einheit fehlt; bernstein 2 s nach `ring eg` | ✓ 08.11.2026 (Meister): rot, 2 × bernstein nach `ring eg` (Quittung 66/117 ms) | ✓ grün, bernstein |
 
 ## Schritt 1 – Gerüst (06.11.2026)
 
