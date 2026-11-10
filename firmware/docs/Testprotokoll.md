@@ -21,16 +21,9 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 
 | Zeile | Board | Was tun | Erwartung |
 |---|---|---|---|
-| 1.8 | AU-1 | LED-Ersatzlast an `J_DOOR1`, 12 V aus/an, Reset-Taster | Last bleibt dunkel |
-| 5.11 | beide | Boot-Taster kurz | Lautstärke eine Stufe weiter, Tipp-Ton, bleibt nach `reboot` |
-| 5.12 | beide | `play ring`, `play ok`, `play error`, `play nonet` | gefällt, unterscheidbar, kein Knacken |
 | 6.10 | ~~AU-1~~ (beide ✓ 08.11., nach Behebung FW-B-06) – offen nur: Werte für die endgültige Schwelle am montierten Gerät | `touch-log 30` mitlaufen lassen, Elektroden nacheinander antippen, 2 s und 5 s halten | Ruhe ±2 %, Finger deutlich über +100 %; Werte notieren (Grundlage für die endgültige Schwelle) |
-| 6.17 | beide | `play error`/`play nonet` mit **75 %**, dabei `touch-log 15`, nichts berühren (tagsüber) | kein „door key ignored“ ohne Berührung |
-| 7.8 | AU-1 | LED-Ersatzlast an `J_DOOR1`; `door-test`, dann `door-test 300` nach 6 s | LED leuchtet 2 s bzw. kurz, sonst dunkel; Multimeter an `TP_DOOR_SW1` |
-| 7.9 | AU-1 | Ersatzlast, IN-1 Türtaste 3 s halten und loslassen | LED 2 s an |
 | 8.14 | beide | **verschoben bis Front/Diffusor vorhanden** (Meister 08.11.2026: ohne Front nur ein vorläufiger Wert; bis dahin Standard 40). LED ansehen (am besten mit Lichtleiter/Diffusor): grün, rot, bernstein; `led-balance 20` … `led-balance 70` probieren | grün und rot wirken gleich hell, bernstein ist als Mischfarbe erkennbar; gewählten Wert notieren (Standard 40) |
 | 8.15 | IN-1 (PC ✓ 08.11.; offen: Handy) | Handy im WLAN: `http://clearbell-f3ac94.local/` (seit 10b; `clearbell-eg.local` gibt es nicht mehr) bzw. die IP aus der Konsole (`net`) öffnen, Anmeldung `clearbell` + Passwort aus `cb.py anlage-zeigen --passwort IN-1` | Anmeldefenster, danach die Statusseite; aktualisiert sich alle 5 s; lesbar auf dem Handy |
-| 8.16 | IN-1 | echten Boot-Taster 5 s halten (Wartung), auf der Seite einen Ton hochladen (z. B. `ok`), danach Taster kurz | Upload-Feld erscheint nur in der Wartung; Ton ersetzt und hörbar (`play ok`); danach wieder Normalbetrieb |
 | 9.12 | AU-1 + Handy | Handy einrichten nach `cb.py fern-handy-anleitung <ID>` (Apps „ntfy“ und „HTTP Shortcuts“), Link setzen (`anlage-fern --link …`), AU-1 neu provisionieren; an EG klingeln, in der Push „Tür öffnen“ tippen | Push „Es klingelt – EG“ mit Knopf; Kurzbefehl läuft; Puls „for app <ID>“; Push „Tür per App geöffnet“ |
 | 9.13 | AU-1 + Handy | AU-1 stromlos machen und wieder einschalten | Push „ClearBell neu gestartet. Grund: power-on“ |
 | 9.14 | – | ~~echte Topics statt Test-Topics~~ – entfällt: seit 10c werden die Topics aus der EG-Kopplung abgeleitet | – |
@@ -39,7 +32,34 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 | 10a.13 | – | Etikett ansehen (`.txt`/`.png`): passt Inhalt und Größe zum geplanten Aufkleber? | Entscheidung Etikett |
 | 10b.10 | AU-1 + IN-1 | nach 10a.12: auf der Seite der Außeneinheit „Inneneinheiten suchen“, Gerätecode vom Etikett eintippen | gekoppelt, beide starten neu, Klingeln geht |
 | 10c.8 | IN-1 + Handy | Wartung an IN-1, Seite **auf dem Handy** öffnen, „Handy hinzufügen“, dann die beiden Links antippen (Apps ntfy und HTTP Shortcuts vorher installieren) | ntfy abonniert; HTTP Shortcuts zeigt den Import „ClearBell Tür öffnen“; nach dem nächsten Klingeln öffnet der Knopf in der Push den Kurzbefehl und die Tür |
-| 10d.13 | IN-1 (Browser oder Handy) | Wartung, Karte „System“ → „Firmware aktualisieren“: `clearbell-0.2.0-dev-innen.bin` (Build-Ordner) wählen, installieren; danach die unsignierte `clearbell.bin` | erste installiert („signiert: Hersteller“), zweite abgewiesen „nicht signiert“; Karte „Einstellungen“ zeigt „Update-Schlüssel: Hersteller“ und in der Wartung den Abschnitt „Update-Schlüssel“ |
+| 1.8b | AU-1 | **USB ab**, nur 12 V aus/an (kalter Start von Prozessor und Treiber zusammen) | Last bleibt dunkel |
+| 5.13 | IN-1 | im Gehäuse am Montageort: Klingel mit üblicher Lautstärke | laut genug (10.11.: bei 15 % ohne Gehäuse zu leise) |
+| 5.14 | AU-1 | im Gehäuse: `play error` mit 50 / 75 / 100 % | kein Klirren; sonst Höchstgrenze außen senken (10.11.: ohne Gehäuse klirrt es bei 75 % deutlich) |
+
+**Reihenfolge (Meister 10.11.2026):** zuerst diese Handprüfungen; der 72-h-Test läuft ganz zum Schluss mit beiden
+Einheiten im Gehäuse.
+
+### Handprüfungen 10.11.2026 (TOWER, gemeinsam mit dem Meister, Firmware `c6dc996`)
+
+| Zeile | Board | Ergebnis |
+|---|---|---|
+| 10d.13 | IN-1, PC-Browser | ✓ signierte `clearbell-0.2.0-dev-innen.bin` installiert „(signiert: Hersteller)“, Neustart (Start #69, Slot app0, Selbsttest ok); unsignierte `clearbell.bin` abgewiesen „Datei ist nicht signiert“, kein Neustart; Abschnitt „Update-Schlüssel“ mit beiden Herstellerkennungen und „eigener Schlüssel: keiner“. Umschalter „nur eigener“ erscheint bestimmungsgemäß erst mit eigenem Schlüssel |
+| 8.16 | IN-1 | ✓ Upload nur in der Wartung; `fehler.wav` als `ok` hochgeladen → `ok` 0,82 s, `play ok` spielt hörbar den Fehlerton; Original zurück (0,33 s); Taster kurz → Normalbetrieb. Bestätigungsmeldung zu kurz sichtbar → FW-B-12 |
+| 5.11 | beide | ✓ Tipp-Ton, 15 → 30 %, nach `reboot` weiter 30 % (beide); danach wieder 15 % |
+| 5.12 | beide | ✓ alle vier Töne gefallen, unterscheidbar, kein Knacken (15 %). Klingel bei 15 % ohne Gehäuse zu leise → 5.13 |
+| 6.17 | beide | ✓ 75 %, je 2 × `play error` + 2 × `play nonet`, `touch-log 15` ohne Berührung: IN-1 150 Werte −1,9 … −0,8 %, AU-1 je 150 Werte EG −0,7 … −0,2 %, OG −0,8 … −0,3 %; nie außerhalb „rest“, kein „door key ignored“. AU-Lautsprecher klirrt bei 75 % → 5.14 |
+| 1.8 | AU-1, LED + Öffner an `J_DOOR1` | ✓ 12 V aus/an und Reset-Taster: LED dunkel, Öffner still. USB steckte → Prozessor lief beim 12-V-Schalten weiter (kalter Start: 1.8b) |
+| 7.8 | AU-1 | ✓ `door-test` 2000 ms, `door-test 300` 300 ms (Konsole „pin read back HIGH/LOW“), LED und Öffner entsprechend; Multimeter nicht genutzt |
+| 7.9 | IN-1 → AU-1 | ✓ Türtaste 3 s: AU-1 „door challenges 1, opened 1, refused 0“, LED und Öffner 2 s |
+
+Befunde (Statusseite und Konsole, noch nicht behoben):
+- **FW-B-09_Leere_Kartenkästen:** In der Wartung ist die Karte „Einstellungen“ sehr lang; die übrigen Karten derselben
+  Reihe werden auf ihre Höhe gezogen und erscheinen als leere, hohe Kästen.
+- **FW-B-10_Dateiname_vorne_kürzen:** Die Dateiauswahl (Firmware, Ton) kürzt lange Namen in der Mitte bzw. läuft über;
+  gewünscht (Meister): eigener Knopf + Namenszeile, bei Überlänge vorne kürzen, damit das Ende lesbar bleibt.
+- **FW-B-11_Build-Datum_veraltet:** `info` an AU-1 meldete „built Nov 6“, obwohl die Firmware vom 10.11. lief
+  (`update-keys` zeigt die Schlüssel). Vermutlich wird nur die Datei mit `__DATE__` nicht neu übersetzt.
+- **FW-B-12_Meldung_verschwindet:** Nach dem Ton-Upload baut die Seite die Karte neu auf; die Bestätigung ist sofort weg.
 
 ---
 
@@ -65,7 +85,7 @@ verändertes Image, Version `0.1.9-test`) lagen nur im Scratchpad.
 | 10d.9 | Webseite `POST /settings`: im Normalbetrieb `ownerkey=-`; in der Wartung `owneronly=1`, dann Hersteller-Datei; `ownerkey=-`, dann Datei aus 10d.5; `ownerkey=1234` | 403 / „nur eigener“ → Hersteller-Datei abgewiesen / entfernt → fremde Datei abgewiesen / 400 | ✓ alle |
 | 10d.10 | Version `0.1.9-test` ohne / mit `--aelter` (`?older=1`), danach zurück auf `0.2.0-dev` ohne Haken | abgewiesen „ältere Version“ / installiert, bestätigt / installiert, bestätigt | ✓ IN-1; nach der Abweisung kein Neustart |
 | 10d.11 | signiertes Innen-Image auf AU-1 | abgewiesen „firmware for the other unit type“ | ✓ |
-| 10d.12 | Statusseite: `status.json` (`update.keys`), Vorschau der Seite (Wartung, Desktop) | Kurzkennungen, Abschnitt „Update-Schlüssel“ mit Eingabe und Umschalter, Haken beim Firmware-Upload; keine Fehler in der Browser-Konsole | ✓ (echte Bedienung: Sammelliste 10d.13) |
+| 10d.12 | Statusseite: `status.json` (`update.keys`), Vorschau der Seite (Wartung, Desktop) | Kurzkennungen, Abschnitt „Update-Schlüssel“ mit Eingabe und Umschalter, Haken beim Firmware-Upload; keine Fehler in der Browser-Konsole | ✓ (echte Bedienung 10d.13: ✓ 10.11.2026, Handprüfungen 10.11.) |
 
 **Befund FW-B-08_Version_nicht_neu_gelesen (behoben):** Eine Änderung an `version.txt` kam nicht im Image an – CMake
 liest die Datei nur beim Konfigurieren. Beim Test 10d.10 trug die angebliche „0.1.9“-Datei deshalb `0.2.0-dev` (und
@@ -102,7 +122,7 @@ Rahmen an die nicht vorhandene OG-Einheit mit, die ohne Adresse gar nicht gesend
 Nicht im Einzelnen geprüft, kein Verlust: Retries und Erreichbarkeit sind sauber.
 
 **Nicht abgedeckt** (lautlos): Klingelwege und Türbefehl unter Dauerlast. Die laufen vor dem 72-h-Test tagsüber mit,
-z. B. `ring eg` in größerem Abstand bei kleiner Lautstärke. **72-h-Test:** offen (vor dem Einbau).
+z. B. `ring eg` in größerem Abstand bei kleiner Lautstärke. **72-h-Test:** offen – läuft als allerletzter Abschlusstest mit beiden Einheiten im Gehäuse (Meister 10.11.2026).
 
 ## Schritt 10c – Handys über die Webseite der Inneneinheit (06.11.2026)
 
@@ -319,7 +339,7 @@ Schwellen sind Entwürfe: ein +100 %, aus +50 %, Mindest-Haltedauer außen 60 ms
 | 6.15b IN-1 | Finger > 10 s auflegen, loslassen, dann 3 s halten | Neulernen, keine Öffnung; danach öffnet das 3-s-Halten | ✓ (Meister, ohne Mitschnitt) – Zähler danach: relearned 1, rejected 1; Öffnungsprotokoll 06:31:55 „opened“; Ruhe −1,5 % |
 | 6.15c IN-1 | nasses Tuch | – | entfällt (Meister 08.11.2026): Inneneinheit hängt innen; das Tuch hob an AU-1 nur +12 % und deckt den Neulern-Pfad nicht ab – der ist mit 6.15b am Gerät belegt |
 | 6.16 IN-1 | Finger auflegen, `reboot`, ≈ 40 s weiter halten, loslassen | keine Auslösung; nach dem Loslassen normaler Ruhewert | ✓ mit Einschränkung der Erwartung: Ein still aufgelegter Finger gilt als „Ruhe“ → Baseline **mit Finger** gelernt (187 695, Rohwert ≈ 192 000, Δ +2 … +3 %), keine Auslösung. Nach dem Loslassen schnelle Nachführung nach unten: Baseline 29 204, Δ −2,0 → −1,9 % (danach langsame Nachführung). Kein Ereignis, kein Neulernen. AU-1 nicht eigens geprüft (gleiche `TouchChannel`-Logik) |
-| 6.17 IN-1 | Klingelton (15 %) ohne Berührung | Touch unbeeinflusst | ✓ −0,2 … +0,6 %, kein Ereignis. **Offen bei 75 %:** beim Ton-Abspielen mit 75 % (5.12, 08.11.) kam dreimal „door key ignored“ ohne Berührung – Verdacht Lautsprecher → Touch, tagsüber wiederholen |
+| 6.17 IN-1 | Klingelton (15 %) ohne Berührung | Touch unbeeinflusst | ✓ −0,2 … +0,6 %, kein Ereignis. **Offen bei 75 %:** beim Ton-Abspielen mit 75 % (5.12, 08.11.) kam dreimal „door key ignored“ ohne Berührung – Verdacht Lautsprecher → Touch, tagsüber wiederholen. **10.11.2026 wiederholt: ✓** kein Ereignis bei 75 % (Handprüfungen 10.11.) |
 
 **Abweichung von SA 5.6, vom Nutzer bestätigt am 06.11.2026** (ebenso: Scharfschaltfenster endet mit der ersten
 Öffnung, offen in SA 12): Die Baseline wird **in der Firmware** geführt (`cb_touch_logic`), nicht
@@ -350,8 +370,8 @@ relativ zum Mikrofon-Vollausschlag (dBFS), keine Schalldruckpegel.
 | 5.8 | Rangfolge: `play ring`, dann `tick` und `ok`; danach `ok`, dann `error` | tick/ok während ring verworfen; error ersetzt ok | ✓ dropped 2, replaced 1 |
 | 5.9 | AU-1 ohne WLAN (`wifi-drop`), sofort `ring eg` | sofort „NO WIFI“ + Hinweiston, kein Bestätigungston (F-4) | ✓ |
 | 5.10 | `info` nach allen Tests | kein Neustart, kein Coredump | ✓ |
-| 5.11 | **Handprüfung:** Boot-Taster kurz drücken | Lautstärke eine Stufe weiter, Tipp-Ton, bleibt nach Neustart | ⏳ |
-| 5.12 | **Ohrtest:** Klingelton, ok, Fehler, kein Netz | klingen sauber, unterscheidbar; kein Knacken beim Ein-/Ausschalten des Verstärkers (20 ms Vorlauf, 30 ms Nachlauf) | ⏳ |
+| 5.11 | **Handprüfung:** Boot-Taster kurz drücken | Lautstärke eine Stufe weiter, Tipp-Ton, bleibt nach Neustart | ✓ 10.11.2026 beide (Handprüfungen 10.11.) |
+| 5.12 | **Ohrtest:** Klingelton, ok, Fehler, kein Netz | klingen sauber, unterscheidbar; kein Knacken beim Ein-/Ausschalten des Verstärkers (20 ms Vorlauf, 30 ms Nachlauf) | ✓ 10.11.2026 beide; Klingel-Lautstärke am Montageort offen (5.13) |
 
 **Befunde:**
 - **FW-B-02_440Hz_klirrt_auch_begrenzt:** Sinus 440 Hz bei 100 % (= 40 % digital): Gesamtpegel 0,7 dB über dem
@@ -431,7 +451,7 @@ Netz: Gastnetz des Heim-Routers (Name absichtlich nicht im öffentlichen Repo), 
 | 1.5 | `wdt-test` | Neustart nach 5 s; überwacht waren `loopTask` **und** `IDLE1`; danach `last reset: TASK WATCHDOG` | ✓ | ✓ |
 | 1.6 | `crash-test` | Neustart, `last reset: PANIC`, `core dump stored: YES`; `coredump-clear` löscht | ✓ | ✓ |
 | 1.7 | `reboot` | Startzähler steigt je um 1, `last reset: software` | ✓ | ✓ |
-| 1.8 | **Handprüfung:** Türöffner-Pin beim Start | `TP_DOOR_DRV1` bleibt bei Einschalten (12 V aus/an) und Reset-Taster LOW, LED-Ersatzlast bleibt dunkel | ⏳ | – |
+| 1.8 | **Handprüfung:** Türöffner-Pin beim Start | `TP_DOOR_DRV1` bleibt bei Einschalten (12 V aus/an) und Reset-Taster LOW, LED-Ersatzlast bleibt dunkel | ✓ 10.11.2026 (LED + Öffner; mit USB, kalter Start offen: 1.8b) | – |
 
 Befund: `info` meldete beim Start „selftest FAILED“, bevor der Test lief → jetzt „not run yet“ (behoben).
 Hinweis: Der Watchdog-Panic legt ebenfalls einen Coredump ab – gewollt, so ist auch ein Hänger nachträglich
