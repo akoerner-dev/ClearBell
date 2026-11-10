@@ -23,16 +23,10 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 |---|---|---|---|
 | 6.10 | ~~AU-1~~ (beide ✓ 08.11., nach Behebung FW-B-06) – offen nur: Werte für die endgültige Schwelle am montierten Gerät | `touch-log 30` mitlaufen lassen, Elektroden nacheinander antippen, 2 s und 5 s halten | Ruhe ±2 %, Finger deutlich über +100 %; Werte notieren (Grundlage für die endgültige Schwelle) |
 | 8.14 | beide | **verschoben bis Front/Diffusor vorhanden** (Meister 08.11.2026: ohne Front nur ein vorläufiger Wert; bis dahin Standard 40). LED ansehen (am besten mit Lichtleiter/Diffusor): grün, rot, bernstein; `led-balance 20` … `led-balance 70` probieren | grün und rot wirken gleich hell, bernstein ist als Mischfarbe erkennbar; gewählten Wert notieren (Standard 40) |
-| 8.15 | IN-1 (PC ✓ 08.11.; offen: Handy) | Handy im WLAN: `http://clearbell-f3ac94.local/` (seit 10b; `clearbell-eg.local` gibt es nicht mehr) bzw. die IP aus der Konsole (`net`) öffnen, Anmeldung `clearbell` + Passwort aus `cb.py anlage-zeigen --passwort IN-1` | Anmeldefenster, danach die Statusseite; aktualisiert sich alle 5 s; lesbar auf dem Handy |
-| 9.12 | AU-1 + Handy | Handy einrichten nach `cb.py fern-handy-anleitung <ID>` (Apps „ntfy“ und „HTTP Shortcuts“), Link setzen (`anlage-fern --link …`), AU-1 neu provisionieren; an EG klingeln, in der Push „Tür öffnen“ tippen | Push „Es klingelt – EG“ mit Knopf; Kurzbefehl läuft; Puls „for app <ID>“; Push „Tür per App geöffnet“ |
-| 9.13 | AU-1 + Handy | AU-1 stromlos machen und wieder einschalten | Push „ClearBell neu gestartet. Grund: power-on“ |
 | 9.14 | – | ~~echte Topics statt Test-Topics~~ – entfällt: seit 10c werden die Topics aus der EG-Kopplung abgeleitet | – |
-| 8.18 | IN-1 + Handy | Wartung, auf dem Handy Passwort ändern (aktuelles = eigenes Passwort aus der Anlagendatei, neues frei wählbar), neu anmelden; danach leer speichern → Etikett-Passwort; zum Schluss wieder das eigene (Konsole `web-pass`) | Anmeldung nur mit dem jeweils gültigen Passwort; andere offene Tabs zeigen „Anmeldung nicht mehr gültig“ statt die Sperre auszulösen |
 | 10a.12 | IN-1 | Werksreset (Taster 2 × 5 s, dann 15 s), mit dem Handy den QR-Code aus `Geheimnisse/etiketten/f3ac94.png` bzw. die Daten aus der `.txt` scannen | Handy verbindet sich mit `ClearBell-f3ac94`, Einrichtungsseite öffnet sich von selbst (Captive Portal); WLAN wählen, EG, Speichern → Einheit im Heim-WLAN |
 | 10a.13 | – | Etikett ansehen (`.txt`/`.png`): passt Inhalt und Größe zum geplanten Aufkleber? | Entscheidung Etikett |
 | 10b.10 | AU-1 + IN-1 | nach 10a.12: auf der Seite der Außeneinheit „Inneneinheiten suchen“, Gerätecode vom Etikett eintippen | gekoppelt, beide starten neu, Klingeln geht |
-| 10c.8 | IN-1 + Handy | Wartung an IN-1, Seite **auf dem Handy** öffnen, „Handy hinzufügen“, dann die beiden Links antippen (Apps ntfy und HTTP Shortcuts vorher installieren) | ntfy abonniert; HTTP Shortcuts zeigt den Import „ClearBell Tür öffnen“; nach dem nächsten Klingeln öffnet der Knopf in der Push den Kurzbefehl und die Tür |
-| 1.8b | AU-1 | **USB ab**, nur 12 V aus/an (kalter Start von Prozessor und Treiber zusammen) | Last bleibt dunkel |
 | 5.13 | IN-1 | im Gehäuse am Montageort: Klingel mit üblicher Lautstärke | laut genug (10.11.: bei 15 % ohne Gehäuse zu leise) |
 | 5.14 | AU-1 | im Gehäuse: `play error` mit 50 / 75 / 100 % | kein Klirren; sonst Höchstgrenze außen senken (10.11.: ohne Gehäuse klirrt es bei 75 % deutlich) |
 
@@ -60,6 +54,35 @@ Befunde (Statusseite und Konsole, noch nicht behoben):
 - **FW-B-11_Build-Datum_veraltet:** `info` an AU-1 meldete „built Nov 6“, obwohl die Firmware vom 10.11. lief
   (`update-keys` zeigt die Schlüssel). Vermutlich wird nur die Datei mit `__DATE__` nicht neu übersetzt.
 - **FW-B-12_Meldung_verschwindet:** Nach dem Ton-Upload baut die Seite die Karte neu auf; die Bestätigung ist sofort weg.
+
+### Handy-Prüfungen 10.11.2026 abends (TOWER, gemeinsam mit dem Meister, Firmware `c6dc996`, Android-Handy/Firefox)
+
+| Zeile | Board | Ergebnis |
+|---|---|---|
+| 8.15 | IN-1 + Handy | ✓ `clearbell-<Gerätenummer>.local` am Handy: Anmeldefenster, Statusseite, Aktualisierung alle 5 s, lesbar (Meister). Nach dem Umschalten in die Wartung zeigte ein im Hintergrund pausierter Tab bis zum Neuladen den alten Stand – Browserverhalten, kein Befund |
+| 8.18 | IN-1 + Handy | ✓ eigenes → Testpasswort → leer (Konsole „status-page password back to the label“) → wieder eigenes; Anmeldung jeweils nur mit dem gültigen Passwort, anderer Tab „Anmeldung nicht mehr gültig“. Gerätecode mit Bindestrichen vom Etikett abgewiesen → FW-B-13, FW-B-14. PC-Werkzeug danach mit `anlage-webpasswort` nachgezogen, `cb.py status` ✓ |
+| 10c.8 | IN-1 + Handy + AU-1 | ✓ Wartung, „Handy hinzufügen“ am Handy, ntfy abonniert, HTTP Shortcuts importiert „ClearBell Tür öffnen“; `ring eg` an AU-1 → IN-1 quittiert nach 105 ms, Push „Es klingelt – EG“ mit Knopf, 18 s später „DOOR: pulse 2000 ms for app <Name>“, Pin wieder LOW nach 2000 ms; Push „Tür per App geöffnet“ kam. Bedienung wirkt unfertig → FW-B-15, FW-B-16 |
+| 9.12 | AU-1 + Handy | ✓ durch 10c.8 belegt (Push mit Knopf, Kurzbefehl, Puls „for app“, Bestätigungs-Push); der alte Weg über `fern-handy-anleitung` ist seit 10c überholt |
+| 9.13 | AU-1 + Handy | ✓ USB ab, 12 V aus/an: Start #68 → #69, Grund power-on, Push „ClearBell neu gestartet. Grund: power-on“ am Handy |
+| 1.8b | AU-1 | ✓ im selben Durchgang (USB ab, kalter Start von Prozessor und Treiber zusammen): Last blieb dunkel (Meister) |
+
+Befunde 10.11.2026 abends (noch nicht behoben):
+- **FW-B-13_Etikett-Passwort_heisst_Geraetecode:** Die Statusseite spricht vom „Etikett-Passwort“, auf dem Etikett heißt
+  dieselbe Angabe „Gerätecode“ – der Meister musste nachfragen. Vorschlag: auf der Seite „Gerätecode vom Etikett“.
+- **FW-B-14_Geraetecode_mit_Strichen_abgelehnt:** Das Etikett zeigt den Gerätecode in Vierergruppen mit Bindestrichen
+  (19 Zeichen), die Anmeldung verlangt ihn ohne (16 Zeichen); der QR-Inhalt ist ohne Striche. Anmeldung (und alle anderen
+  Eingaben des Codes, z. B. Kopplung 10b) sollen Bindestriche und Leerzeichen ignorieren. Das WPA2-Passwort des
+  Einrichtungs-WLANs kann die Firmware nicht tolerant machen → bei 10a.12 gezielt prüfen.
+- **FW-B-15_Import_Link_kryptisch:** HTTP Shortcuts zeigt beim Import einen langen, kryptischen Link; für Käufer zu
+  schwierig. Mindestens Erklärtext, besser ein Knopf.
+- **FW-B-16_Fern_Oeffnen_wirkt_unfertig:** Zwei Apps, sichtbarer Skriptcode des Kurzbefehls – wirkt wie Bastelei
+  (Meister). Berührt R20; Wege: A) R20 behalten und aufpolieren (Import-Knopf, Kurzbefehl still), B) nur ntfy mit
+  zufälligem Topic je Handy und kurz gültigem Token, C) eigene App (nicht V0.2). Entscheidung offen.
+- **FW-B-17_Ausfallmeldung_durch_Inneneinheit (Funktionswunsch):** Eine „Strom weg“-Meldung wäre wichtiger als die
+  Neustart-Push (Meister). Vorschlag: IN-1 meldet per Push, wenn die Außeneinheit ~2 min nicht erreichbar ist, und
+  wieder, wenn sie zurück ist (mit Dauer). Ob noch V0.2: Entscheidung offen.
+- **Werkzeug `tools/statusseite.py`:** urllib wiederholt die Basic-Anmeldung nach 401 selbst – ein Aufruf mit
+  veraltetem Passwort schickte 5 Versuche in 0,3 s und löste die 30-s-Sperre aus. Einmal anmelden, bei 401 abbrechen.
 
 ---
 
@@ -258,7 +281,7 @@ Daten lokal geprüft (Desktop und 375 px Handybreite, kein waagrechtes Scrollen)
 | 8.11 | Öffnungsprotokoll AU-1 nach den Befehlen von IN-1, dann `door-test 300`, `reboot` | Innentasten-Öffnungen **nur als Summe** (2), Service-Puls einzeln mit Uhrzeit; nach Neustart erhalten; JSON ohne „wer zuletzt“ | ✓ |
 | 8.12 | 25 Klingeln, währenddessen 90 Abrufe der Statusseite (beide Einheiten) | alle quittiert, Zeiten wie ohne Seite (Schritt 3: Median 71 ms) | ✓ 25/25, Median 73 ms, max 136 ms |
 | 8.13 | Dauer der Momentaufnahme in der Hauptschleife (`web`) | wenige ms | ✓ 3–5 ms (vorher 23 ms, siehe Befund) |
-| 8.15 | **Handprüfung PC** (08.11.2026, Meister, Firefox): IN-1 im Browser | Anmeldung, Statusseite, lesbar | ✓ über die IP-Adresse; alle Karten gefüllt (Funk, Protokoll, Touch −1,3 %, Kopplung f41138, Handys, Türöffnungen mit den 3 Öffnungen vom 08.11., Audio 15 %, System Start 55). `clearbell-eg.local` löst nicht auf – richtig, seit 10b heißt die Einheit `clearbell-f3ac94.local` (Anleitung der Sammelliste veraltet, korrigiert). **Meister 08.11.2026: keine Zusatznamen wie `clearbell-eg.local`** – die Nummern-Namen trennen mehrere Anlagen im Verkauf. Nachgemessen: beide Einheiten beantworten mDNS 20/20 (≤ 0,25 s, Mitschnitt); dass Windows auf dem TOWER `clearbell-f3ac94.local` zeitweise sofort ablehnt, liegt an einer zwischengespeicherten Fehlantwort von einer Abfrage während des Neustarts (`ipconfig /flushdns` als Administrator). Kosmetik: Spaltenköpfe der Touch-Tabelle klebten zusammen („RohwertBaselineAbweichung“) → Zellenabstand 10 px ergänzt (`cb_status_page.h`), seit 10.9 (08.11.) auf beiden Einheiten. Handy offen |
+| 8.15 | **Handprüfung PC** (08.11.2026, Meister, Firefox): IN-1 im Browser | Anmeldung, Statusseite, lesbar | ✓ über die IP-Adresse; alle Karten gefüllt (Funk, Protokoll, Touch −1,3 %, Kopplung f41138, Handys, Türöffnungen mit den 3 Öffnungen vom 08.11., Audio 15 %, System Start 55). `clearbell-eg.local` löst nicht auf – richtig, seit 10b heißt die Einheit `clearbell-f3ac94.local` (Anleitung der Sammelliste veraltet, korrigiert). **Meister 08.11.2026: keine Zusatznamen wie `clearbell-eg.local`** – die Nummern-Namen trennen mehrere Anlagen im Verkauf. Nachgemessen: beide Einheiten beantworten mDNS 20/20 (≤ 0,25 s, Mitschnitt); dass Windows auf dem TOWER `clearbell-f3ac94.local` zeitweise sofort ablehnt, liegt an einer zwischengespeicherten Fehlantwort von einer Abfrage während des Neustarts (`ipconfig /flushdns` als Administrator). Kosmetik: Spaltenköpfe der Touch-Tabelle klebten zusammen („RohwertBaselineAbweichung“) → Zellenabstand 10 px ergänzt (`cb_status_page.h`), seit 10.9 (08.11.) auf beiden Einheiten. Handy ✓ 10.11.2026 |
 | 8.17 | **Statusseite überarbeitet** (Meister 08.11.2026): Karte „Einstellungen“ oben – Lautstärke 15/30/50/75/100 % auch im Normalbetrieb (Entscheidung Meister: der Boot-Taster ändert sie ohnehin ohne Anmeldung), Probeton; LED-Abgleich und Pulslänge nur in der Wartung (`POST /settings`, sonst 403; Werte außerhalb des Bereichs abgelehnt, auch 261 → nicht als 5 gedeutet). Akzent Dunkelgrün (Kopfleiste, Kartenrand, Überschriften, Knöpfe) hell/dunkel; unter 640 px einspaltig, Knöpfe/Felder volle Breite, ≥ 44 px bei Touch, 16-px-Felder | Vorschau mit echter `status.json` von AU-1: Desktop dunkel, Handy 375 px hell, Normalbetrieb und Wartung | ✓ Darstellung (Vorschau); Bedienung am Gerät ✓ (Meister 08.11.2026, Handy) |
 | 8.18 | **Eigenes Passwort der Statusseite** (Meister 08.11.2026; Produktreife 8): in der Wartung auf der Karte „Einstellungen“ (aktuelles + neues Passwort), Konsole `web-pass <neu>` / `web-pass label`; gespeichert in `cb_user` „web_pass“, Werksreset → Etikett. Das neue Passwort geht **verschlüsselt** über das WLAN (XOR mit MD5-Schlüsselstrom aus aktuellem Passwort und Einmal-Nonce, MAC prüft das aktuelle Passwort, `cb_http_auth.h`); 5 falsche aktuelle Passwörter → 60 s Sperre | PC-Tests (Hin/Rück, falsches aktuelles, anderer Nonce, leer = Etikett, zu kurz/Umlaut/Leerzeichen); JS-MD5 = C-Ergebnis; am Gerät per HTTP | ✓ 120 Tests / 2821 Prüfungen; Seite und Firmware liefern denselben Vektor (`enc ac46…5b6f`, `mac b3ba…e58e`), md5("abc") und 100 × „a“ richtig. IN-1 über HTTP: falsches aktuelles → „aktuelles Passwort falsch“, „ab“ → abgelehnt, Wechsel → Anmeldung mit neuem ok, Rückwechsel ok. **Gefunden dabei:** urllib wiederholt mit altem Passwort 5× → 30-s-Sperre für alle; ein offener Browser-Tab hätte sie alle 5 s neu ausgelöst → Seite stoppt die Abfrage bei 401/429 und bittet um Neuladen. Eigene Passwörter für AU-1 und IN-1 gesetzt (Meister; stehen nur in der Anlagendatei unter `Geheimnisse/`, `cb.py anlage-webpasswort`) |
 
@@ -451,7 +474,7 @@ Netz: Gastnetz des Heim-Routers (Name absichtlich nicht im öffentlichen Repo), 
 | 1.5 | `wdt-test` | Neustart nach 5 s; überwacht waren `loopTask` **und** `IDLE1`; danach `last reset: TASK WATCHDOG` | ✓ | ✓ |
 | 1.6 | `crash-test` | Neustart, `last reset: PANIC`, `core dump stored: YES`; `coredump-clear` löscht | ✓ | ✓ |
 | 1.7 | `reboot` | Startzähler steigt je um 1, `last reset: software` | ✓ | ✓ |
-| 1.8 | **Handprüfung:** Türöffner-Pin beim Start | `TP_DOOR_DRV1` bleibt bei Einschalten (12 V aus/an) und Reset-Taster LOW, LED-Ersatzlast bleibt dunkel | ✓ 10.11.2026 (LED + Öffner; mit USB, kalter Start offen: 1.8b) | – |
+| 1.8 | **Handprüfung:** Türöffner-Pin beim Start | `TP_DOOR_DRV1` bleibt bei Einschalten (12 V aus/an) und Reset-Taster LOW, LED-Ersatzlast bleibt dunkel | ✓ 10.11.2026 (LED + Öffner; mit USB; kalter Start ohne USB 1.8b ✓ abends) | – |
 
 Befund: `info` meldete beim Start „selftest FAILED“, bevor der Test lief → jetzt „not run yet“ (behoben).
 Hinweis: Der Watchdog-Panic legt ebenfalls einen Coredump ab – gewollt, so ist auch ein Hänger nachträglich
