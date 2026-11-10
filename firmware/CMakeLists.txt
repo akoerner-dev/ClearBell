@@ -20,6 +20,9 @@ idf_build_set_property(COMPILE_DEFINITIONS "ARDUINO_USB_CDC_ON_BOOT=1" APPEND)
 # upload (cb_update) reads it from the image header and refuses an image of the other unit type. CB_UNIT_NAME is
 # passed by tools/cb.py (-D CB_UNIT_NAME=aussen|innen).
 file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/version.txt" CB_VERSION LIMIT_COUNT 1)
+# Re-run CMake when version.txt changes - without this the build kept the OLD version after an edit (found 10.11.2026
+# while testing the downgrade protection), and a release could carry a wrong version in its image.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/version.txt")
 if(CB_UNIT_NAME)
     set(PROJECT_VER "${CB_VERSION}+${CB_UNIT_NAME}")
 else()

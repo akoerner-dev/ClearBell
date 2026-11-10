@@ -1,15 +1,16 @@
 // cb_update_logic.h - firmware updates (port step 10), hardware-free, PC-tested.
 //
-// Updates come as the build output "clearbell.bin" uploaded on the status page in maintenance mode (no PC tool on
-// the buyer's side; decision 06.11.2026: no signing key for now, see docs/Produktreife.md). Two decisions live
-// here:
+// Updates come as a SIGNED image uploaded on the status page in maintenance mode (no PC tool on the buyer's side).
+// The signature itself is checked in cb_update_sig.h (port step 10d, R26). Three decisions live here:
 //
 // 1. check_image_header(): BEFORE a single byte goes into the passive slot, the first kilobyte of the upload must
 //    be an ESP32-S3 app image of project "clearbell" for THIS unit type (version "x.y.z+aussen" / "+innen", set
 //    by CMakeLists.txt). The integrity of the whole image (SHA-256 appended by the build) is checked afterwards by
 //    esp_ota_end(); a wrong or truncated file never becomes bootable.
 //
-// 2. update_verdict(): a freshly installed image runs "on probation" (the bootloader keeps the old one). It is
+// 2. version_older(): downgrade protection (below).
+//
+// 3. update_verdict(): a freshly installed image runs "on probation" (the bootloader keeps the old one). It is
 //    confirmed only when the self-test passed, WiFi is up, the status page (= the update path) runs and every peer
 //    that answered before the update answers again - otherwise it is rolled back after kProbationMaxMs. A crash
 //    or watchdog reset during probation makes the bootloader return to the old image by itself.
@@ -31,6 +32,12 @@ const char *image_check_name(ImageCheck c);
 // b/n: the first bytes of the upload (n >= kImageHeaderNeed). unit: "aussen" or "innen". version_out receives the
 // image's version string (e.g. "0.2.1+innen") when the description could be read.
 ImageCheck check_image_header(const uint8_t *b, size_t n, const char *unit, char version_out[33]);
+
+// Downgrade protection (port step 10d, R26): is `candidate` an OLDER firmware than `running`? Versions are SemVer
+// "major.minor.patch[-pre][+unit]"; the unit part is ignored, a pre-release is older than its release
+// ("0.2.0-dev" < "0.2.0"), two pre-releases compare as text. A version that cannot be parsed counts as older, so it
+// needs the explicit "allow older version" of the maintenance page. Reinstalling the same version is not "older".
+bool version_older(const char *candidate, const char *running);
 
 enum class UpdateVerdict : uint8_t { Wait, Confirm, Rollback };
 

@@ -844,9 +844,13 @@ Status after revision 2:
 | Link keys outdoor↔GF, outdoor↔UF | factory partition | eFuse (HMAC peripheral: usable, not readable) |
 | Phone keys | factory partition of the outdoor unit, and on the phone | encrypted NVS |
 | WLAN credentials, device password | factory partition | encrypted NVS |
-| Update signing key | **private key offline with a copy**, public key in the firmware | stage C: secure boot key plus a spare key |
+| Update signing keys (R26) | **two manufacturer keys** (RSA-3072, secure boot v2 format): the main key signs, the spare key is kept **offline only**; private keys outside the repository, their digests fixed in every firmware; optionally an **owner's own key** (digest in NVS, maintenance) | stage C: the same keys as secure boot keys; sold units only with an owner key |
 
-Losing the signing key would be the only way to lock oneself out **for good** — hence the copy and the spare key.
+An update is accepted when at least one signature comes from a trusted key; an older version only with an explicit
+confirmation in maintenance. Because every firmware knows **both** manufacturer keys from the start, even a unit that
+sat on a shelf for a long time accepts every later release. Losing both manufacturer keys locks nobody out: the owner
+enters an own key in maintenance (one visit per unit). Details in the header of
+`firmware/components/cb_core/include/cb_update_sig.h`.
 
 **eFuse budget:** the S3 has exactly **6 key blocks**, shared by flash encryption, secure boot digests and HMAC keys.
 With the outdoor unit fully hardened — 2 link keys, 1 NVS key, 1 flash encryption key, 2 secure boot keys — all 6 are
@@ -1173,7 +1177,8 @@ of the operating modes (5.9) · blink patterns and the maintenance indication (8
 | R22 | Hardening in stages; stage C only outdoors, after mounting and stable operation |
 | R23 | Identifiers and comments in the code in English |
 | R24 | *(2026-11-06, intention to sell)* The buyer never flashes: factory step over USB, everything else through web pages (device code on the label, setup access point, pairing by code, phones via the own indoor unit) |
-| R25 | *(2026-11-06)* Updates without a signing key for now (upload in maintenance, image check, rollback after probation); later a manufacturer key with owner takeover; stage C for sold units only with an owner key |
+| R25 | *(2026-11-06, superseded by R26)* ~~Updates without a signing key for now~~ (upload in maintenance, image check, rollback after probation); later a manufacturer key with owner takeover; stage C for sold units only with an owner key |
+| R26 | *(2026-11-10)* Updates only signed, in a way that always works: two manufacturer keys (main, spare offline) in every firmware, plus an owner's own key (maintenance), optionally the only one accepted; downgrade protection with confirmation; USB flashing stays stage C (7.6, porting step 10d) |
 
 ---
 
@@ -1255,7 +1260,8 @@ defects that would make V0.2 unusable or unsafe — the findings of the review b
 | 1a | 2026-09-26 | Diagrams corrected: topology (UF indoor unit complete, indoor microphones, HTTPS via the router), layers, order of work; in the door command diagram acknowledgement before opening, as in the code |
 | 2 | 2026-09-26 | Revision after a review with 29 findings: path ② removed; protocol v2 with authentication of every message and sessions; challenge–response instead of a counter; remote opening with phone signature; arming window indoors; operating modes and provisioning; ESP-IDF with Arduino component; rollback after a self-test; watchdog for all tasks; door-opening log per household; hardening in stages; new: quality goals, alignment with EN 303 645, glossary |
 | 3 | 2026-11-06 | Saleability (R24, R25): setup without a PC (5.9), factory and buyer data separated (6.2), pairing by device code, message type *Event* (maintenance from inside, phone keys), remote-opening topics derived from the GF key, updates without a signing key with probation; porting steps 10a–10c. Details in `firmware/docs/Produktreife.md` and in the module headers |
+| 3.1 | 2026-11-10 | Signed updates (R26, supersedes R25): two manufacturer keys, owner's own key, downgrade protection (7.6); porting step 10d |
 
 ---
 
-*ClearBell V0.2 · Software architecture · Revision 3 · 2026-11-06*
+*ClearBell V0.2 · Software architecture · Revision 3.1 · 2026-11-10*

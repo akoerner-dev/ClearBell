@@ -56,6 +56,45 @@ ImageCheck check_image_header(const uint8_t *b, size_t n, const char *unit, char
   return ImageCheck::Ok;
 }
 
+namespace {
+struct SemVer {
+  long part[3];
+  char pre[33];  // "" = release
+};
+
+bool parse_semver(const char *s, SemVer &v) {
+  if (!s) return false;
+  for (int i = 0; i < 3; i++) {
+    if (*s < '0' || *s > '9') return false;
+    long x = 0;
+    while (*s >= '0' && *s <= '9') {
+      x = x * 10 + (*s++ - '0');
+      if (x > 1000000) return false;
+    }
+    v.part[i] = x;
+    if (i < 2 && *s++ != '.') return false;
+  }
+  v.pre[0] = 0;
+  if (*s == '-') {
+    size_t n = 0;
+    for (s++; *s && *s != '+' && n < sizeof v.pre - 1;) v.pre[n++] = *s++;
+    v.pre[n] = 0;
+    if (!n) return false;
+  }
+  return *s == 0 || *s == '+';
+}
+}  // namespace
+
+bool version_older(const char *candidate, const char *running) {
+  SemVer c, r;
+  if (!parse_semver(candidate, c)) return true;
+  if (!parse_semver(running, r)) return false;  // own version unreadable: never block an update because of it
+  for (int i = 0; i < 3; i++)
+    if (c.part[i] != r.part[i]) return c.part[i] < r.part[i];
+  if (!c.pre[0] || !r.pre[0]) return c.pre[0] && !r.pre[0];  // pre-release < release
+  return strcmp(c.pre, r.pre) < 0;
+}
+
 UpdateVerdict update_verdict(const UpdateHealth &h) {
   if (h.selftest_run && !h.selftest_ok) return UpdateVerdict::Rollback;  // crypto broken: never keep it
   bool peers_ok = (h.peers_now & h.peers_before) == h.peers_before;

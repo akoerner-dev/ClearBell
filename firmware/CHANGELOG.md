@@ -5,6 +5,22 @@ Versionen nach SemVer; `version.txt` ist die Quelle. Solange die Portierung läu
 
 ## 0.2.0-dev (in Arbeit)
 
+### Schritt 10d – Signierte Updates (10.11.2026, R26)
+
+- **Nur signierte Updates:** Das Upload muss einen Signatursektor im Format Secure Boot v2 (RSA-3072, RSA-PSS) tragen;
+  angenommen wird, wenn mindestens ein Block zu dieser Datei gehört, von einem vertrauten Schlüssel stammt und gültig
+  ist (`cb_update_sig.h`). Vertraut werden zwei **Herstellerschlüssel** (`cb_update_keys.h`: Haupt, Ersatz offline)
+  und auf Wunsch ein **eigener Schlüssel** des Besitzers (Wartung, Karte „Einstellungen“ → „Update-Schlüssel“,
+  Konsole `update-owner`), optional „nur eigener Schlüssel“. Werksreset entfernt den eigenen Schlüssel.
+- **Versionsschutz:** ältere Version nur mit „ältere Version zulassen“ (`PUT /update?older=1`, `cb.py update --aelter`).
+- Gerät: SHA-256 läuft beim Empfang mit, RSA über mbedtls; das Image muss vor dem Signatursektor enden. Selbsttest
+  `sig_selftest` (Vektor aus `espsecure.py`) bei jedem Start, ≈ 0,25 s. PC-Tests mit eigener RSA-Referenz.
+- Werkzeuge: `cb.py schluessel-erzeugen`, `signieren` (macht `bauen` selbst), `besitzer-schluessel`,
+  `signatur-testvektor` (`tools/signatur.py`). Release-Datei `clearbell-<Version>-<Einheit>.bin`.
+- **FW-B-08_Version_nicht_neu_gelesen:** CMake liest `version.txt` jetzt bei jeder Änderung neu
+  (`CMAKE_CONFIGURE_DEPENDS`); vorher behielt das Image nach einer Änderung die alte Version.
+- 127 Tests / 2865 Prüfungen. USB-Flashen bleibt ungeprüft (physischer Zugang = Stufe C).
+
 ### Touch-Befunde aus den Handprüfungen, Dauertest (08.11.2026)
 
 - **FW-B-06_Baseline_eingefroren:** Ein ruhiger Versatz zwischen +5 und +50 % (Schwankung ≤ 2 %) wird nach 30 s als

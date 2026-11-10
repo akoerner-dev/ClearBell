@@ -71,7 +71,7 @@ function render(d){
   document.getElementById('title').textContent='ClearBell '+(sy.name||sy.image);
   const mode={normal:'Normalbetrieb',maintenance:'Wartung',setup:'Einrichtung'}[sy.mode]||sy.mode;
   document.getElementById('sub').textContent=mode+' · '+(sy.time||'Uhrzeit unbekannt (kein NTP)')+' · aktualisiert '+new Date().toLocaleTimeString('de-DE');
-  if(d.settings)m.append(settings(d.settings,sy.mode,d.door));
+  if(d.settings)m.append(settings(d.settings,sy.mode,d.door,d.update&&d.update.keys));
   if(d.radio){const r=d.radio;m.append(card('Funk',[
     ['WLAN',[{up:'verbunden',connecting:'verbindet',waiting:'wartet'}[r.wifi]||r.wifi,r.wifi==='up'?'ok':'bad']],
     ['Signal',r.wifi==='up'?[r.rssi+' dBm',r.rssi>-70?'ok':r.rssi>-80?'warn':'bad']:'–'],
@@ -126,7 +126,7 @@ async function post(url,data){const r=await fetch(url,{method:'POST',headers:{'C
   try{return await r.json()}catch(e){return {ok:false,message:'HTTP '+r.status}}}
 function show(el,r){el.textContent=r.message;el.className=r.ok?'ok':'bad'}
 // Card "Einstellungen": volume in every mode (Meister 08.11.2026), everything else only in maintenance.
-function settings(st,mode,door){
+function settings(st,mode,door,keys){
   const s=$('section');s.append($('h2','','Einstellungen'));const out=$('p','mute','');
   s.append($('div','','Lautstärke'));const seg=$('div','seg');
   for(const v of [15,30,50,75,100]){const b=$('button',v===st.volume?'on':'',v+' %');b.type='button';b.setAttribute('aria-pressed',v===st.volume);
@@ -137,13 +137,31 @@ function settings(st,mode,door){
   row('LED-Abgleich (Grün zu Rot)',st.led_green_percent+' %');if(door)row('Pulslänge Türöffner',door.pulse_ms+' ms');
   s.append(t);
   row('Passwort der Statusseite',st.own_password?'eigenes':'vom Etikett');
-  if(mode!=='maintenance'){s.append($('p','mute','LED-Abgleich'+(door?', Pulslänge':'')+' und Passwort: Wartung einschalten (Boot-Taster 5 s halten).'));return s}
+  if(keys)row('Update-Schlüssel',keys.owner_only?'nur eigener':keys.owner?'Hersteller und eigener':'Hersteller');
+  if(mode!=='maintenance'){s.append($('p','mute','LED-Abgleich'+(door?', Pulslänge':'')+', Passwort und Update-Schlüssel: Wartung einschalten (Boot-Taster 5 s halten).'));return s}
   const d=$('div');d.append($('h2','','LED-Abgleich einstellen'));const r=$('div','row');const i=$('input');i.type='number';i.min=5;i.max=100;i.step=5;i.value=st.led_green_percent;
   const b=$('button','','Speichern');const o=$('p','mute','5–100 % (Standard 40). Grün und Rot sollen gleich hell wirken – am besten mit der Front davor.');
   b.onclick=async()=>{show(o,await post('/settings',{led:i.value}))};r.append(i,b);d.append(r,o);s.append(d);paused=true;
   if(door)s.append(pulseform(door.pulse_ms));
   s.append(pwform(st.own_password));
+  if(keys)s.append(keyform(keys));
   return s}
+// Update keys (R26): the manufacturer keys always come with the firmware; an owner may add an own key and switch the
+// manufacturer keys off - so nobody depends on the manufacturer. Factory reset removes the own key again.
+function keyform(k){
+  const s=$('div');s.append($('h2','','Update-Schlüssel'));const t=$('table');
+  const row=(a,b,c)=>{const tr=$('tr');tr.append($('td','',a),$('td',c||'',b));t.append(tr)};
+  const off=k.owner_only?' (abgeschaltet)':'';row('Hersteller, Hauptschlüssel',k.main+off,k.owner_only?'mute':'');
+  row('Hersteller, Ersatzschlüssel',k.spare+off,k.owner_only?'mute':'');row('eigener Schlüssel',k.owner||'keiner');s.append(t);
+  const i=$('input');i.placeholder='Kennung des eigenen Schlüssels (64 Hex-Zeichen)';i.autocomplete='off';i.maxLength=64;i.style.width='100%';
+  const b=$('button','alt','Eigenen Schlüssel speichern');
+  const o=$('p','mute','Nur nötig, wenn Sie Firmware selbst bauen und signieren. Kennung: „cb.py besitzer-schluessel“ oder „espsecure.py digest_sbv2_public_key“. Leer speichern entfernt den eigenen Schlüssel; der Werksreset ebenfalls.');
+  b.onclick=async()=>{if(!confirm(i.value?'Eigenen Update-Schlüssel eintragen?':'Eigenen Update-Schlüssel entfernen?'))return;show(o,await post('/settings',{ownerkey:i.value||'-'}));load()};
+  s.append(i,b);
+  if(k.owner){const c=$('button','alt',k.owner_only?'Herstellerschlüssel wieder annehmen':'Nur noch eigenen Schlüssel annehmen');
+    c.onclick=async()=>{if(!confirm(k.owner_only?'Updates des Herstellers wieder annehmen?':'Updates des Herstellers nicht mehr annehmen? Danach installiert diese Einheit nur noch Dateien, die mit Ihrem eigenen Schlüssel signiert sind.'))return;
+      show(o,await post('/settings',{owneronly:k.owner_only?'0':'1'}));load()};s.append(c)}
+  s.append(o);return s}
 // MD5 (RFC 1321) for the password change: the new password never crosses the WiFi in clear text (cb_http_auth.h).
 function md5(str){const K=[],S=[7,12,17,22,5,9,14,20,4,11,16,23,6,10,15,21];for(let i=0;i<64;i++)K[i]=Math.floor(Math.abs(Math.sin(i+1))*4294967296)|0;
   const b=Array.from(str,c=>c.charCodeAt(0)&255),n=b.length;b.push(128);while(b.length%64!==56)b.push(0);
@@ -213,12 +231,13 @@ function phones(ph,mode){
   s.append(n,b,out);paused=true;return s}
 function fwform(img){
   const s=$('div');s.append($('h2','','Firmware aktualisieren'));const inp=$('input');inp.type='file';inp.accept='.bin';
-  const b=$('button','','Installieren');const out=$('p','mute','Datei „clearbell-…-'+img+'.bin“ von der Release-Seite. Bei Problemen kehrt die Einheit von selbst zur alten Firmware zurück.');
+  const lb=document.createElement('label');lb.className='mute';lb.style.display='block';const older=$('input');older.type='checkbox';lb.append(older,' ältere Version zulassen (nur zum Zurückgehen)');
+  const b=$('button','','Installieren');const out=$('p','mute','Nur signierte Dateien „clearbell-…-'+img+'.bin“ von der Release-Seite. Bei Problemen kehrt die Einheit von selbst zur alten Firmware zurück.');
   b.onclick=async()=>{if(!inp.files.length){out.textContent='Bitte eine Datei wählen.';return}
-    out.textContent='wird übertragen … (bis zu 1 min, Seite offen lassen)';out.className='mute';
-    try{const r=await fetch('/update',{method:'PUT',body:inp.files[0]});const j=await r.json();out.textContent=j.message;out.className=j.ok?'ok':'bad';
+    out.textContent='wird übertragen und geprüft … (bis zu 1 min, Seite offen lassen)';out.className='mute';
+    try{const r=await fetch('/update'+(older.checked?'?older=1':''),{method:'PUT',body:inp.files[0]});const j=await r.json();out.textContent=j.message;out.className=j.ok?'ok':'bad';
       if(j.ok)setTimeout(()=>location.reload(),25000)}catch(e){out.textContent='Fehler: '+e;out.className='bad'}};
-  s.append(inp,b,out);paused=true;return s}
+  s.append(inp,lb,b,out);paused=true;return s}
 function upload(files){
   const s=$('div');s.append($('h2','','Ton tauschen'));const sel=$('select');
   for(const f of files){const o=$('option','',f.name);o.value=f.name;sel.append(o)}

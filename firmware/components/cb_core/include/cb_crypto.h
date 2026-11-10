@@ -1,4 +1,4 @@
-// cb_crypto.h - the two cryptographic primitives the protocol needs, behind a platform-neutral interface.
+// cb_crypto.h - the cryptographic primitives the firmware needs, behind a platform-neutral interface.
 //
 // The protocol code (cb_protocol, cb_link) only calls these functions; which implementation is linked
 // decides where they run:
@@ -35,5 +35,14 @@ void random_bytes(uint8_t *out, size_t len);
 // Runs the RFC 4231 HMAC-SHA256 test cases 1-4, 6 and 7 against hmac_sha256(). Returns the number of
 // failed cases (0 = all good). Shared by the PC tests and the on-device self-test.
 int hmac_selftest();
+
+// out = SHA-256(parts[0] || ... ). False if the computation failed (device: out of memory) - fail closed.
+bool sha256(const Slice *parts, size_t n_parts, uint8_t out[32]);
+
+// Signed updates (cb_update_sig.h): verifies an RSA-PSS signature (SHA-256, MGF1-SHA-256, salt 32 bytes) over a
+// 32-byte digest with a 3072-bit public key (n, e). n and sig are LITTLE endian, as in the ESP-IDF Secure Boot v2
+// signature block. Returns true only for a valid signature; any doubt (malformed key, sig >= n, out of memory) is
+// false. Device: mbedtls. PC tests: a small reference implementation (test/host/crypto_host.cpp).
+bool rsa3072_pss_verify(const uint8_t n_le[384], uint32_t e, const uint8_t digest[32], const uint8_t sig_le[384]);
 
 }  // namespace cb

@@ -4,8 +4,9 @@ Stand 06.11.2026. **Umgesetzt in den Portierungsschritten 10, 10a, 10b, 10c (06.
 [Testprotokoll](Testprotokoll.md). Offen: ~~eigenes Statusseiten-Passwort wählen~~ (✓ 08.11.2026), Ländercode als Einstellung,
 iOS-Verfahren, Etikett-Entscheidung.** Anlass: ClearBell soll unter Umständen verkauft werden. Daraus zwei Maßstäbe (Meister 06.11.2026):
 
-1. **Nichts hängt an einer Person.** Kein Schlüssel, ohne den Käufer festsitzen (deshalb Updates vorerst ohne
-   Signaturschlüssel), kein Dienst, den nur der Hersteller betreiben kann.
+1. **Nichts hängt an einer Person.** Kein Schlüssel, ohne den Käufer festsitzen, kein Dienst, den nur der Hersteller
+   betreiben kann. (Updates deshalb erst ohne Signaturschlüssel; seit 10.11.2026 signiert nach R26 – zwei
+   Herstellerschlüssel plus eigener Schlüssel des Besitzers, so dass niemand festsitzt.)
 2. **Der Käufer flasht nie und startet kein Programm.** Eingaben über eine Webseite sind zumutbar, ein PC-Werkzeug,
    USB-Kabel oder Quelltext ändern nicht.
 
@@ -53,7 +54,7 @@ Schwere: **A** = verhindert den Verkauf, **B** = muss vor dem Verkauf geändert 
 | 9 Fern-Öffnen | Wer Handys verwaltet: heute die Anlagendatei. Die Außeneinheit gehört beiden Haushalten | B | Handys verwaltet **jeder Haushalt an seiner Inneneinheit**; sie gibt den Schlüssel verschlüsselt über die gekoppelte Verbindung an die Außeneinheit |
 | 9 Fern-Öffnen | fest `ntfy.sh` | C | Server als Einstellung (eigener ntfy-Server möglich); Hinweis im Datenschutztext: Klingelzeit läuft über den Dienst |
 | 9 Fern-Öffnen | iOS ohne Verfahren | C | offen (SA 4.5, 13) |
-| 10 Updates | geplant: Upload in der Wartung ✓ (ohne Schlüssel, Meister 06.11.2026) | – | Datei von der Release-Seite herunterladen und auf der Webseite hochladen; später Update-Suche mit Herstellersignatur |
+| 10 Updates | Upload in der Wartung ✓; **signiert seit 10d** (R26, 10.11.2026): zwei Herstellerschlüssel, eigener Schlüssel des Besitzers auf der Seite, Versionsschutz | – | Datei von der Release-Seite herunterladen und auf der Webseite hochladen; später Update-Suche (die Signatur macht jede Quelle sicher) |
 | alle | Konsole und `cb.py` sind Entwickler-/Werkswerkzeuge | – | so dokumentieren; Käufer-Anleitung getrennt |
 | alle | Arduino-ESP32 steht unter LGPL-2.1: beim Verkauf muss der Käufer die Firmware ersetzen können | B | erfüllt, solange das Repo offen ist und kein Secure Boot den Austausch sperrt (Stufe C für Verkaufsgeräte nur mit Besitzer-Schlüssel, siehe Gespräch zu Schritt 10) |
 

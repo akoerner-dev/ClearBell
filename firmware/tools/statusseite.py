@@ -4,7 +4,7 @@
     python tools/cb.py status IN-1 --json           the raw /status.json
     python tools/cb.py ton-hochladen IN-1 ring datei.wav   replace a tone (unit must be in maintenance mode)
     python tools/cb.py anlage-zeigen --passwort IN-1      show the device password (for the browser login)
-    python tools/cb.py update IN-1 [datei.bin]            firmware update (unit in maintenance; default: own build)
+    python tools/cb.py update IN-1 [datei.bin] [--aelter] firmware update (maintenance; default: own signed build)
 
 Every command takes --ip <address> if the .local name does not resolve (the IP is in the console: "net").
 
@@ -121,10 +121,12 @@ def ton_hochladen(name: str, ton: str, wav: str, ip: str | None) -> int:
         return 1
 
 
-def update(name: str, image: str, ip: str | None) -> int:
-    """Uploads a firmware image (unit must be in maintenance). Same path as the button on the status page."""
+def update(name: str, image: str, ip: str | None, older: bool = False) -> int:
+    """Uploads a firmware image (unit must be in maintenance). Same path as the button on the status page.
+    Since port step 10d only signed files are accepted (cb.py signieren); older=True allows a lower version."""
     base, pw = _base(name, ip)
-    req = urllib.request.Request(f"{base}/update", data=Path(image).read_bytes(), method="PUT",
+    req = urllib.request.Request(f"{base}/update" + ("?older=1" if older else ""), data=Path(image).read_bytes(),
+                                 method="PUT",
                                  headers={"Content-Type": "application/octet-stream"})
     try:
         with _opener(base, pw).open(req, timeout=180) as r:

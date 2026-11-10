@@ -17,6 +17,7 @@ idf_component_register(
         "src/cb_door_log.cpp"
         "src/cb_remote_logic.cpp"
         "src/cb_update_logic.cpp"
+        "src/cb_update_sig.cpp"
         "src/cb_setup_logic.cpp"
         "src/cb_pairing_logic.cpp"
         "src/esp/cb_crypto_esp.cpp"

@@ -854,10 +854,13 @@ nach Revision 2:
 | Verbindungsschlüssel Außen↔EG, Außen↔OG | Werkszustand-Partition | eFuse (HMAC-Peripherie: benutzbar, nicht lesbar) |
 | Handy-Schlüssel | Werkszustand-Partition der Außeneinheit, und auf dem Handy | verschlüsseltes NVS |
 | WLAN-Zugang, Gerätepasswort | Werkszustand-Partition | verschlüsseltes NVS |
-| Update-Signaturschlüssel | **privat offline mit Kopie**, öffentlich in der Firmware | Stufe C: Secure-Boot-Schlüssel plus Ersatzschlüssel |
+| Update-Signaturschlüssel (R26) | **zwei Herstellerschlüssel** (RSA-3072, Secure-Boot-v2-Format): Hauptschlüssel signiert, Ersatzschlüssel **nur offline**; privat außerhalb des Repos, ihre Kennungen fest in jeder Firmware; dazu wahlweise ein **eigener Schlüssel des Besitzers** (Kennung im NVS, Wartung) | Stufe C: dieselben Schlüssel als Secure-Boot-Schlüssel; Verkaufsgeräte nur mit Besitzer-Schlüssel |
 
-Der Verlust des Signaturschlüssels wäre der einzige Weg, sich **endgültig** auszusperren — deshalb Kopie und
-Ersatzschlüssel.
+Ein Update gilt, wenn mindestens eine Signatur von einem vertrauten Schlüssel stammt; eine ältere Version nur mit
+ausdrücklicher Bestätigung in der Wartung. Weil jede Firmware von Anfang an **beide** Herstellerschlüssel kennt, nimmt
+auch eine Einheit, die lange im Regal lag, jedes spätere Release an. Der Verlust beider Herstellerschlüssel sperrt
+niemanden aus: Der Besitzer trägt in der Wartung einen eigenen Schlüssel ein (je Einheit ein Besuch). Einzelheiten im
+Kopf von `firmware/components/cb_core/include/cb_update_sig.h`.
 
 **eFuse-Budget:** Der S3 hat genau **6 Schlüsselblöcke**, die sich Flash-Verschlüsselung, Secure-Boot-Digests und
 HMAC-Schlüssel teilen. Bei Vollausbau der Außeneinheit — 2 Verbindungsschlüssel, 1 NVS-Schlüssel, 1
@@ -1189,7 +1192,8 @@ Betriebsmodi (5.9) · Blinkmuster und Anzeige der Wartung (8.2) · Signaturverfa
 | R22 | Härtung in Stufen; Stufe C nur außen, nach Montage und stabilem Betrieb |
 | R23 | Bezeichner und Kommentare im Code englisch |
 | R24 | *(06.11.2026, Verkaufsabsicht)* Der Käufer flasht nie: Werksschritt per USB, alles andere über Webseiten (Gerätecode auf dem Etikett, Einrichtungs-Zugangspunkt, Kopplung per Code, Handys über die eigene Inneneinheit) |
-| R25 | *(06.11.2026)* Updates vorerst ohne Signaturschlüssel (Upload in der Wartung, Image-Prüfung, Rollback nach Probezeit); später Herstellerschlüssel mit Übernahme durch den Besitzer; Stufe C für Verkaufsgeräte nur mit Besitzer-Schlüssel |
+| R25 | *(06.11.2026, durch R26 abgelöst)* ~~Updates vorerst ohne Signaturschlüssel~~ (Upload in der Wartung, Image-Prüfung, Rollback nach Probezeit); später Herstellerschlüssel mit Übernahme durch den Besitzer; Stufe C für Verkaufsgeräte nur mit Besitzer-Schlüssel |
+| R26 | *(10.11.2026)* Updates nur signiert, und zwar so, dass sie immer funktionieren: zwei Herstellerschlüssel (Haupt, Ersatz offline) in jeder Firmware, dazu ein eigener Schlüssel des Besitzers (Wartung), wahlweise allein gültig; Versionsschutz mit Bestätigung; USB-Flashen bleibt Stufe C (7.6, Portierungsschritt 10d) |
 
 ---
 
@@ -1271,7 +1275,8 @@ die V0.2 unbrauchbar oder unsicher machen — die Befunde des Reviews gehören d
 | 1a | 26.09.2026 | Diagramme korrigiert: Topologie (Inneneinheit OG vollständig, Mikrofone innen, HTTPS über den Router), Schichten, Reihenfolge; im Türbefehl-Diagramm Quittung vor Öffnen wie im Code |
 | 2 | 26.09.2026 | Überarbeitung nach einem Review mit 29 Befunden: Pfad ② entfällt; Protokoll v2 mit Authentifizierung aller Nachrichten und Sitzungen; Challenge–Response statt Zähler; Fern-Öffnen mit Handy-Signatur; Scharfschaltfenster innen; Betriebsmodi und Provisionierung; ESP-IDF mit Arduino-Komponente; Rollback nach Selbsttest; Watchdog für alle Tasks; Protokoll der Türöffnungen je Haushalt; Härtung in Stufen; neu: Qualitätsziele, Abgleich mit EN 303 645, Glossar |
 | 3 | 06.11.2026 | Verkaufsfähigkeit (R24, R25): Inbetriebnahme ohne PC (5.9), Werk- und Käuferdaten getrennt (6.2), Kopplung per Gerätecode, Nachrichtentyp *Event* (Wartung von innen, Handy-Schlüssel), Topics des Fern-Öffnens aus dem EG-Schlüssel abgeleitet, Updates ohne Signaturschlüssel mit Probezeit; Portierungsschritte 10a–10c. Einzelheiten in `firmware/docs/Produktreife.md` und im Kopf der Module |
+| 3.1 | 10.11.2026 | Signierte Updates (R26, löst R25 ab): zwei Herstellerschlüssel, eigener Schlüssel des Besitzers, Versionsschutz (7.6); Portierungsschritt 10d |
 
 ---
 
-*ClearBell V0.2 · Softwarearchitektur · Revision 3 · 06.11.2026*
+*ClearBell V0.2 · Softwarearchitektur · Revision 3.1 · 10.11.2026*

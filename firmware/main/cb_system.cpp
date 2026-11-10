@@ -17,6 +17,7 @@
 #include "cb_modes.h"
 #include "cb_provisioning.h"
 #include "cb_status.h"
+#include "cb_update_sig.h"
 
 namespace {
 
@@ -52,9 +53,13 @@ bool coredump_present() {
 
 void run_selftest() {
   int failed = cb::hmac_selftest();
-  selftest_ok = failed == 0;
+  cb_log("selftest: HMAC-SHA256 RFC 4231 %s (%d failed)", failed == 0 ? "OK" : "FAILED", failed);
+  uint32_t t0 = millis();
+  int sig_failed = cb::sig_selftest();  // update signatures (R26): RSA-3072/PSS against an espsecure vector
+  cb_log("selftest: update signature %s (%d failed, %lu ms)", sig_failed == 0 ? "OK" : "FAILED", sig_failed,
+         (unsigned long)(millis() - t0));
+  selftest_ok = failed == 0 && sig_failed == 0;
   selftest_run = true;
-  cb_log("selftest: HMAC-SHA256 RFC 4231 %s (%d failed)", selftest_ok ? "OK" : "FAILED", failed);
 }
 
 void cmd_info(const char *) {
@@ -125,7 +130,7 @@ void cb_system_begin() {
   update_pending = run && esp_ota_get_state_partition(run, &state) == ESP_OK && state == ESP_OTA_IMG_PENDING_VERIFY;
 
   cb_console_add("info", "version, reset reason, boot counter, memory, core dump", cmd_info);
-  cb_console_add("selftest", "run the crypto known-answer tests (RFC 4231)", cmd_selftest);
+  cb_console_add("selftest", "run the crypto known-answer tests (HMAC RFC 4231, update signature)", cmd_selftest);
   cb_console_add("reboot", "restart the unit", cmd_reboot);
   cb_console_add("wdt-test", "hang loop() 10 s: the watchdog must reboot the unit", cmd_wdt_test);
   cb_console_add("crash-test", "abort(): unit must reboot and keep a core dump", cmd_crash_test);

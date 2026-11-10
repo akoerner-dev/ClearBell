@@ -125,4 +125,127 @@ void random_bytes(uint8_t *out, size_t len) {
   }
 }
 
+bool sha256(const Slice *parts, size_t n_parts, uint8_t out[32]) {
+  Sha256 s;
+  sha_init(s);
+  for (size_t i = 0; i < n_parts; i++) sha_update(s, parts[i].data, parts[i].len);
+  sha_final(s, out);
+  return true;
+}
+
+}  // namespace cb
+
+// ---- RSA-3072 / RSA-PSS verification (RFC 8017, 9.1.2 and 8.1.2), reference for the PC tests only --------------
+// Montgomery arithmetic on 96 little-endian 32-bit limbs. The parameters R^2 mod n and -n^-1 are computed here from
+// n alone - the copies in the signature block are deliberately not trusted. Slow and simple; the device uses mbedtls.
+namespace {
+
+constexpr int L = 96;  // 3072 bit
+
+int cmp(const uint32_t *a, const uint32_t *b) {
+  for (int i = L - 1; i >= 0; i--)
+    if (a[i] != b[i]) return a[i] < b[i] ? -1 : 1;
+  return 0;
+}
+
+void sub_n(uint32_t *a, const uint32_t *n) {  // a -= n (mod 2^3072)
+  int64_t borrow = 0;
+  for (int i = 0; i < L; i++) {
+    int64_t d = (int64_t)a[i] - n[i] - borrow;
+    borrow = d < 0;
+    a[i] = (uint32_t)d;
+  }
+}
+
+// out = a * b * 2^-3072 mod n (CIOS). a, b < n.
+void mont_mul(const uint32_t *a, const uint32_t *b, const uint32_t *n, uint32_t m0, uint32_t *out) {
+  uint32_t t[L + 2] = {0};
+  for (int i = 0; i < L; i++) {
+    uint64_t c = 0;
+    for (int j = 0; j < L; j++) {
+      uint64_t s = (uint64_t)t[j] + (uint64_t)a[j] * b[i] + c;
+      t[j] = (uint32_t)s;
+      c = s >> 32;
+    }
+    uint64_t s = (uint64_t)t[L] + c;
+    t[L] = (uint32_t)s;
+    t[L + 1] = (uint32_t)(s >> 32);
+    uint32_t m = t[0] * m0;
+    s = (uint64_t)t[0] + (uint64_t)m * n[0];
+    c = s >> 32;
+    for (int j = 1; j < L; j++) {
+      s = (uint64_t)t[j] + (uint64_t)m * n[j] + c;
+      t[j - 1] = (uint32_t)s;
+      c = s >> 32;
+    }
+    s = (uint64_t)t[L] + c;
+    t[L - 1] = (uint32_t)s;
+    t[L] = t[L + 1] + (uint32_t)(s >> 32);
+    t[L + 1] = 0;
+  }
+  if (t[L] || cmp(t, n) >= 0) sub_n(t, n);
+  memcpy(out, t, L * 4);
+}
+
+void load_le(const uint8_t *b, uint32_t *x) {
+  for (int i = 0; i < L; i++)
+    x[i] = (uint32_t)b[4 * i] | (uint32_t)b[4 * i + 1] << 8 | (uint32_t)b[4 * i + 2] << 16 | (uint32_t)b[4 * i + 3] << 24;
+}
+
+}  // namespace
+
+namespace cb {
+
+bool rsa3072_pss_verify(const uint8_t n_le[384], uint32_t e, const uint8_t digest[32], const uint8_t sig_le[384]) {
+  uint32_t n[L], s[L];
+  load_le(n_le, n);
+  load_le(sig_le, s);
+  if (!(n[L - 1] & 0x80000000u) || !(n[0] & 1) || e < 3 || !(e & 1) || cmp(s, n) >= 0) return false;
+  uint32_t inv = n[0];  // Newton: inv = n0^-1 mod 2^32 (3 -> 6 -> 12 -> 24 -> 48 correct bits)
+  for (int i = 0; i < 4; i++) inv *= 2 - n[0] * inv;
+  uint32_t m0 = 0u - inv;
+  uint32_t r2[L] = {1};  // R^2 mod n by 6144 modular doublings of 1
+  for (int k = 0; k < 2 * 32 * L; k++) {
+    uint32_t carry = 0;
+    for (int i = 0; i < L; i++) {
+      uint32_t nc = r2[i] >> 31;
+      r2[i] = r2[i] << 1 | carry;
+      carry = nc;
+    }
+    if (carry || cmp(r2, n) >= 0) sub_n(r2, n);
+  }
+  uint32_t sm[L], acc[L], one[L] = {1};
+  mont_mul(s, r2, n, m0, sm);  // s in Montgomery form
+  memcpy(acc, sm, sizeof acc);
+  int top = 31;
+  while (!(e >> top & 1)) top--;
+  for (int bit = top - 1; bit >= 0; bit--) {
+    mont_mul(acc, acc, n, m0, acc);
+    if (e >> bit & 1) mont_mul(acc, sm, n, m0, acc);
+  }
+  mont_mul(acc, one, n, m0, acc);  // back to normal form: acc = s^e mod n
+
+  uint8_t em[384];  // big endian
+  for (int i = 0; i < 384; i++) em[383 - i] = (uint8_t)(acc[i / 4] >> (8 * (i % 4)));
+  // EMSA-PSS-VERIFY, emBits = 3071, hLen = sLen = 32
+  if (em[383] != 0xbc || (em[0] & 0x80)) return false;
+  const uint8_t *h = em + 351;
+  uint8_t db[351];
+  for (uint32_t c = 0, off = 0; off < sizeof db; c++, off += 32) {  // MGF1-SHA-256
+    uint8_t cnt[4] = {(uint8_t)(c >> 24), (uint8_t)(c >> 16), (uint8_t)(c >> 8), (uint8_t)c}, m[32];
+    Slice p[2] = {{h, 32}, {cnt, 4}};
+    sha256(p, 2, m);
+    for (int i = 0; i < 32 && off + i < sizeof db; i++) db[off + i] = em[off + i] ^ m[i];
+  }
+  db[0] &= 0x7f;
+  for (int i = 0; i < 318; i++)
+    if (db[i]) return false;
+  if (db[318] != 0x01) return false;
+  static const uint8_t zeros[8] = {0};
+  uint8_t h2[32];
+  Slice p[3] = {{zeros, 8}, {digest, 32}, {db + 319, 32}};
+  sha256(p, 3, h2);
+  return memcmp(h, h2, 32) == 0;
+}
+
 }  // namespace cb

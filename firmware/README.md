@@ -22,7 +22,7 @@ Belege stehen im [Testprotokoll](docs/Testprotokoll.md).
 
 | Schritt | Inhalt | Stand |
 |---|---|---|
-| 1 Gerüst | IDF-Projekt, Versionen, Partitionen, Watchdog, Coredump, PC-Tests | ✓ bis auf Handmessung Türöffner-Pin beim Einschalten; **Signaturprüfung für Updates noch offen** (muss vor dem ersten Einbau ins Image, SA 10.2) |
+| 1 Gerüst | IDF-Projekt, Versionen, Partitionen, Watchdog, Coredump, PC-Tests | ✓ bis auf Handmessung Türöffner-Pin beim Einschalten; Signaturprüfung für Updates seit 10d im Image |
 | 2 Grundstellung | Türöffner-Pin, Verstärker stumm, Betriebsmodi, Provisionierung | ✓ bis auf Handprüfung Boot-Taster/LED |
 | 3 Netz | WLAN, Protokoll v2, Sitzungen, Herzschlag | ✓ (Dauertest erst in Schritt 11) |
 | 4 Türbefehl | Challenge–Response, Ratenbegrenzung | ✓ (Auslöser vorerst Konsole `door`; GPIO47 schaltet erst mit Schritt 7) |
@@ -31,7 +31,8 @@ Belege stehen im [Testprotokoll](docs/Testprotokoll.md).
 | 7 Türöffner | Tür-Task, Puls, Sperrzeit | ✓ per Rücklesen des Pins; LED-Last und echter Öffner in der Sammelliste |
 | 8 Diagnose | Statusseite mit Gerätepasswort, Protokoll der Türöffnungen, LED-PWM, Ton-Upload in der Wartung | ✓ per Skript und Konsole; Browser-Anmeldung und LED-Abgleich in der Sammelliste |
 | 9 Fern-Öffnen | Push über ntfy.sh mit TLS-Prüfung, Einmal-Token, Handy-Signatur | ✓ mit Test-Topics und PC als Handy; echtes Handy in der Sammelliste; iOS offen |
-| 10 Updates | Upload in der Wartung, Image-Prüfung, Rollback nach Probezeit (ohne Signaturschlüssel, R25) | ✓ inkl. Rückfall nach Absturz |
+| 10 Updates | Upload in der Wartung, Image-Prüfung, Rollback nach Probezeit | ✓ inkl. Rückfall nach Absturz |
+| 10d Signierte Updates | nur signierte Dateien (2 Herstellerschlüssel, optional eigener Schlüssel des Besitzers), Versionsschutz (R26) | ✓ alle Fälle auf beiden Boards; Bedienung im Browser in der Sammelliste |
 | 10a Inbetriebnahme | Werk ↔ Käufer, Einrichtungs-WLAN mit Captive Portal, Werksreset per Taster ([Produktreife](docs/Produktreife.md)) | ✓ übers Heimnetz und per Scan; Handy/QR in der Sammelliste |
 | 10b Kopplung | per Gerätecode der Inneneinheit, eindeutige Namen, Wartung außen von innen, Pulslänge einstellbar | ✓ |
 | 10c Handys | über die Webseite der EG-Inneneinheit: ntfy-Link und Kurzbefehl-Import, Entfernen | ✓ mit dem PC als Handy; echtes Handy in der Sammelliste |
@@ -55,7 +56,9 @@ python tools/cb.py bauen alle
 Baut beide Images nach `%USERPROFILE%\clearbell-build\aussen` bzw. `…\innen` – bewusst **außerhalb von
 OneDrive**, weil tausende Objektdateien sonst synchronisiert würden und OneDrive-Dateisperren den Build stören.
 Der erste Lauf lädt den Arduino-Core als Komponente nach `managed_components/` und übersetzt ihn komplett
-(≈ 20 min), danach geht es schnell.
+(≈ 20 min), danach geht es schnell. Liegt der Hauptschlüssel unter `ClearBell\Geheimnisse\signatur\`, wird jedes
+Image gleich signiert: `clearbell-signiert.bin` (für `cb.py update`) und `clearbell-<Version>-<Einheit>.bin` (für eine
+Release-Seite). Nur signierte Dateien kommen per Update auf eine Einheit; USB-Flashen braucht keine Signatur.
 
 ```bash
 python tools/cb.py flashen aussen COM4
@@ -202,7 +205,7 @@ R23), jede Zeile beginnt mit der Laufzeit in Sekunden.
 |---|---|
 | `help` | alle Befehle |
 | `info` | Version, Image-Typ, Partition, Neustartgrund, Startzähler, Speicher, Coredump vorhanden? |
-| `selftest` | HMAC-Selbsttest gegen RFC 4231 auf der echten Hardware |
+| `selftest` | Krypto-Selbsttest auf der echten Hardware: HMAC gegen RFC 4231, Update-Signatur gegen einen `espsecure`-Vektor |
 | `reboot` | Neustart |
 | `wdt-test` | blockiert die Hauptschleife 10 s – der Watchdog **muss** nach 5 s neu starten |
 | `crash-test` | absichtlicher Absturz – danach muss `info` einen Coredump zeigen |
@@ -234,6 +237,9 @@ R23), jede Zeile beginnt mit der Laufzeit in Sekunden.
 | `wifi-scan` | WLAN-Netze in Reichweite (auch Einrichtungs-WLANs anderer Einheiten) |
 | `setup-ap on` / `setup-ap auto` | **Test:** Einrichtungs-WLAN erzwingen |
 | `update-status` | Firmware-Slot, Probezeit, letzter Upload |
+| `update-keys` | Schlüssel, denen die Einheit bei Updates vertraut (Haupt, Ersatz, eigener) |
+| `update-owner <64 Hex>` / `update-owner clear` | eigenen Update-Schlüssel des Besitzers eintragen / entfernen (wie auf der Seite in der Wartung) |
+| `update-owner-only on` / `off` | nur noch den eigenen Schlüssel annehmen / Herstellerschlüssel wieder annehmen |
 | `update-fault crash` / `nowifi` / `off` | **Test:** das nächste Update scheitert absichtlich in der Probezeit – muss zurückfallen |
 | `remote` | nur außen: Fern-Öffnen – Befehlskanal verbunden?, Push gesendet/fehlgeschlagen, Befehle je Ergebnis |
 | `remote-push` | nur außen: Test-Push an die Handys |
@@ -291,7 +297,7 @@ firmware/
 │   ├── cb_remote.*         Fern-Öffnen: Push und Befehlskanal über ntfy.sh (HTTPS), nur außen
 │   ├── cb_setup.*          Einrichtungs-WLAN, Captive Portal, Einrichtungsseite, Werksreset (10a)
 │   ├── cb_setup_page.h     das HTML der Einrichtungsseite
-│   ├── cb_update.*         Firmware-Update per Upload, Probezeit, Rollback (10)
+│   ├── cb_update.*         Firmware-Update per Upload, Signatur, Versionsschutz, Probezeit, Rollback (10, 10d)
 │   ├── cb_pairing.*        Kopplung per Gerätecode, Wartung von innen, Pulslänge (10b)
 │   ├── cb_phones.*         Handys über die Webseite der EG-Inneneinheit, Kurzbefehl-Download (10c)
 │   ├── cb_status.*         Statusseite (HTTP, Digest-Anmeldung, Upload), Protokoll der Türöffnungen
@@ -305,7 +311,9 @@ firmware/
 │   ├── include/cb_door_log.h     Protokoll der Türöffnungen (Ringpuffer, wer was sehen darf)
 │   ├── include/cb_http_auth.h    Gerätepasswort: HTTP Digest, Nonces, Replay-Schutz, Sperre
 │   ├── include/cb_remote_logic.h Fern-Öffnen: Einmal-Token, Handy-Signatur, Leser für ntfy-Zeilen
-│   ├── include/cb_update_logic.h Image-Kopf prüfen, Probezeit-Entscheidung
+│   ├── include/cb_update_logic.h Image-Kopf prüfen, Versionsvergleich, Probezeit-Entscheidung
+│   ├── include/cb_update_sig.h   Signatur prüfen: Format, vertraute Schlüssel (R26) – ZUERST LESEN für Updates
+│   ├── include/cb_update_keys.h  Kennungen der beiden Herstellerschlüssel (erzeugt, öffentlich, nie ersetzen)
 │   ├── include/cb_setup_logic.h  Gerätecode, Formulardaten, WLAN-QR-Text
 │   ├── include/cb_pairing_logic.h Kopplung per Code, Schlüssel verpacken, abgeleitete Namen
 │   ├── include/cb_json.h         kleiner JSON-Schreiber für die Statusseite
@@ -322,6 +330,7 @@ firmware/
     ├── provisionieren.py   Anlagendatei und Werkszustand-Partition (Gegenstück zu cb_provisioning.cpp)
     ├── statusseite.py      Statusseite vom PC: status, ton-hochladen, Gerätepasswort anzeigen
     ├── fern.py             Fern-Öffnen vom PC: PC als Test-Handy (über die Webseite eingetragen)
+    ├── signatur.py         Herstellerschlüssel erzeugen, Images signieren, Besitzer-Kennung, Testvektor (10d)
     └── werk.py             Werksschritt: Firmware, Töne, Gerätecode, Etikett
 ```
 
@@ -337,6 +346,10 @@ nach `components/cb_core` und bekommt einen PC-Test. `main/` enthält nur, was P
 - **Nichts blockiert die Hauptschleife.** Der Watchdog startet nach 5 s ohne Lebenszeichen neu.
 - **Keine Geheimnisse im Repo und im Image.** WLAN-Zugang und Schlüssel kommen per Provisionierung (Schritt 2).
   Die Datei `config.h` ist in `.gitignore` gesperrt – deshalb heißt die Pin-Datei `cb_config.h`.
+- **Signierschlüssel** (R26) liegen nur in `ClearBell\Geheimnisse\signatur\`, der **Ersatzschlüssel nur offline**
+  (USB-Stick und Papier an zwei Orten). Die Kennungen in `cb_update_keys.h` **nie ersetzen**: Einheiten nehmen nur
+  Updates mit Schlüsseln an, die sie schon kennen. Gehen beide Schlüssel verloren, hilft nur der eigene Schlüssel je
+  Einheit (Wartung).
 - **Code und Kommentare englisch** (R23), Dokumentation deutsch.
 - **Konstanten mit Präfix `CB_`**, Pins mit `CB_PIN_` + Netzname aus dem Schaltplan.
 

@@ -39,6 +39,42 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 | 10a.13 | – | Etikett ansehen (`.txt`/`.png`): passt Inhalt und Größe zum geplanten Aufkleber? | Entscheidung Etikett |
 | 10b.10 | AU-1 + IN-1 | nach 10a.12: auf der Seite der Außeneinheit „Inneneinheiten suchen“, Gerätecode vom Etikett eintippen | gekoppelt, beide starten neu, Klingeln geht |
 | 10c.8 | IN-1 + Handy | Wartung an IN-1, Seite **auf dem Handy** öffnen, „Handy hinzufügen“, dann die beiden Links antippen (Apps ntfy und HTTP Shortcuts vorher installieren) | ntfy abonniert; HTTP Shortcuts zeigt den Import „ClearBell Tür öffnen“; nach dem nächsten Klingeln öffnet der Knopf in der Push den Kurzbefehl und die Tür |
+| 10d.13 | IN-1 (Browser oder Handy) | Wartung, Karte „System“ → „Firmware aktualisieren“: `clearbell-0.2.0-dev-innen.bin` (Build-Ordner) wählen, installieren; danach die unsignierte `clearbell.bin` | erste installiert („signiert: Hersteller“), zweite abgewiesen „nicht signiert“; Karte „Einstellungen“ zeigt „Update-Schlüssel: Hersteller“ und in der Wartung den Abschnitt „Update-Schlüssel“ |
+
+---
+
+## Schritt 10d – Signierte Updates (10.11.2026, R26)
+
+Updates werden nur noch angenommen, wenn sie mit einem Schlüssel signiert sind, dem die Einheit vertraut: zwei
+Herstellerschlüssel fest in der Firmware (Haupt, Ersatz offline), dazu wahlweise ein eigener Schlüssel des Besitzers
+(Wartung). Format Secure Boot v2 / RSA-3072 aus `espsecure.py` (dieselben Schlüssel taugen später für Stufe C).
+Versionsschutz: eine ältere Version nur mit „ältere Version zulassen“. Kennungen der Herstellerschlüssel (öffentlich):
+Haupt `4a0129e08bdac238…`, Ersatz `3c03870d52705259…`. Prüfdateien (fremder Wegwerf-Schlüssel, nach dem Signieren
+verändertes Image, Version `0.1.9-test`) lagen nur im Scratchpad.
+
+| # | Prüfung | Erwartung | Ergebnis |
+|---|---|---|---|
+| 10d.1 | `cb.py test` | Testvektor aus `espsecure.py` (zwei Wegwerf-Schlüssel) gültig über jeden Block; manipulierte Signatur, anderer Digest, anderer Exponent, Signatur ≥ n, beschädigter Block, unbekannter Schlüssel abgewiesen; Schlüssel-Kennung = `digest_sbv2_public_key`; Herstellerschlüssel echt und verschieden; Versionsvergleich | ✓ 127 Tests, 2865 Prüfungen |
+| 10d.2 | Selbsttest auf der Hardware (`selftest`, auch bei jedem Start) | „update signature OK“ mit mbedtls | ✓ IN-1 222 ms, AU-1 253 ms |
+| 10d.3 | `update-keys` | Haupt- und Ersatzschlüssel, kein eigener | ✓ beide |
+| 10d.4 | unsigniertes `clearbell.bin` hochladen | abgewiesen „nicht signiert“, alte Firmware bleibt | ✓ IN-1, AU-1 |
+| 10d.5 | mit fremdem Schlüssel signiert | abgewiesen „Schlüssel, dem diese Einheit nicht vertraut“ | ✓ IN-1 |
+| 10d.6 | signiertes Image, danach 1 Byte im Füllbereich vor dem Signatursektor gekippt (den nur die Signatur abdeckt) | abgewiesen „nach dem Signieren verändert“ | ✓ IN-1 |
+| 10d.7 | gültig mit Hauptschlüssel (`cb.py update`) | installiert „signiert: Hersteller“, Probezeit, bestätigt | ✓ IN-1, AU-1 je nach 60 s |
+| 10d.8 | eigener Schlüssel per Konsole (`update-owner <Kennung des fremden Schlüssels>`), dann die Datei aus 10d.5 | installiert „signiert: eigener Schlüssel“, bestätigt | ✓ IN-1 |
+| 10d.9 | Webseite `POST /settings`: im Normalbetrieb `ownerkey=-`; in der Wartung `owneronly=1`, dann Hersteller-Datei; `ownerkey=-`, dann Datei aus 10d.5; `ownerkey=1234` | 403 / „nur eigener“ → Hersteller-Datei abgewiesen / entfernt → fremde Datei abgewiesen / 400 | ✓ alle |
+| 10d.10 | Version `0.1.9-test` ohne / mit `--aelter` (`?older=1`), danach zurück auf `0.2.0-dev` ohne Haken | abgewiesen „ältere Version“ / installiert, bestätigt / installiert, bestätigt | ✓ IN-1; nach der Abweisung kein Neustart |
+| 10d.11 | signiertes Innen-Image auf AU-1 | abgewiesen „firmware for the other unit type“ | ✓ |
+| 10d.12 | Statusseite: `status.json` (`update.keys`), Vorschau der Seite (Wartung, Desktop) | Kurzkennungen, Abschnitt „Update-Schlüssel“ mit Eingabe und Umschalter, Haken beim Firmware-Upload; keine Fehler in der Browser-Konsole | ✓ (echte Bedienung: Sammelliste 10d.13) |
+
+**Befund FW-B-08_Version_nicht_neu_gelesen (behoben):** Eine Änderung an `version.txt` kam nicht im Image an – CMake
+liest die Datei nur beim Konfigurieren. Beim Test 10d.10 trug die angebliche „0.1.9“-Datei deshalb `0.2.0-dev` (und
+wurde als gleiche Version installiert); das Signierwerkzeug hatte den Dateinamen aus `version.txt` gebildet. Abhilfe:
+`CMAKE_CONFIGURE_DEPENDS` auf `version.txt`, und `cb.py signieren` liest die Version aus dem Image selbst und prüft den
+Einheitentyp. Nachweis: nur `version.txt` zurückgestellt → Image trägt wieder `0.2.0-dev+innen`.
+
+Hinweis zum Ablauf: `button-sim long` in der **Wartung** schaltet bestimmungsgemäß in die Einrichtung (SA 5.9) – vor
+der Geste den Modus abfragen. Einmal passiert (Test 10d.10, erster Versuch), mit `reboot` behoben.
 
 ---
 
@@ -121,8 +157,8 @@ löste nach 5 Versuchen die Sperre aus. Jetzt wird die echte Methode verwendet.
 
 ## Schritt 10 – Updates per Upload, Rollback nach Probezeit (06.11.2026)
 
-Ohne Signaturschlüssel (Entscheidung 06.11.2026, R25). Schutz: Wartung (physische Anwesenheit), Gerätepasswort,
-Prüfung des Image-Kopfs, SHA-256 des Images, Probezeit mit Rückfall.
+Ohne Signaturschlüssel (Entscheidung 06.11.2026, R25 – seit 10.11.2026 durch R26 abgelöst, siehe Schritt 10d). Schutz:
+Wartung (physische Anwesenheit), Gerätepasswort, Prüfung des Image-Kopfs, SHA-256 des Images, Probezeit mit Rückfall.
 
 | # | Prüfung | Erwartung | Ergebnis |
 |---|---|---|---|

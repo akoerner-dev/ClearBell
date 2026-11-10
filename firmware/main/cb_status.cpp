@@ -307,15 +307,18 @@ esp_err_t h_upload(httpd_req_t *req) {
   return reply_upload(req, "200 OK", msg);
 }
 
-// PUT /update: body = the firmware image ("clearbell.bin"). Maintenance only. Details in cb_update.h.
+// PUT /update[?older=1]: body = the SIGNED firmware image (cb.py signieren / release page). Maintenance only.
+// older=1 allows a lower version than the running one (box on the page). Details in cb_update.h.
 esp_err_t h_update(httpd_req_t *req) {
   if (!authorize(req)) return ESP_OK;
   security_headers(req);
   if (cb_mode() != cb::Mode::Maintenance)
     return reply_upload(req, "403 Forbidden", "nur in der Wartung (Boot-Taster 5 s halten)");
   maintenance_activity = true;
-  char msg[120];
-  if (!cb_update_start(req->content_len, msg, sizeof msg)) return reply_upload(req, "413 Payload Too Large", msg);
+  char msg[160], q[32], v[4];
+  bool older = httpd_req_get_url_query_str(req, q, sizeof q) == ESP_OK &&
+               httpd_query_key_value(q, "older", v, sizeof v) == ESP_OK && v[0] == '1';
+  if (!cb_update_start(req->content_len, older, msg, sizeof msg)) return reply_upload(req, "422 Unprocessable Entity", msg);
   static uint8_t chunk[2048];
   size_t got = 0, len = req->content_len;
   bool ok = true;
@@ -346,7 +349,8 @@ esp_err_t h_update(httpd_req_t *req) {
 // ---- Settings (status page card "Einstellungen") ------------------------------------------------------------
 // POST /settings, form fields (each optional): vol=15|30|50|75|100 (any mode - the boot button changes it without a
 // login anyway, Meister 08.11.2026), led=5..100 (maintenance only, like every other change), tone=1 (test tone at
-// the current volume). The answer is the same JSON shape as the uploads: {ok, message}.
+// the current volume), ownerkey / owneronly (maintenance only, R26). The answer is the same JSON shape as the
+// uploads: {ok, message}.
 esp_err_t reply_settings(httpd_req_t *req, const char *status, const char *msg) {
   char body[160];
   cb::Json j(body, sizeof body);
@@ -363,7 +367,7 @@ esp_err_t reply_settings(httpd_req_t *req, const char *status, const char *msg) 
 esp_err_t h_settings(httpd_req_t *req) {
   if (!authorize(req)) return ESP_OK;
   security_headers(req);
-  char body[96], v[8];
+  char body[192], v[8];
   size_t len = req->content_len, got = 0;
   if (len == 0 || len >= sizeof body) return reply_settings(req, "400 Bad Request", "Wert fehlt");
   while (got < len) {
@@ -392,6 +396,17 @@ esp_err_t h_settings(httpd_req_t *req) {
   if (cb::form_get(body, "tone", v, sizeof v)) {
     cb_audio_play(cb::Sound::Success);
     if (!msg[0]) snprintf(msg, sizeof msg, "Probeton bei %u %%", (unsigned)cb_audio_volume());
+  }
+  // Own update key (R26): ownerkey=<64 hex> | "-" (remove); owneronly=1|0. Maintenance only.
+  char key[72];
+  bool has_key = cb::form_get(body, "ownerkey", key, sizeof key), has_only = cb::form_get(body, "owneronly", v, sizeof v);
+  if (has_key || has_only) {
+    if (cb_mode() != cb::Mode::Maintenance)
+      return reply_settings(req, "403 Forbidden", "Update-Schlüssel nur in der Wartung (Boot-Taster 5 s halten)");
+    maintenance_activity = true;
+    if (has_key && !cb_update_set_owner_key(key, msg, sizeof msg)) return reply_settings(req, "400 Bad Request", msg);
+    if (has_only && !cb_update_set_owner_only(v[0] == '1', msg, sizeof msg))
+      return reply_settings(req, "400 Bad Request", msg);
   }
   if (!msg[0]) return reply_settings(req, "400 Bad Request", "nichts zu ändern");
   return reply_settings(req, "200 OK", msg);

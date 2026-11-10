@@ -24,7 +24,15 @@ Status page (port step 8, details in tools/statusseite.py; --ip <address> if .lo
     python tools/cb.py ton-hochladen IN-1 ring datei.wav        replace a tone (unit in maintenance mode)
     python tools/cb.py anlage-zeigen --passwort IN-1            device password for the browser login
     python tools/cb.py anlage-webpasswort IN-1 <pw>|label       record an own status-page password for the tools
-    python tools/cb.py update IN-1 [datei.bin]                  firmware update over the status page (maintenance)
+    python tools/cb.py update IN-1 [datei.bin] [--aelter]       firmware update over the status page (maintenance);
+                                                                default: the signed own build; --aelter allows an
+                                                                older version (same as the box on the page)
+
+Signed updates (port step 10d, R26, details in tools/signatur.py):
+    python tools/cb.py schluessel-erzeugen                      ONCE: manufacturer main + spare key
+    python tools/cb.py signieren aussen|innen|alle [--ersatz]   sign the built image(s) (bauen does it by itself)
+    python tools/cb.py besitzer-schluessel <key.pem>            key digest of an own key (buyer, status page)
+    python tools/cb.py signatur-testvektor                      regenerate the self-test vector (rarely)
 
 Remote opening (port step 9, details in tools/fern.py):
     python tools/cb.py anlage-fern [--test|--echt] [--link <t>] create ntfy topics (test / final) / set app link
@@ -120,11 +128,22 @@ def cmd_test() -> int:
 
 
 def cmd_bauen(which: str) -> int:
+    sys.path.insert(0, str(Path(__file__).parent))
+    import signatur
+
     for unit in UNITS if which == "alle" else (which,):
         print(f"=== bauen {unit} ===")
         r = idf(unit, "build")
         if r != 0:
             return r
+        # Every build also yields the signed update file - as long as the main key is on this PC. USB flashing does
+        # not need a signature (only uploads are checked, R26), so a missing key is a warning, not an error.
+        if signatur.MAIN.exists():
+            r = signatur.signieren(unit, idf_python(), BUILD_ROOT)
+            if r != 0:
+                return r
+        else:
+            print(f"note: main signing key not on this PC ({signatur.MAIN}) - image NOT signed, updates will refuse it")
     return 0
 
 
@@ -271,13 +290,31 @@ def main(argv: list[str]) -> int:
         if action == "ton-hochladen" and len(args) == 3:
             return statusseite.ton_hochladen(args[0], args[1], args[2], ip)
         if action == "update" and args:
+            older = "--aelter" in args
+            args = [a for a in args if a != "--aelter"]
             if len(args) > 1:
                 image = args[1]
-            else:  # default: the image built for the unit's type
+            else:  # default: the signed image built for the unit's type
                 import provisionieren as prov
                 rolle = prov._load()["einheiten"][args[0]]["rolle"]
-                image = str(BUILD_ROOT / ("aussen" if rolle == "aussen" else "innen") / "clearbell.bin")
-            return statusseite.update(args[0], image, ip)
+                image = str(BUILD_ROOT / ("aussen" if rolle == "aussen" else "innen") / "clearbell-signiert.bin")
+            return statusseite.update(args[0], image, ip, older)
+    if action in ("schluessel-erzeugen", "signieren", "besitzer-schluessel", "signatur-testvektor"):
+        sys.path.insert(0, str(Path(__file__).parent))
+        import signatur
+
+        if action == "schluessel-erzeugen":
+            return signatur.schluessel_erzeugen(idf_python())
+        if action == "signatur-testvektor":
+            return signatur.testvektor(idf_python())
+        if action == "besitzer-schluessel" and len(argv) == 3:
+            return signatur.besitzer_schluessel(idf_python(), argv[2])
+        if action == "signieren" and len(argv) >= 3 and argv[2] in (*UNITS, "alle"):
+            for unit in UNITS if argv[2] == "alle" else (argv[2],):
+                r = signatur.signieren(unit, idf_python(), BUILD_ROOT, "--ersatz" in argv)
+                if r != 0:
+                    return r
+            return 0
     if action == "werk" and len(argv) >= 4:
         sys.path.insert(0, str(Path(__file__).parent))
         import werk

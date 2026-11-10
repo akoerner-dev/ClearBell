@@ -22,7 +22,7 @@ idf_component_register(
         "cb_phones.cpp"
     INCLUDE_DIRS "."
     REQUIRES cb_core
-    PRIV_REQUIRES arduino-esp32 app_update espcoredump esp_driver_gpio nvs_flash esp_partition lwip esp_driver_i2s esp_driver_gptimer esp_timer esp_http_server esp_http_client mbedtls
+    PRIV_REQUIRES arduino-esp32 app_update bootloader_support espcoredump esp_driver_gpio nvs_flash esp_partition lwip esp_driver_i2s esp_driver_gptimer esp_timer esp_http_server esp_http_client mbedtls
 )
 target_compile_options(${COMPONENT_LIB} PRIVATE -Wall -Wextra -Werror)
 
