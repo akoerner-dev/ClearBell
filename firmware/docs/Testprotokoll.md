@@ -25,7 +25,7 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 | 6.10 | ~~AU-1~~ (beide ✓ 08.11., nach Behebung FW-B-06) – offen nur: Werte für die endgültige Schwelle am montierten Gerät | `touch-log 30` mitlaufen lassen, Elektroden nacheinander antippen, 2 s und 5 s halten | Ruhe ±2 %, Finger deutlich über +100 %; Werte notieren (Grundlage für die endgültige Schwelle) |
 | 8.14 | beide | **verschoben bis Front/Diffusor vorhanden** (Meister 08.11.2026: ohne Front nur ein vorläufiger Wert; bis dahin Standard 40). LED ansehen (am besten mit Lichtleiter/Diffusor): grün, rot, bernstein; `led-balance 20` … `led-balance 70` probieren | grün und rot wirken gleich hell, bernstein ist als Mischfarbe erkennbar; gewählten Wert notieren (Standard 40) |
 | 9.14 | – | ~~echte Topics statt Test-Topics~~ – entfällt: seit R27 hat jedes Handy eigene Topics aus seinem Schlüssel | – |
-| R27.10 | IN-2 + Handy | ein Handy an der OG-Einheit hinzufügen (Wartung, „Handy hinzufügen“, ntfy-Link), an AU-1 `ring og`, „Tür öffnen“ tippen | Push nur am OG-Handy, Tür öffnet, Bestätigung „Tür per App geöffnet“ |
+| R27.10 | IN-2 + Handy | ein Handy an der OG-Einheit hinzufügen (Wartung, „Handy hinzufügen“, Schritt 1 Link, Schritt 2 Test), an AU-1 `ring og`, „Tür öffnen“ tippen | Push nur am OG-Handy, Tür öffnet, Bestätigung „Tür per App geöffnet“; **ohne zweites Hinzufügen** (FW-B-23) |
 | 21.9 | IN-2 + Handy | **zusammen mit R27.10, davor:** an IN-2 in der Wartung unter „Kopplung“ einen echten Namen für das OG eintragen (mit Umlaut), dann erst das Handy hinzufügen; danach die Seite von AU-1 am Handy ansehen | ntfy zeigt das Abo als „ClearBell ‹Name›“, die Push heißt „Es klingelt – ‹Name›“, Kopplungskarte von AU-1 zeigt ‹Name› bei „Taste oben“; Seite am Handy gut lesbar |
 | ~~10a.12~~ | ✓ 12.11. an IN-2 statt IN-1 (Ergebnis im Abschnitt IN-2 unten) | – | – |
 | ~~10a.13~~ | ✓ 12.11. entschieden (Ergebnis im Abschnitt IN-2 unten); offen nur: Probedruck `cb.py etiketten --rahmen` gegen einen echten 3657-Bogen | – | – |
@@ -109,6 +109,19 @@ Befunde 10.11.2026 abends (noch nicht behoben):
   Wohnung eigene Handys mit eigenen Topics aus ihrer Kopplung bekommen? **Entschieden 12.11.: ja, beide Wohnungen,
   Handys je Inneneinheit (R27). Umgesetzt 12.11.**
 
+### FW-B-23_Handy_zweimal_anlernen behoben (12.11.2026 abends, TOWER, Firmware dieses Commits auf IN-1, IN-2)
+
+Die Konsolen-Mitschnitte vom 12.11. enthalten den ersten Versuch nicht (die Konsole lief nicht mit), die Ursache ist
+deshalb aus dem Code und einer Nachstellung erschlossen, nicht beobachtet.
+
+| Zeile | Board | Prüfung | Ergebnis |
+|---|---|---|---|
+| 23.1 | Vorschau der Seite von IN-2 (echte `status.json`, Wartung, Hinzufügen nachgebildet), alter Stand | „Anna“ hinzufügen | ✗ wie vermutet: Link erscheint, „Anna“ fehlt in der Liste, kein Test-Knopf für sie |
+| 23.2 | dieselbe Vorschau, neuer Stand | „Anna“ hinzufügen | ✓ Liste lädt neu und zeigt „Anna“; darunter „1 · ntfy: Nachrichten abonnieren (Anna)“ und „2 · Test an Anna senden“ mit Hinweis „nicht neu hinzufügen“; der Link bleibt bis zum Ende der Wartung stehen |
+| 23.3 | `cb.py test`, `bauen innen`, IN-1 und IN-2 geflasht | – | ✓ 132 Tests, 0 Fehler, ohne Warnung |
+| 23.4 | IN-2 Wartung, `fern-handy-web IN-2 PC3` (Neu-Anlernen), `/phone/link` | Antwort trägt die Handy-Kennung | ✓ `id` = PC3 |
+| 23.5 | `fern-test PC3 --fremd`, `ring og` | neuer Schlüssel wirkt | ✓ Push „Es klingelt – Wohnung oben“ auf dem neuen Topic, erfundenes Token: keine Öffnung |
+
 ### Wohnungsnamen frei wählbar – FW-B-21 (12.11.2026 abends, TOWER, Firmware dieses Commits auf AU-1, IN-1, IN-2)
 
 Umsetzung von R28 (SA): Die zwei Wohnungen bleiben intern die zwei Klingeltasten (EG = Taste unten, OG = Taste oben;
@@ -159,9 +172,12 @@ Offen: OG mit echtem Handy (Sammelliste R27.10); iOS ungeprüft. Die Test-Handys
 bleiben bis zur Abnahme eingetragen.
 
 Befunde:
-- **FW-B-23_Handy_zweimal_anlernen:** Der Meister musste das Handy an IN-1 zweimal hinzufügen, bis es ging. Ursache
-  noch nicht geklärt (welcher Schritt beim ersten Mal fehlschlug, ist nicht festgehalten); beim nächsten Handy (R27.10)
-  gezielt beobachten: Meldung der Seite nach „Hinzufügen“, kam die Test-Push, steht das Handy auf AU-1 (`remote`)?
+- **FW-B-23_Handy_zweimal_anlernen:** Der Meister musste das Handy an IN-1 zweimal hinzufügen, bis es ging.
+  **Wahrscheinliche Ursache gefunden und behoben 12.11. abends** (Abschnitt „FW-B-23“ oben): Die Seite lud die
+  Handy-Liste nach „Hinzufügen“ nicht neu (in der Wartung lädt sie sich nie selbst neu). Ein neues Handy fehlte in der
+  Liste, ein altes ohne Schlüssel stand weiter rot als „neu hinzufügen (alte Einrichtung)“ – genau der Fall am 12.11.
+  –, und der Hinweis „Danach hier ‚Test‘ antippen“ hatte keinen Knopf. Ein zweites Hinzufügen erzeugt einen neuen
+  Schlüssel und macht den ersten Link ungültig. Bei R27.10 noch beobachten, ob es mit dem echten Handy ohne Wiederholung geht.
 
 ### Statusseite neu und kleine Befunde (12.11.2026, TOWER)
 

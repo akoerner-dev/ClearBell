@@ -214,20 +214,28 @@ function pairing(p,maint,R){
   c.append(b,list,$('p','mute','Erste Kopplung einer Wohnung: Gerätecode der Inneneinheit genügt. Eine bestehende Kopplung ersetzen: nur in der Wartung.'));
   return c}
 // R27: a phone needs only the ntfy app and one link; the ring push carries the "Tür öffnen" button.
-function linkOut(out,r){out.replaceChildren();if(!r.ok)return;const a=$('a','step','ntfy: Nachrichten abonnieren');a.href=r.ntfy;a.prepend(ic('send'));
-  out.append(a,$('p','mute','Auf DEM Handy öffnen, das die Nachrichten bekommen soll. Vorher nur die App „ntfy“ installieren (Play Store, F-Droid oder App Store). Danach hier „Test“ antippen.'))}
+// FW-B-23: the link of the phone just added (or asked for) survives the refresh of the list, with "Test" right below -
+// adding the same phone again would make a new key and spoil the first link.
+let lastLink=null;
+function linkOut(out,r){out.replaceChildren();if(!r.ok)return;const a=$('a','step','1 · ntfy: Nachrichten abonnieren'+(r.id?' ('+r.id+')':''));a.href=r.ntfy;a.prepend(ic('send'));
+  out.append(a,$('p','mute','Auf DEM Handy öffnen, das die Nachrichten bekommen soll. Vorher nur die App „ntfy“ installieren (Play Store, F-Droid oder App Store).'));
+  if(r.id){const t=btn('2 · Test an '+r.id+' senden','bell','sec');t.onclick=async()=>toast(await post('/phone/test',{name:r.id}));
+    out.append(t,$('p','mute','Kommt keine Test-Nachricht: den Link oben noch einmal öffnen und erneut testen – das Handy nicht neu hinzufügen.'))}}
 function phones(ph,maint){
   const c=card('phone','Handys'),l=$('div','list'),out=$('div');const nokey=ph.nokey||[];
   for(const id of ph.list){const it=$('div','item');it.append($('span','av',id.slice(0,2).toUpperCase()));const g=$('div','grow');
     g.append($('b','',id),$('span',nokey.includes(id)?'bad':'',nokey.includes(id)?'neu hinzufügen (alte Einrichtung)':'bekommt Klingel-Nachrichten'));it.append(g);
     if(!nokey.includes(id)){const t=btn('Test','','sec sm');t.onclick=async()=>toast(await post('/phone/test',{name:id}));it.append(t)}
-    if(maint){if(!nokey.includes(id)){const k=btn('Link','','sec sm');k.onclick=async()=>{const r=await post('/phone/link',{name:id});toast(r);linkOut(out,r)};it.append(k)}
+    if(maint){if(!nokey.includes(id)){const k=btn('Link','','sec sm');k.onclick=async()=>{const r=await post('/phone/link',{name:id});toast(r);if(r.ok)lastLink=r;linkOut(out,r)};it.append(k)}
       const b=btn('Entfernen','','danger sm');b.onclick=async()=>{if(confirm('Handy '+id+' entfernen? Es bekommt dann keine Nachrichten mehr und kann die Tür nicht öffnen.')){toast(await post('/phone/remove',{name:id}));load(true)}};it.append(b)}
     l.append(it)}
   if(!ph.list.length)l.append($('p','mute','Noch keine Handys eingetragen.'));c.append(l,out);
+  if(!maint||(lastLink&&!ph.list.includes(lastLink.id)))lastLink=null;
+  if(lastLink)linkOut(out,lastLink);
   if(!maint){c.append($('p','mute','Handy hinzufügen: Wartung einschalten und diese Seite auf dem Handy öffnen.'));return c}
   c.append($('h3','','Handy hinzufügen'));const row=$('div','row');const n=$('input');n.placeholder='Name, z. B. Anna';n.maxLength=8;const b=btn('Hinzufügen','phone');row.append(n,b);
-  b.onclick=async()=>{b.disabled=true;const r=await post('/phone/add',{name:n.value});toast(r);b.disabled=false;linkOut(out,r);if(r.ok)n.value=''};
+  b.onclick=async()=>{b.disabled=true;const r=await post('/phone/add',{name:n.value});toast(r);b.disabled=false;
+    if(r.ok){lastLink=r;n.value='';load(true)}else linkOut(out,r)};  // FW-B-23: list shows the new phone at once
   c.append(row);paused=true;return c}
 function remote(f){
   const c=card('send','Fern-Öffnen');

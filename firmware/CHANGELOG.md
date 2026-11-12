@@ -5,6 +5,12 @@ Versionen nach SemVer; `version.txt` ist die Quelle. Solange die Portierung läu
 
 ## 0.2.0-dev (in Arbeit)
 
+### Handy hinzufügen ohne Wiederholung (12.11.2026, FW-B-23)
+
+- Nach „Hinzufügen“ lädt die Handy-Liste sofort neu; der ntfy-Link bleibt stehen, darunter „Test an ‹Handy› senden“
+  und der Hinweis, das Handy nicht neu hinzuzufügen (das machte den ersten Link ungültig). `/phone/add` und
+  `/phone/link` geben die Handy-Kennung mit zurück.
+
 ### Wohnungsnamen frei wählbar (12.11.2026, FW-B-21, R28)
 
 - Jede Wohnung hat einen **freien Namen** (≤ 24 Zeichen, Umlaute erlaubt), eingegeben an der eigenen Inneneinheit:

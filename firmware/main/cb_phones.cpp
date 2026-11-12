@@ -99,7 +99,7 @@ int find_phone(const char *id) {
 }
 
 // The one link a phone needs (R27): subscribe its push topic in the ntfy app. Pushes carry the door button.
-esp_err_t link_reply(httpd_req_t *req, const char *msg, const char *key_hex) {
+esp_err_t link_reply(httpd_req_t *req, const char *msg, const char *id, const char *key_hex) {
   char push[cb::kTopicLen + 1], cmd[cb::kTopicLen + 1];
   if (!cb::phone_topics(key_hex, push, cmd))
     return answer(req, "409 Conflict", false, "Für dieses Handy fehlt der Schlüssel – bitte entfernen und neu hinzufügen.");
@@ -114,6 +114,7 @@ esp_err_t link_reply(httpd_req_t *req, const char *msg, const char *key_hex) {
   j.begin_obj();
   j.kv("ok", true);
   j.kv("message", msg);
+  j.kv("id", id);  // FW-B-23: the page offers "Test" for exactly this phone next to the link
   j.kv("ntfy", ntfy);
   j.kv("web", web);
   j.end_obj();
@@ -150,7 +151,7 @@ esp_err_t h_add(httpd_req_t *req) {
     return answer(req, "504 Gateway Timeout", false, "Außeneinheit hat nicht bestätigt – erreichbar?");
   cb_prov_phone_store(id, key_hex, own_flat());  // indoor keeps the key too: outage notice, link again (R27)
   cb_log("phones: phone '%s' added (outdoor confirmed)", id);
-  esp_err_t r = link_reply(req, "Handy eingetragen. Jetzt auf DIESEM Handy den Link öffnen (App „ntfy“).", key_hex);
+  esp_err_t r = link_reply(req, "Handy eingetragen. Jetzt auf DIESEM Handy den Link öffnen (App „ntfy“).", id, key_hex);
   memset(key_hex, 0, sizeof key_hex);
   return r;
 }
@@ -162,7 +163,7 @@ esp_err_t h_link(httpd_req_t *req) {
   char id[16];
   int slot = read_name(req, id) ? find_phone(id) : -1;
   if (slot < 0) return answer(req, "404 Not Found", false, "Handy nicht gefunden");
-  return link_reply(req, "Link für dieses Handy – auf dem Handy öffnen.", cb_prov().phone_key[slot]);
+  return link_reply(req, "Link für dieses Handy – auf dem Handy öffnen.", id, cb_prov().phone_key[slot]);
 }
 
 esp_err_t h_test(httpd_req_t *req) {
