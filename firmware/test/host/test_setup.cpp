@@ -76,6 +76,12 @@ TEST(flat_name_normalize_accepts_real_names) {
   CHECK(strcmp(n, "Familie Müller") == 0);
   CHECK(flat_name_normalize("  Praxis   Dr. Weiß \t", n));  // trimmed, inner runs folded
   CHECK(strcmp(n, "Praxis Dr. Weiß") == 0);
+  CHECK(flat_name_normalize("Familie Strauß", n));  // ß: 2 bytes, 1 character
+  CHECK(strcmp(n, "Familie Strauß") == 0);
+  CHECK(flat_name_normalize("STRAUẞ", n));  // capital sharp s U+1E9E: 3 bytes
+  CHECK(strcmp(n, "STRAUẞ") == 0);
+  CHECK(flat_name_normalize("ßßßßßßßßßßßßßßßßßßßß", n));    // 20 × ß = 40 bytes: fits
+  CHECK(!flat_name_normalize("ßßßßßßßßßßßßßßßßßßßßß", n));  // 21 × ß = 42 bytes
   CHECK(flat_name_normalize("Yılmaz & Söhne", n));
   CHECK(strcmp(n, "Yılmaz & Söhne") == 0);
   CHECK(flat_name_normalize("", n));  // empty = no own name, the default is shown
@@ -119,6 +125,8 @@ TEST(flat_labels_and_url_encode) {
   char u[64];
   CHECK(url_encode("ClearBell Familie Müller", u, sizeof u));
   CHECK(strcmp(u, "ClearBell%20Familie%20M%C3%BCller") == 0);
+  CHECK(url_encode("Weiß ẞ", u, sizeof u));
+  CHECK(strcmp(u, "Wei%C3%9F%20%E1%BA%9E") == 0);
   CHECK(url_encode("a-b_c.d~e&f", u, sizeof u));
   CHECK(strcmp(u, "a-b_c.d~e%26f") == 0);
   char small[6];

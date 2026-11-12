@@ -129,6 +129,7 @@ Start und jeder Änderung (bei Fehlschlag alle 30 s erneut), und meldet ihn im m
 | 21.7 | `fern-test PC3 --fremd`, `ring og` | Push-Titel | ✓ „Es klingelt – Familie Yılmaz“, erfundenes Token: keine Öffnung |
 | 21.8 | AU-1 `reboot` | Namen bleiben gespeichert | ✓ beide Namen nach dem Neustart |
 | 21.10 | IN-2 Einrichtung (Taster 2 × 5 s), `/setup/save` mit Steuerzeichen; mit leerem Namen | Prüfung und Rücksetzen | ✓ 400; 200, Neustart, „Wohnung oben“ an AU-1 übergeben. Danach IN-1 per `setup-name` (leer) ebenso zurück: Endstand beide Standardnamen |
+| 21.12 | IN-2 `/flat/name` „Familie Strauß“, `/phone/link` PC3, `fern-test PC3 --fremd` + `ring og`; „STRAUẞ“ (großes ẞ, U+1E9E); dazu `cb.py test` mit ß/ẞ und Grenze 20 × ß = 40 Byte (Wunsch Meister) | ß und ẞ auf allen Wegen | ✓ AU-1 „Familie Strauß“, Abo `display=ClearBell%20Familie%20Strau%C3%9F`, Push „Es klingelt – Familie Strauß“, keine Öffnung; „STRAUẞ“ an AU-1 ✓; danach leer → „Wohnung oben“; PC: 132 Tests, 2941 Prüfungen, 0 Fehler |
 | 21.11 | Vorschau der Seiten (echte `status.json` von AU-1 und IN-2, Wartung vorgetäuscht) | Kopplungskarte, Suchliste, Kacheln, Handy-Zählung, Namensfeld innen, Einrichtungsseite | ✓ Namen mit „Taste oben/unten“, Reihenfolge oben vor unten; das Formular schickt `role` und `name` |
 
 Offen: 21.9 mit echtem Handy (Sammelliste). Bei schon abonnierten Handys zeigt ntfy weiter den alten Abo-Namen, bis
