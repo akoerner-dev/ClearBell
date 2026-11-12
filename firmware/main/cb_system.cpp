@@ -4,6 +4,8 @@
 #include <Arduino.h>
 #include <Preferences.h>
 #include <esp_app_desc.h>
+
+#include "cb_build_stamp.h"  // generated at every build (main/build_stamp.cmake, FW-B-11)
 #include <esp_core_dump.h>
 #include <esp_heap_caps.h>
 #include <esp_mac.h>
@@ -67,8 +69,8 @@ void cmd_info(const char *) {
   const esp_partition_t *run = esp_ota_get_running_partition();
   uint8_t mac[6];
   esp_read_mac(mac, ESP_MAC_WIFI_STA);
-  cb_log("ClearBell firmware %s, image '%s', built %s %s, IDF %s", app->version, CB_UNIT_TYPE_NAME, app->date,
-         app->time, app->idf_ver);
+  cb_log("ClearBell firmware %s, image '%s', built %s, IDF %s", app->version, CB_UNIT_TYPE_NAME, CB_BUILD_STAMP,
+         app->idf_ver);
   cb_log("MAC %02X:%02X:%02X:%02X:%02X:%02X, partition %s, update pending %s", mac[0], mac[1], mac[2], mac[3],
          mac[4], mac[5], run ? run->label : "?", update_pending ? "YES" : "no");
   cb_log("boot #%lu, last reset: %s, uptime %lu s", (unsigned long)boot_count, reason_text(reset_reason),
@@ -176,7 +178,7 @@ void cb_system_json(cb::Json &j) {
   j.kv("name", cb_prov().valid ? cb_prov().name : "");
   j.kv("role", cb_prov().valid ? cb::unit_name(cb_prov().role) : "none");
   j.kv("mode", cb::mode_name(cb_mode()));
-  j.kv("built", app->date);
+  j.kv("built", CB_BUILD_STAMP);
   j.kv("uptime_s", (unsigned long)(millis() / 1000));
   j.kv("boot", (unsigned long)boot_count);
   j.kv("reset_reason", reason_text(reset_reason));

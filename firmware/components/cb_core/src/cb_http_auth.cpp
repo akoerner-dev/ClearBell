@@ -217,6 +217,15 @@ void digest_response(const DigestFields &f, const char *password, const char *me
 
 // ---- Server side -------------------------------------------------------------------------------------------
 
+namespace {
+// 16 characters of the device-code alphabet (Crockford Base32, upper case) - see cb_setup_logic.
+bool looks_like_device_code(const char *p) {
+  for (int i = 0; i < 16; i++)
+    if (!((p[i] >= '0' && p[i] <= '9') || (p[i] >= 'A' && p[i] <= 'Z'))) return false;
+  return p[16] == 0;
+}
+}  // namespace
+
 const char *auth_result_name(AuthResult r) {
   switch (r) {
     case AuthResult::Ok: return "ok";
@@ -371,11 +380,34 @@ AuthResult DigestAuth::check(const char *header, const char *method, const char 
   if (!nonce_valid(f.nonce, now_s, &seq)) return AuthResult::Stale;
   if (seq < floor_seq_) return AuthResult::Stale;  // its count was forgotten -> must not be trusted again
 
-  char expect[33];
-  digest_response(f, pass_, method, expect);
   bool user_ok = strcmp(f.username, user_) == 0;
-  bool resp_ok = strlen(f.response) == 32 &&
-                 ct_equal(reinterpret_cast<const uint8_t *>(expect), reinterpret_cast<const uint8_t *>(f.response), 32);
+  bool resp_ok = false;
+  if (strlen(f.response) == 32) {
+    // FW-B-14: the browser hashes exactly what was typed. While the password is the 16-character device code, also
+    // accept the ways people copy it from a label: in groups of four with '-' or ' ', and in lower case.
+    char alt[3][24];
+    const char *cand[4] = {pass_};
+    int n = 1;
+    if (looks_like_device_code(pass_)) {
+      for (int s = 0; s < 2; s++) {
+        char *v = alt[s];
+        int k = 0;
+        for (int i = 0; i < 16; i++) {
+          if (i && i % 4 == 0) v[k++] = s ? ' ' : '-';
+          v[k++] = pass_[i];
+        }
+        v[k] = 0;
+        cand[n++] = v;
+      }
+      for (int i = 0; i <= 16; i++) alt[2][i] = (char)((pass_[i] >= 'A' && pass_[i] <= 'Z') ? pass_[i] + 32 : pass_[i]);
+      cand[n++] = alt[2];
+    }
+    for (int i = 0; i < n; i++) {
+      char expect[33];
+      digest_response(f, cand[i], method, expect);
+      resp_ok |= ct_equal(reinterpret_cast<const uint8_t *>(expect), reinterpret_cast<const uint8_t *>(f.response), 32);
+    }
+  }
   if (!user_ok || !resp_ok) return fail(now_s);
   // Past this point the sender knows the password. Remaining checks protect against replay / misuse of a
   // recorded header and do not count as wrong password.

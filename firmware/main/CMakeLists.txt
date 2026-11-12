@@ -26,3 +26,12 @@ idf_component_register(
 )
 target_compile_options(${COMPONENT_LIB} PRIVATE -Wall -Wextra -Werror)
 
+# Build time for "info" and the status page (FW-B-11): refreshed at every build, see build_stamp.cmake.
+set(CB_STAMP_H "${CMAKE_CURRENT_BINARY_DIR}/cb_build_stamp.h")
+add_custom_target(cb_build_stamp
+    COMMAND ${CMAKE_COMMAND} -DOUT=${CB_STAMP_H} -P ${CMAKE_CURRENT_LIST_DIR}/build_stamp.cmake
+    BYPRODUCTS ${CB_STAMP_H}
+    VERBATIM)
+add_dependencies(${COMPONENT_LIB} cb_build_stamp)
+target_include_directories(${COMPONENT_LIB} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+

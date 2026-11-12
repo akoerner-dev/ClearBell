@@ -46,7 +46,7 @@ Einheiten im Gehäuse.
 | 7.8 | AU-1 | ✓ `door-test` 2000 ms, `door-test 300` 300 ms (Konsole „pin read back HIGH/LOW“), LED und Öffner entsprechend; Multimeter nicht genutzt |
 | 7.9 | IN-1 → AU-1 | ✓ Türtaste 3 s: AU-1 „door challenges 1, opened 1, refused 0“, LED und Öffner 2 s |
 
-Befunde (Statusseite und Konsole, noch nicht behoben):
+Befunde (Statusseite und Konsole; FW-B-09 bis FW-B-14 behoben 12.11.2026, siehe „Statusseite neu“ unten):
 - **FW-B-09_Leere_Kartenkästen:** In der Wartung ist die Karte „Einstellungen“ sehr lang; die übrigen Karten derselben
   Reihe werden auf ihre Höhe gezogen und erscheinen als leere, hohe Kästen.
 - **FW-B-10_Dateiname_vorne_kürzen:** Die Dateiauswahl (Firmware, Ton) kürzt lange Namen in der Mitte bzw. läuft über;
@@ -103,6 +103,31 @@ Befunde 10.11.2026 abends (noch nicht behoben):
   AU-1↔EG. Der Meister wollte an IN-2 (OG) ein Handy verbinden. Mit FW-B-21 passt „nur EG“ nicht mehr: soll jede
   Wohnung eigene Handys mit eigenen Topics aus ihrer Kopplung bekommen? **Entschieden 12.11.: ja, beide Wohnungen,
   Handys je Inneneinheit (R27).**
+
+### Statusseite neu und kleine Befunde (12.11.2026, TOWER)
+
+Auftrag Meister: kleine Befunde zuerst, dazu die Seiten der Einheiten ansprechender gestalten, angelehnt an aktuelle
+Apps – nur wenn die Hardware es hergibt. Reserven: App-Slot 6,25 MB, Image 1,41 MB (außen, +16 KB durch die neue
+Seite), 79 % frei; Seite 35,6 KB statt 25 KB, ausgeliefert in 1,5 s inkl. Anmeldung; RAM-Minimum 95 KB (Grenze 40 KB).
+Grenze ist nicht die Hardware, sondern „ohne Internet“: Systemschrift, eingebettete SVG-Symbole, kein Fremdcode (CSP).
+
+| Befund | Behebung | Prüfung |
+|---|---|---|
+| FW-B-09 leere Kartenkästen | Karten fließen in Spalten (`columns`), keine gestreckten Kästen mehr | Vorschau Wartung außen/innen ✓ |
+| FW-B-10 Dateiname vorne kürzen | eigener Dateiknopf + Namenszeile, lange Namen vorne mit „…“ gekürzt (Ton, Firmware) | Vorschau ✓ |
+| FW-B-11 Build-Datum veraltet | eigener Zeitstempel `cb_build_stamp.h`, bei jedem Bau neu (`main/build_stamp.cmake`) | AU-1/IN-2 geflasht: „built 2026-11-12 13:18/13:19“ ✓ |
+| FW-B-12 Meldung verschwindet | Rückmeldungen als Einblendung unten, unabhängig vom Neuaufbau der Karten | Vorschau: Einblendung erscheint und bleibt 5–9 s ✓ |
+| FW-B-13 Etikett-Passwort ≠ Gerätecode | Seite sagt durchgehend „Gerätecode“ | Vorschau ✓ |
+| FW-B-14 Code mit Strichen abgelehnt | Anmeldung nimmt den Gerätecode auch in Vierergruppen mit „-“ oder Leerzeichen und klein geschrieben (nur solange kein eigenes Passwort gilt) | PC-Test `auth_device_code_typed_like_the_label` ✓ (128 Tests, 0 Fehler); am Gerät offen, weil alle drei eigene Passwörter haben |
+
+Neue Gestaltung (Status- und Einrichtungsseite): Kopfzeile mit Einheit, Wohnung und Modus-Abzeichen; Übersichtskacheln
+(WLAN mit Güte, Verbindung, Türöffner, Lautstärke, Gerätezustand); Karten Klingel, Kopplung, Handys, Fern-Öffnen,
+Türöffnungen (6 neueste, ältere aufklappbar), Töne (Zusammenfassung, Einzelheiten aufklappbar), Türöffner; in der
+Wartung Hinweisbalken und Karte „Einstellungen“ mit aufklappbaren Bereichen; Diagnosezahlen (Funk, Protokoll, Touch,
+Audio, System) aufklappbar, offene Bereiche bleiben beim 5-s-Neuladen offen; hell/dunkel, Handybreite. Einrichtungsseite:
+nummerierte Schritte, Signalbalken, Wohnung als Wahlkacheln. Geprüft in einer lokalen Vorschau mit echten
+Statusdaten von AU-1 und IN-1 (Adressen ersetzt); AU-1 liefert die neue Seite aus ✓. **Offen (Sammelliste): Seite am
+Handy ansehen, Wartung durchklicken (Meister).**
 
 ### Zweite Inneneinheit IN-2 (OG) 12.11.2026 (TOWER, Firmware `c6dc996`)
 

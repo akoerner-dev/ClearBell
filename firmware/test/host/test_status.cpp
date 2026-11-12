@@ -147,6 +147,26 @@ TEST(auth_wrong_password_and_lock) {
   CHECK(a.check(h, "GET", "/", 50) == AuthResult::Bad);
 }
 
+TEST(auth_device_code_typed_like_the_label) {  // FW-B-14
+  DigestAuth a;
+  a.begin(kSecret, "ClearBell test", "clearbell", "K7QFM2XA9TRDH4WE");
+  char ch[200], h[400];
+  a.challenge(10, false, ch, sizeof ch);
+  unsigned nc = 1;
+  const char *forms[] = {"K7QFM2XA9TRDH4WE", "K7QF-M2XA-9TRD-H4WE", "K7QF M2XA 9TRD H4WE", "k7qfm2xa9trdh4we"};
+  for (const char *typed : forms) {
+    client_header(ch, "clearbell", typed, "GET", "/", nc++, h, sizeof h);
+    CHECK(a.check(h, "GET", "/", 11) == AuthResult::Ok);
+  }
+  client_header(ch, "clearbell", "K7QF-M2XA-9TRD-H4WX", "GET", "/", nc++, h, sizeof h);
+  CHECK(a.check(h, "GET", "/", 11) == AuthResult::Bad);
+  // an own password gets no variants: "geheim-123" typed as "geheim123" stays wrong
+  DigestAuth b = make_auth();
+  b.challenge(10, false, ch, sizeof ch);
+  client_header(ch, "clearbell", "geheim123", "GET", "/", 1, h, sizeof h);
+  CHECK(b.check(h, "GET", "/", 11) == AuthResult::Bad);
+}
+
 TEST(auth_stale_nonces) {
   DigestAuth a = make_auth();
   char ch[200], h[400];

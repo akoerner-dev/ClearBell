@@ -5,6 +5,17 @@ Versionen nach SemVer; `version.txt` ist die Quelle. Solange die Portierung läu
 
 ## 0.2.0-dev (in Arbeit)
 
+### Statusseite neu, kleine Befunde (12.11.2026)
+
+- **Status- und Einrichtungsseite neu gestaltet:** Kopfzeile mit Modus, Übersichtskacheln, Karten, aufklappbare
+  Diagnose, Einblendungen statt Textzeilen; weiter ohne fremde Dateien (CSP), hell/dunkel. Seite 35,6 KB.
+- FW-B-09 (leere Kartenkästen), FW-B-10 (Dateiname vorne kürzen), FW-B-12 (Meldung verschwindet), FW-B-13
+  („Gerätecode“ statt „Etikett-Passwort“) mit der neuen Seite behoben.
+- **FW-B-11_Build-Datum_veraltet:** eigener Bau-Zeitstempel bei jedem Bau (`main/build_stamp.cmake`) für `info` und
+  Statusseite.
+- **FW-B-14_Geraetecode_mit_Strichen_abgelehnt:** Anmeldung nimmt den Gerätecode auch mit „-“/Leerzeichen und klein
+  geschrieben, solange kein eigenes Passwort gesetzt ist.
+
 ### Werkzeuge: Werksschritt für weitere Boards (12.11.2026)
 
 - **FW-B-18_Neues_Board_bleibt_im_Download-Modus:** `cb.py werk` prüft am Ende, ob die Firmware auf der Konsole
