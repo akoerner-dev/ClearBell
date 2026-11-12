@@ -120,8 +120,8 @@ Die heutigen Ergebnisse bleiben gültig; die Schritte 10a–c bauen darauf auf.
 
 ## 5 Offene Punkte für den Meister
 
-- **Etikett:** Gerätenummer + Gerätecode + QR je Einheit – passt das zur geplanten Fertigung (Aufkleber auf der
-  Rückseite, Kopie in der Verpackung)?
+- ~~**Etikett:**~~ entschieden 12.11.2026 (10a.13): Avery Zweckform 3657 (48,5 × 25,4 mm, Tintenstrahl/Laser), Code
+  ohne Trennzeichen so, wie man ihn tippt; Druckbogen per `cb.py etiketten`. Kopie in der Verpackung: zweites Etikett.
 - **Boot-Taster der Inneneinheit:** Ist er im fertigen Gehäuse ohne Werkzeug erreichbar (Loch für eine Büroklammer)?
   Davon hängt ab, ob Wartung/Einrichtung innen „ohne Öffnen“ geht.
 - **Ein Code oder zwei:** Ich schlage **einen** Gerätecode für Einrichtungs-WLAN und Statusseite vor (einfacher für den

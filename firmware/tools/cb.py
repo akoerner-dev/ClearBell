@@ -11,6 +11,8 @@
 
 Factory step (once per unit, the only step with a PC - details in tools/werk.py):
     python tools/cb.py werk aussen COM4 [--name AU-1]          firmware + tones + device code, writes the label
+    python tools/cb.py etiketten [<number> ...] [--ab N] [--rahmen]  A4 print sheet (PDF) for Avery Zweckform 3657;
+                                                                default all units, from field N; --rahmen = test frames
     python tools/cb.py einrichten IN-1 COM3                     DEV: WiFi/flat from the installation file via USB
 
 Development provisioning (old schema-1 way, keeps working via migration; details in tools/provisionieren.py):
@@ -332,6 +334,18 @@ def main(argv: list[str]) -> int:
 
         name = argv[argv.index("--name") + 1] if "--name" in argv[:-1] else None
         return werk.werk(argv[2], argv[3], name, idf_python(), IDF_PATH, cmd_flashen, cmd_toene)
+    if action == "etiketten":
+        sys.path.insert(0, str(Path(__file__).parent))
+        import werk
+
+        args = argv[2:]
+        start = 1
+        if "--ab" in args:
+            i = args.index("--ab")
+            start = int(args[i + 1])
+            del args[i:i + 2]
+        rahmen = "--rahmen" in args
+        return werk.etiketten([a for a in args if a != "--rahmen"], start, rahmen)
     if action == "test":
         return cmd_test()
     if action == "toene":

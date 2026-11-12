@@ -13,6 +13,9 @@ Versionen nach SemVer; `version.txt` ist die Quelle. Solange die Portierung läu
   wenn X dort steht; `anlage-einheit X eg|og` übernimmt beides aus dem Werksregister, wenn `werk` schon lief.
 - **FW-B-20_Werkzeug_meldet_sich_mehrfach_an:** `status`, `update`, `ton-hochladen` und `fern-*` melden sich bei
   falschem Passwort nur noch einmal an (vorher 5 Versuche → 30-s-Sperre) und nennen `anlage-webpasswort` als Abhilfe.
+- **Etikett (10a.13):** Format Avery Zweckform 3657 (48,5 × 25,4 mm), Code ohne Trennzeichen; `werk` erzeugt das
+  Etikettbild, neuer Befehl `cb.py etiketten [<Nummer> …] [--ab N] [--rahmen]` erzeugt den A4-Druckbogen (PDF).
+- `anlage-webpasswort <Einheit>` fragt das Passwort verdeckt ab und prüft danach die Anmeldung.
   Firmware unverändert.
 
 ### Schritt 10d – Signierte Updates (10.11.2026, R26)

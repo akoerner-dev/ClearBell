@@ -25,7 +25,7 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 | 8.14 | beide | **verschoben bis Front/Diffusor vorhanden** (Meister 08.11.2026: ohne Front nur ein vorläufiger Wert; bis dahin Standard 40). LED ansehen (am besten mit Lichtleiter/Diffusor): grün, rot, bernstein; `led-balance 20` … `led-balance 70` probieren | grün und rot wirken gleich hell, bernstein ist als Mischfarbe erkennbar; gewählten Wert notieren (Standard 40) |
 | 9.14 | – | ~~echte Topics statt Test-Topics~~ – entfällt: seit 10c werden die Topics aus der EG-Kopplung abgeleitet | – |
 | ~~10a.12~~ | ✓ 12.11. an IN-2 statt IN-1 (Ergebnis im Abschnitt IN-2 unten) | – | – |
-| 10a.13 | – | Etikett ansehen (`.txt`/`.png`): passt Inhalt und Größe zum geplanten Aufkleber? | Entscheidung Etikett |
+| ~~10a.13~~ | ✓ 12.11. entschieden (Ergebnis im Abschnitt IN-2 unten); offen nur: Probedruck `cb.py etiketten --rahmen` gegen einen echten 3657-Bogen | – | – |
 | ~~10b.10~~ | ✓ 12.11. EG und OG nach Werksreset AU-1 (Ergebnis im Abschnitt IN-2 unten) | – | – |
 | 5.13 | IN-1 | im Gehäuse am Montageort: Klingel mit üblicher Lautstärke | laut genug (10.11.: bei 15 % ohne Gehäuse zu leise) |
 | 5.14 | AU-1 | im Gehäuse: `play error` mit 50 / 75 / 100 % | kein Klirren; sonst Höchstgrenze außen senken (10.11.: ohne Gehäuse klirrt es bei 75 % deutlich) |
@@ -88,7 +88,8 @@ Befunde 10.11.2026 abends (noch nicht behoben):
   Hinweis auf `anlage-webpasswort`. Gemessen über die Konsole `web`: vorher 5 falsche Versuche + 1 Sperre je Aufruf,
   nachher 1 Versuch, keine Sperre; richtige Anmeldung an AU-1 ✓. Gilt auch für `fern.py`.
 - **FW-B-14 Ergebnis WLAN-Passwort (12.11.):** Mit Bindestrichen abgetippt verbindet das Handy nicht, per QR-Code
-  problemlos. Beim Etikett (10a.13) entscheiden: Code ohne Striche drucken oder Hinweis „Striche weglassen“.
+  problemlos. Entschieden bei 10a.13: Code ohne Striche drucken. Damit passt das Etikett auch zur Anmeldung; die
+  Toleranz für Striche/Leerzeichen bei der Anmeldung (wie schon bei der Kopplung) bleibt als kleine Verbesserung.
 - **FW-B-21_Wohnungsnamen_frei_waehlbar (Funktionswunsch, Meister 12.11.: umsetzen):** EG/OG passt nicht für jedes
   Haus. Umsetzung wie vorgeschlagen: intern zwei Plätze nach den zwei Klingeltasten der Außeneinheit („Taste oben“ /
   „Taste unten“, mehr Wohnungen erst V0.3); dazu ein frei wählbarer Name je Wohnung (≈ 24 Zeichen, Umlaute), auf der
@@ -113,6 +114,8 @@ Befunde 10.11.2026 abends (noch nicht behoben):
 | Werksreset AU-1 | AU-1 + Handy | ✓ (versehentlich, Meister) gleiche Tastenfolge; danach Einrichtungsmodus, Kopplungen EG/OG, Handys, eigenes Passwort weg. AU-1 hat kein Etikett (alter Weg Schema 1): QR fürs Einrichtungs-WLAN aus der Anlagendatei erzeugt (`<Gerätenummer>_einrichtung.png`), gescannt, WLAN gespeichert → Normalbetrieb. Altes eigenes Passwort ging erwartungsgemäß nicht mehr |
 | 10b.10 | AU-1 + IN-1 + IN-2 + Handy | ✓ Kopplung über die Seite von AU-1: IN-1 zuerst abgelehnt (HTTP 409 „schon gekoppelt – Wartung öffnen“, wie vorgesehen), nach Wartung an IN-1 „EG paired“; IN-2 „OG paired“, Gerätecode **mit** Bindestrichen angenommen (Kopplung normalisiert schon, FW-B-14 betrifft nur die Anmeldung). Alle drei Boards: Sitzung bestätigt, erreichbar |
 | 10c.8 (Wdh.) | IN-1 + Handy + AU-1 | ✓ Handy an IN-1 neu hinzugefügt (alte Topics durch neue EG-Kopplung ungültig), Fern-Öffnen 11:07:28 „remote“, Puls 2000 ms, Sperrzeit 5000 ms. Handy an IN-2 nicht möglich → FW-B-22 |
+| Werk AU-1 | AU-1 an COM4 | ✓ `cb.py werk aussen COM4 --name AU-1` (AU-1 bekommt Etikett, kein Altweg mehr): neuer Gerätecode in Anlagendatei eingetragen (FW-B-19 im Einsatz), „unit started“ (FW-B-18-Prüfung, kein Abziehen nötig); WLAN, EG/OG, Handy, eigenes Passwort, Puls 2000 ms blieben erhalten |
+| 10a.13 | – | ✓ Entscheidung Meister: Etikett für **Avery Zweckform 3657** (48,5 × 25,4 mm, 44 je A4, Papier, Tintenstrahl + Laser, bei Amazon über die Nummer); Code **genau so, wie man ihn tippt** (16 Zeichen, keine Trennzeichen, kein Erklärtext – „das geht nur in die Hose“). Inhalt: WLAN-QR 15,5 mm, „ClearBell“, Art, Gerätenummer, Code. `werk` erzeugt das Bild, `cb.py etiketten` den A4-Druckbogen (ab Feld N). Raster aus den Maßen errechnet (links 8,0, oben 8,8 mm) – Probedruck steht aus. Wetterfeste Folie in kleinem Format nur für Laser gefunden; AU-1 bei Bedarf mit Klarsichtband überkleben |
 | Klingel EG/OG | AU-1 + IN-1 + IN-2 | ✓ `touch-sim eg` → quittiert 49 ms, nur IN-1 klingelt, Push „Es klingelt – EG“ kam am Handy an; `touch-sim og` → 45 ms, nur IN-2. Beide Inneneinheiten standen dabei auf **100 %** (vom Meister über die Statusseite gestellt, kein Fehler; vor dem Test nicht geprüft), danach auf 15 % zurück |
 
 Befunde 12.11.2026 (behoben in `tools/werk.py`, `tools/provisionieren.py`):

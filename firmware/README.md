@@ -101,7 +101,16 @@ python tools/cb.py werk aussen COM4 --name AU-1
 ```
 
 Flasht Firmware und Töne (mit Werkskopien), schreibt einen zufälligen Gerätecode und legt das Etikett unter
-`ClearBell\Geheimnisse\etiketten\<Gerätenummer>.txt` (+ `.png` mit Python-Paket `qrcode`) ab. Am Ende prüft er, ob die
+`ClearBell\Geheimnisse\etiketten\<Gerätenummer>.txt` und `.png` ab (Etikett für **Avery Zweckform 3657**,
+48,5 × 25,4 mm, Tintenstrahl/Laser; braucht `pip install qrcode[pil]`). Der Code steht darauf genau so, wie man ihn
+tippt – 16 Zeichen ohne Trennzeichen. Druckbogen (A4-PDF, in 100 % drucken):
+
+```bash
+python tools/cb.py etiketten a1b2c3 --ab 5
+```
+
+Ohne Nummer alle Einheiten des Werksregisters, `--ab N` = ab Feld N (angebrochener Bogen), `--rahmen` = Rahmen für
+einen Probedruck auf Normalpapier (gegen den Etikettenbogen halten). Am Ende prüft er, ob die
 Firmware startet; meldet er „UNIT DID NOT START“, USB ab- und wieder anstecken (kam bei einem fabrikneuen Board vor).
 Steht die Einheit (`--name`) schon in der Anlagendatei, trägt er Gerätenummer und Gerätecode dort ein; sonst holt
 `cb.py anlage-einheit <Name> eg|og` beides aus dem Werksregister – die PC-Werkzeuge melden sich damit an. Für Prüfplatz-Boards ohne
