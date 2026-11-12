@@ -25,8 +25,8 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 | 6.10 | ~~AU-1~~ (beide ✓ 08.11., nach Behebung FW-B-06) – offen nur: Werte für die endgültige Schwelle am montierten Gerät | `touch-log 30` mitlaufen lassen, Elektroden nacheinander antippen, 2 s und 5 s halten | Ruhe ±2 %, Finger deutlich über +100 %; Werte notieren (Grundlage für die endgültige Schwelle) |
 | 8.14 | beide | **verschoben bis Front/Diffusor vorhanden** (Meister 08.11.2026: ohne Front nur ein vorläufiger Wert; bis dahin Standard 40). LED ansehen (am besten mit Lichtleiter/Diffusor): grün, rot, bernstein; `led-balance 20` … `led-balance 70` probieren | grün und rot wirken gleich hell, bernstein ist als Mischfarbe erkennbar; gewählten Wert notieren (Standard 40) |
 | 9.14 | – | ~~echte Topics statt Test-Topics~~ – entfällt: seit R27 hat jedes Handy eigene Topics aus seinem Schlüssel | – |
-| R27.10 | IN-2 + Handy | ein Handy an der OG-Einheit hinzufügen (Wartung, „Handy hinzufügen“, Schritt 1 Link, Schritt 2 Test), an AU-1 `ring og`, „Tür öffnen“ tippen | Push nur am OG-Handy, Tür öffnet, Bestätigung „Tür per App geöffnet“; **ohne zweites Hinzufügen** (FW-B-23) |
-| 21.9 | IN-2 + Handy | **zusammen mit R27.10, davor:** an IN-2 in der Wartung unter „Kopplung“ einen echten Namen für das OG eintragen (mit Umlaut), dann erst das Handy hinzufügen; danach die Seite von AU-1 am Handy ansehen | ntfy zeigt das Abo als „ClearBell ‹Name›“, die Push heißt „Es klingelt – ‹Name›“, Kopplungskarte von AU-1 zeigt ‹Name› bei „Taste oben“; Seite am Handy gut lesbar |
+| ~~R27.10~~ | ✓ 12.11. abends mit echtem Handy an IN-2 (Ergebnis im Abschnitt „OG mit echtem Handy“ unten) | – | – |
+| ~~21.9~~ | ✓ 12.11. abends zusammen mit R27.10 (Umlaute/ß getrennt in 21.12 geprüft) | – | – |
 | ~~10a.12~~ | ✓ 12.11. an IN-2 statt IN-1 (Ergebnis im Abschnitt IN-2 unten) | – | – |
 | ~~10a.13~~ | ✓ 12.11. entschieden (Ergebnis im Abschnitt IN-2 unten); offen nur: Probedruck `cb.py etiketten --rahmen` gegen einen echten 3657-Bogen | – | – |
 | ~~10b.10~~ | ✓ 12.11. EG und OG nach Werksreset AU-1 (Ergebnis im Abschnitt IN-2 unten) | – | – |
@@ -109,6 +109,16 @@ Befunde 10.11.2026 abends (noch nicht behoben):
   Wohnung eigene Handys mit eigenen Topics aus ihrer Kopplung bekommen? **Entschieden 12.11.: ja, beide Wohnungen,
   Handys je Inneneinheit (R27). Umgesetzt 12.11.**
 
+### OG mit echtem Handy – R27.10, 21.9, FW-B-23 (12.11.2026 abends, TOWER, gemeinsam mit dem Meister, Firmware `67e3e6f`)
+
+| Zeile | Board | Ergebnis |
+|---|---|---|
+| 21.9 | IN-2 + Handy | ✓ in der Wartung einen echten Namen für das OG eingetragen (der Name steht nicht hier: Repo öffentlich); AU-1 zeigt ihn bei „Taste oben“ (`cb.py status`) |
+| R27.10 | IN-2 + AU-1 + Handy (Android) | ✓ Handy „Andre“ an IN-2 hinzugefügt, Schritt 1 Link, Schritt 2 Test – „bis dahin klappt alles“ (Meister); `ring og` → Quittung nach 77 ms, 14 s später „DOOR: pulse 2000 ms for app Andre“, „door opened by phone Andre (OG)“, Pin nach 2000 ms wieder LOW. AU-1 `remote`: Handys EG 1 / OG 1, Pushes 6 ok / 0 fehlgeschlagen, Befehle ok 1, Token abgelehnt 2 (die beiden `--fremd`-Proben 21.7/21.12), geöffnet 1 |
+| FW-B-23 | IN-2 + Handy | ✓ mit der neuen Seite **ohne zweites Hinzufügen**; IN-2 führt genau ein Handy, keines ohne Schlüssel |
+
+Das Test-Handy PC3 ist auf IN-2 nicht mehr eingetragen (der Meister hat es beim Hinzufügen entfernt). iOS weiter ungeprüft.
+
 ### FW-B-23_Handy_zweimal_anlernen behoben (12.11.2026 abends, TOWER, Firmware dieses Commits auf IN-1, IN-2)
 
 Die Konsolen-Mitschnitte vom 12.11. enthalten den ersten Versuch nicht (die Konsole lief nicht mit), die Ursache ist
@@ -177,7 +187,7 @@ Befunde:
   Handy-Liste nach „Hinzufügen“ nicht neu (in der Wartung lädt sie sich nie selbst neu). Ein neues Handy fehlte in der
   Liste, ein altes ohne Schlüssel stand weiter rot als „neu hinzufügen (alte Einrichtung)“ – genau der Fall am 12.11.
   –, und der Hinweis „Danach hier ‚Test‘ antippen“ hatte keinen Knopf. Ein zweites Hinzufügen erzeugt einen neuen
-  Schlüssel und macht den ersten Link ungültig. Bei R27.10 noch beobachten, ob es mit dem echten Handy ohne Wiederholung geht.
+  Schlüssel und macht den ersten Link ungültig. **Bestätigt bei R27.10: mit dem echten Handy ohne Wiederholung.**
 
 ### Statusseite neu und kleine Befunde (12.11.2026, TOWER)
 
