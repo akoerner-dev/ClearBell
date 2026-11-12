@@ -23,7 +23,8 @@ Status page (port step 8, details in tools/statusseite.py; --ip <address> if .lo
     python tools/cb.py status AU-1 [--json]                     what the unit's status page shows
     python tools/cb.py ton-hochladen IN-1 ring datei.wav        replace a tone (unit in maintenance mode)
     python tools/cb.py anlage-zeigen --passwort IN-1            device password for the browser login
-    python tools/cb.py anlage-webpasswort IN-1 <pw>|label       record an own status-page password for the tools
+    python tools/cb.py anlage-webpasswort IN-1 [<pw>|label]     record an own status-page password for the tools
+                                                                (without <pw>: asks hidden, then tests one login)
     python tools/cb.py update IN-1 [datei.bin] [--aelter]       firmware update over the status page (maintenance);
                                                                 default: the signed own build; --aelter allows an
                                                                 older version (same as the box on the page)
@@ -248,19 +249,29 @@ def main(argv: list[str]) -> int:
             return statusseite.passwort(argv[3])
         if action == "anlage-zeigen":
             return prov.anlage_zeigen()
-        if action == "anlage-webpasswort" and len(argv) == 4:
+        if action == "anlage-webpasswort" and len(argv) in (3, 4):
             # Records the own status-page password of a unit (set on the page / console "web-pass") so the PC tools
-            # log in with it; "label" removes it again (label password).
+            # log in with it; "label" removes it again (label password). Without a password it asks for it hidden
+            # (no placeholder on the command line, nothing in the shell history), then tries one login.
             data = prov._load()
             if argv[2] not in data["einheiten"]:
                 raise SystemExit(f"unit {argv[2]} not in the installation file")
-            if argv[3] == "label":
+            if len(argv) == 4:
+                pw = argv[3]
+            else:
+                import getpass
+                pw = getpass.getpass(f"own status-page password of {argv[2]} (empty = label password): ")
+                if pw and pw != getpass.getpass("again: "):
+                    raise SystemExit("the two entries differ - nothing changed")
+                pw = pw or "label"
+            if pw == "label":
                 data["einheiten"][argv[2]].pop("webpasswort", None)
             else:
-                data["einheiten"][argv[2]]["webpasswort"] = argv[3]
+                data["einheiten"][argv[2]]["webpasswort"] = pw
             prov._save(data)
-            print(f"{argv[2]}: tools now log in with the {'label' if argv[3] == 'label' else 'own'} password")
-            return 0
+            print(f"{argv[2]}: tools now log in with the {'label' if pw == 'label' else 'own'} password - checking:")
+            import statusseite
+            return statusseite.status(argv[2], None, False)
         if action == "anlage-fern":
             link = argv[argv.index("--link") + 1] if "--link" in argv[:-1] else None
             return prov.anlage_fern("--test" in argv, link, "--echt" in argv)

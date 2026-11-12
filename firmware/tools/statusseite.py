@@ -59,7 +59,7 @@ def _refused(e: urllib.error.HTTPError) -> str:
         pass
     if e.code == 401:
         return (f"HTTP 401: wrong password - own status-page password? record it with "
-                f"cb.py anlage-webpasswort <unit> <pw> (or 'label')  [{body}]")
+                f"cb.py anlage-webpasswort <unit>  (asks for it)  [{body}]")
     if e.code == 429:
         return f"HTTP 429: unit locked for 30 s after wrong passwords - wait, then fix the password  [{body}]"
     return f"refused (HTTP {e.code}): {body}"
