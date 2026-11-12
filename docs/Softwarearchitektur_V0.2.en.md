@@ -89,8 +89,8 @@ but have no function (section 5.7).
 |---|---|---|
 | **Triggers** | bell GF, bell UF | door release request |
 | **Executes** | door opener pulse, push dispatch | chime playback |
-| **Verifies** | door commands from the indoor units (challenge–response) and remote openings from the phone (signature) | rings and acknowledgements from the outdoor unit |
-| **Knows keys** | one link key each for GF and UF, plus the phone keys | only its own link key |
+| **Verifies** | door commands from the indoor units (challenge–response) and remote openings from the phone (secret topic, one-time token) | rings and acknowledgements from the outdoor unit |
+| **Knows keys** | one link key each for GF and UF, plus the phone keys of both flats | its own link key and the phone keys of its own flat |
 | **Logs** | remote openings individually, touch openings only as a total | the openings of its own apartment |
 | **Supply** | 12 V DC (SELV) | USB-C 5 V |
 | **Particularity** | extra service USB-C; carries the door opener driver | supply and programming share one socket |
@@ -211,7 +211,7 @@ graph TD
         TX["Transport<br/>sessions · ACK"]
         AU["Audio<br/>WAV player"]
         TC["Touch<br/>arming window"]
-        PU["Remote opening<br/>push · signature"]
+        PU["Remote opening<br/>push · token"]
         MO["Operating modes<br/>maintenance · setup"]
         WB["Status page<br/>HTTP"]
         TX ~~~ PU
@@ -277,7 +277,7 @@ V0.1 is a single 731-line `.ino` — right for bring-up, no longer viable for V0
 | `cb_audio` | WAV parser, playback, priorities, volume, `SD_MODE` |
 | `cb_touch` | hardware baseline, plausibility, arming window |
 | `cb_door` *(outdoor)* | door task — **the only place that touches GPIO47** |
-| `cb_remote` *(outdoor)* | push, tokens, command stream, phone signatures |
+| `cb_remote` | outdoor: push, tokens, command stream; indoor: outage notice (R27) |
 | `cb_status` | LED, status page, door-opening log, counters |
 | `cb_modes` | normal operation, maintenance, setup |
 | `cb_ota` | accept an update, verify its signature, self-test, rollback |
@@ -415,47 +415,49 @@ every one of its commands as a replay, practically forever. Challenge–response
 **Cost:** one extra round trip on the LAN. With modem sleep each step may wait for the router's next DTIM beacon — the
 time to the pulse is measured during bring-up (target ≤ 1 s, section 1.3).
 
-### 4.5 Remote opening via push [V0.2 — design]
+### 4.5 Remote opening via push [V0.2 — implemented per R27]
 
-> **Superseded by R27 (2026-11-12):** ntfy only, no phone signature; one secret topic pair per phone; both flats.
-> This section describes the previous state (R20) and will be rewritten when R27 is implemented.
-
-The use case is concrete: a child is locked out, no adult is home.
+The use case is concrete: a child is locked out at the door and no adult is at home. The ntfy app is all the phone
+needs; one tap on "Tür öffnen" (open door) in the notification opens.
 
 ```mermaid
 sequenceDiagram
     participant A as Outdoor unit
     participant N as ntfy.sh
-    participant H as Phone (app)
-    Note over A: GF ring detected,<br/>generate token (128 bits, single use)
-    A->>N: push with button (TLS verified)
+    participant H as Phone (ntfy app)
+    Note over A: ring at GF or UF detected,<br/>one token per phone of that flat<br/>(128 bit, single-use, 5 min)
+    A->>N: push to the phone's push topic,<br/>button "open door" (TLS verified)
     N->>H: notification
-    Note over H: button opens the app with the token,<br/>HMAC with the phone key
-    H->>N: signed reply
-    N->>A: command stream (TLS verified)
-    Note over A: verify signature and token,<br/>consume token,<br/>opening request to the door task
-    A->>N: confirmation “door opened via app”
+    Note over H: tap on the button
+    H->>N: POST "CBR2 token" to the phone's command topic
+    N->>A: command stream of all phones (TLS verified)
+    Note over A: identify the phone by its topic,<br/>verify and consume the token,<br/>opening request to the door task
+    A->>N: confirmation "door opened by app"<br/>to all phones of the flat
 ```
 
 | Property | Implementation |
 |---|---|
-| **The phone signs** | HMAC-SHA256 over the token with a key that exists only on this phone and in the outdoor unit; the message carries an algorithm identifier |
-| **One key per phone** | revocable individually, e.g. when a phone is lost |
-| **Token** | 128 bits, single use, bound to exactly one ring; its validity is set during bring-up — 5 min is acceptable because the token is worthless without the phone key |
+| **One key per phone** | 256 bit, generated on the indoor unit when the phone is added, sent encrypted to the outdoor unit in an *Event* (4.2); removable individually, e.g. when a phone is lost |
+| **One secret topic pair per phone** | push and command topic = "cb" + 128 bit of HMAC-SHA256 over the key; not guessable, known to the phone only through its setup link |
+| **Token** | 128 bit from the hardware RNG, single-use, bound to exactly one ring and exactly one phone, valid 5 min; the last three rings per flat stay usable; after an opening all tokens of the flat are consumed; none survives a reboot |
+| **Message** | "CBR2 ‹token›"; the scheme identifier keeps the door open for a later scheme |
+| **Both flats** | up to 4 phones per indoor unit; a ring at GF goes only to the GF phones, at UF only to the UF phones |
 | **TLS** | certificate validation against the certificate bundle embedded in the core (Mozilla list); no pinning — the server certificates change every few weeks |
-| **Topics** | may remain public; ntfy.sh is only a transport |
-| **Traceable** | every remote opening is confirmed by push and logged (section 6.4) |
+| **Traceable** | every remote opening is confirmed by push to the flat's phones and logged (section 6.4); refused commands are counted (status page) |
+| **Outage notice** | each indoor unit tells its phones when the outdoor unit is unreachable (≈ 2 min after the outage: 90 s detection by the link layer + 30 s) and when it is back, with the duration; it stays silent for the first 3 min after its own start |
 
-**Why this way.** In V0.1 the one-time token was carried in the push itself. On ntfy.sh a topic without a paid
-reservation is public — “the topic is essentially a password” —, and messages are retained for 12 hours. Anyone
-reading the alert topic held a valid opening token. Access control on ntfy.sh costs money or requires an own server
-reachable from the internet. The phone signature solves the problem for free and takes the service operator out of
-the chain of trust as well.
+**Why this way (R27, supersedes R20).** In V0.1 the one-time token was carried in a push on a guessable topic; on
+ntfy.sh a topic without a paid reservation is public — "the topic is essentially a password". R20 solved that with
+a signature on the phone (second app, script code); in the household that looked like a hack. R27 makes the topics
+secret instead: whoever does not know a phone's key can neither read its pushes nor send it commands, and a token is
+good for one opening, one phone, 5 min and only after a real ring.
 
-**Platforms.** Android: the app “HTTP Shortcuts” has a built-in HMAC function and accepts values through deep links —
-the push button opens it with the token. iOS: the Shortcuts app, as far as available descriptions go, has no HMAC,
-only plain hashes; how signing can work there is [open]. The algorithm identifier keeps the door open for a second
-scheme without breaking Android.
+**Residual risk, carried on purpose.** The operator of ntfy.sh sees topics and tokens and could open within 5 min
+after a ring; messages are kept there for 12 hours, by then the token is long invalid. The confirmation push makes
+such an opening visible.
+
+**Platforms.** Android: ntfy from the Play Store or F-Droid. iOS: the ntfy app has the same action buttons; only
+Android has been tested so far [open].
 
 ---
 
@@ -507,7 +509,7 @@ sequenceDiagram
     participant B as Visitor
     participant A as Outdoor unit
     participant I as Indoor unit
-    participant P as ntfy (GF only)
+    participant P as ntfy
     participant S as Smartphone
 
     B->>A: touches electrode GF
@@ -518,7 +520,7 @@ sequenceDiagram
         Note over I: chime,<br/>window for a short tap opens
         Note over A: success tone at the door
     and Push path (best effort)
-        Note over A: generate one-time token
+        Note over A: one one-time token per phone of the flat
         A->>P: HTTPS POST + button (TLS verified)
         P->>S: notification
     end
@@ -526,7 +528,7 @@ sequenceDiagram
 
 **The push path never blocks the RF path.** It runs in its own task and is explicitly best-effort: with no internet
 it is skipped, and the visitor never notices. What happens when someone taps the button in the notification is
-shown in section 4.5: the phone signs, the outdoor unit verifies and opens.
+shown in section 4.5: the phone sends the token back, the outdoor unit verifies and opens.
 
 | Event | When |
 |---|---|
@@ -543,7 +545,7 @@ The late failure tone is not a defect but a consequence of “the acknowledgemen
 ```mermaid
 graph LR
     T1["① Touch on an<br/>indoor unit"] -->|"challenge–response<br/>arming window"| Q["Queue"]
-    T3["③ Push button<br/>on the phone"] -->|"phone signature<br/>TLS verified"| Q
+    T3["③ Push button<br/>on the phone"] -->|"secret topic, one-time token<br/>TLS verified"| Q
     Q --> G["Door task<br/>GPIO47"]
     G --> D["Door opener<br/>MOSFET"]
     style G fill:#5b3a1a,color:#fff
@@ -553,7 +555,7 @@ graph LR
 |---|---|---|
 | **①** touch on an indoor unit | residents at home | challenge–response (section 4.4), touch plausibility and arming window (section 5.6) |
 | **②** ~~status page, HTTP POST~~ | — | **removed:** it had no authentication — “POST only, local network only” protects neither against a foreign device on the WLAN nor against cross-site request forgery. The status page does not open the door, not even with a password. |
-| **③** push button on the phone | residents away | phone signature, TLS validation, one-time token (section 4.5) |
+| **③** push button on the phone | residents away | secret topic pair per phone, one-time token, TLS validation (section 4.5) |
 
 The numbers are kept so references stay unambiguous; ② is not reused.
 
@@ -778,7 +780,7 @@ uptime and marked as such.
 |---|---|---|---|
 | **A** | a device on the same WLAN (guest, compromised IoT device) | send arbitrary packets, eavesdrop | every message authenticated, challenge–response, no door via the web — and ideally a dedicated network segment |
 | **B** | an attacker within RF range without WLAN access | jam, deauthenticate, test recorded handshakes offline against the WLAN password | PMF against deauthentication, WPA3 where possible, a strong WLAN password |
-| **C** | an attacker on the internet path to the push service — or the service itself | redirect, eavesdrop | TLS with certificate validation; the phone signature makes an intercepted token worthless |
+| **C** | an attacker on the internet path to the push service — or the service itself | redirect, eavesdrop | TLS with certificate validation; secret topics per phone, token single-use and valid 5 min; the service operator is trusted (R27, 4.5) |
 | **D** | physical access to the outdoor unit | open the housing | **opens the door directly** — the driver sits there; the mounting helps against that. Without secure boot the attacker could also install firmware with a backdoor → hardening stage C |
 | **E** | an unauthorised person inside at an indoor unit | press the touch pad | arming window — outside it, a 3 s hold is required; anyone inside can unlock anyway |
 | **F** | the other household | open the status pages | logs separated per household, a device password per unit |
@@ -792,7 +794,7 @@ uptime and marked as such.
 | **Challenge–response** for the door command | A, B — record and replay | A |
 | **Session numbers**, rate limiting | A — forgery, flooding; silent losses | A |
 | **No door via the web** — path ② removed | A — a single HTTP request | A |
-| **Phone signature** for remote opening, single-use token | C — intercepted tokens, service operator | A |
+| **Secret topic pair per phone** for remote opening, single-use token | C — intercepted tokens (service operator: residual risk, R27) | A |
 | **TLS with certificate validation** | C | A |
 | **Arming window**, trigger on release, plausibility | E, false triggers | A |
 | **Door task** as the only owner, pulse via hardware timer, lockout | concurrency, a hanging loop | A |
@@ -822,7 +824,7 @@ Status after revision 2:
 | S-7 | 64-bit tag | 128 bits (4.2) |
 | S-8 | WLAN credentials in plain text | provisioning, stage B (encrypted NVS) |
 | new | **the status page opened the door without authentication** | path ② removed (5.4) |
-| new | **the token was carried in the push itself** | phone signature (4.5) |
+| new | **the token was carried in the push itself** | secret topics per phone, token bound to ring and phone (4.5, R27) |
 
 ### 7.5 Remaining risks — deliberately accepted
 
@@ -845,7 +847,7 @@ Status after revision 2:
 | Secret | Where | Stage B / C |
 |---|---|---|
 | Link keys outdoor↔GF, outdoor↔UF | factory partition | eFuse (HMAC peripheral: usable, not readable) |
-| Phone keys | factory partition of the outdoor unit, and on the phone | encrypted NVS |
+| Phone keys | outdoor unit and own indoor unit; the phone holds only the topics derived from it | encrypted NVS |
 | WLAN credentials, device password | factory partition | encrypted NVS |
 | Update signing keys (R26) | **two manufacturer keys** (RSA-3072, secure boot v2 format): the main key signs, the spare key is kept **offline only**; private keys outside the repository, their digests fixed in every firmware; optionally an **owner's own key** (digest in NVS, maintenance) | stage C: the same keys as secure boot keys; sold units only with an owner key |
 
@@ -1015,7 +1017,7 @@ EN, IO0, 3V3 and GND that forms a complete flashing path without USB.
 | Door command with NVS counter | **replaced** by challenge–response |
 | WAV parser and volume logic | carried over, plus upload validation and sound ranking |
 | WLAN upkeep | **new** — event-driven, with growing intervals |
-| Push and remote opening | **new** — TLS validation, phone signature |
+| Push and remote opening | **new** — TLS validation, secret topics per phone (R27) |
 | Touch evaluation | **new** — hardware baseline, M-34, arming window |
 | Web triggering of the door opener (test sketch) | **dropped** |
 | Pin assignment | replaced entirely |
@@ -1044,7 +1046,7 @@ graph TB
     end
     subgraph D["Operation and maintenance"]
         direction LR
-        S8["8 · Diagnostics<br/>status page,<br/>log, LED"] --> S9["9 · Remote opening<br/>TLS validation,<br/>phone signature"] --> S10["10 · Updates<br/>signed, rollback<br/>after self-test"]
+        S8["8 · Diagnostics<br/>status page,<br/>log, LED"] --> S9["9 · Remote opening<br/>TLS validation,<br/>secret topics"] --> S10["10 · Updates<br/>signed, rollback<br/>after self-test"]
     end
     S0["Bring-up passed"] --> A
     A --> B --> C --> D --> S11["11 · Acceptance<br/>7 h, then 72 h"]
@@ -1067,7 +1069,8 @@ The port counts as complete when **all** of the following hold:
 
 - [ ] Feature parity with V0.1: both ring paths, door command, success and failure tones
 - [ ] The door opens only via ① and ③; the security and robustness tests from section 11.2 pass
-- [ ] Remote opening with phone signature on Android; TLS with a wrong certificate fails
+- [x] Remote opening with the ntfy app on Android, both flats (2026-11-12)
+- [ ] TLS with a wrong certificate fails
 - [ ] Chime replaceable without a PC (maintenance, upload)
 - [ ] Signed update without a cable; a deliberately broken update rolls back
 - [ ] A factory reset erases all secrets; re-provisioning works
@@ -1117,7 +1120,7 @@ Known from layout and design and explicitly to be measured:
 | **Security** | message with a wrong tag, foreign receiver, unknown version | discarded, not answered |
 | | replay a recorded `DOOR_CONFIRM` | discarded |
 | | random number after expiry or used twice | discarded |
-| | remote opening with a wrong signature, a consumed or expired token, a revoked phone | discarded, logged |
+| | remote opening with a made-up, consumed or expired token, a removed phone | discarded, counted |
 | | TLS against a server with a wrong certificate | connection fails |
 | | ask the status page to open the door | there is nothing to ask |
 | | upload or update outside maintenance | rejected |
@@ -1166,7 +1169,7 @@ length on the outdoor unit's web page (100–5000 ms, step 10b).
 
 **Implementation details that bring-up settles** (without a new decision of principle): upper limit of the long press
 and whether the arming window closes after the first opening (5.6) · validity of the push token (4.5) · press durations
-of the operating modes (5.9) · blink patterns and the maintenance indication (8.2) · signing scheme on iOS (4.5).
+of the operating modes (5.9) · blink patterns and the maintenance indication (8.2) · remote opening on iOS (4.5).
 
 **Decided on 2026-09-26** (recorded in the project as R17–R23):
 
@@ -1182,7 +1185,7 @@ of the operating modes (5.9) · blink patterns and the maintenance indication (8
 | R24 | *(2026-11-06, intention to sell)* The buyer never flashes: factory step over USB, everything else through web pages (device code on the label, setup access point, pairing by code, phones via the own indoor unit) |
 | R25 | *(2026-11-06, superseded by R26)* ~~Updates without a signing key for now~~ (upload in maintenance, image check, rollback after probation); later a manufacturer key with owner takeover; stage C for sold units only with an owner key |
 | R26 | *(2026-11-10)* Updates only signed, in a way that always works: two manufacturer keys (main, spare offline) in every firmware, plus an owner's own key (maintenance), optionally the only one accepted; downgrade protection with confirmation; USB flashing stays stage C (7.6, porting step 10d) |
-| R27 | *(2026-11-12, supersedes R20; FW-B-16, FW-B-22, FW-B-17)* Remote opening with the ntfy app only: a push with an "open door" button that sends the token straight back. One random, secret topic pair per phone (revocable individually); token single-use, bound to exactly one ring, valid 5 min; every opening confirmed by push and logged. The ntfy.sh operator is trusted (residual risk accepted on purpose: two apps and visible script code looked like a hack). Remote opening for **both** flats, phones per indoor unit. Indoor units tell their phones when the outdoor unit has been unreachable for ≈ 2 min, and when it is back (with duration). Section 4.5 is rewritten when this is implemented |
+| R27 | *(2026-11-12, supersedes R20; FW-B-16, FW-B-22, FW-B-17)* Remote opening with the ntfy app only: a push with an "open door" button that sends the token straight back. One random, secret topic pair per phone (revocable individually); token single-use, bound to exactly one ring, valid 5 min; every opening confirmed by push and logged. The ntfy.sh operator is trusted (residual risk accepted on purpose: two apps and visible script code looked like a hack). Remote opening for **both** flats, phones per indoor unit. Indoor units tell their phones when the outdoor unit has been unreachable for ≈ 2 min, and when it is back (with duration). Implemented in 4.5 |
 
 ---
 
@@ -1249,7 +1252,6 @@ defects that would make V0.2 unusable or unsafe — the findings of the review b
 * ESP-IDF: HMAC peripheral, NVS encryption, random numbers, secure boot v2, eFuse, touch sensor, WLAN security — https://github.com/espressif/esp-idf/tree/master/docs/en
 * Arduino-ESP32: Arduino as an ESP-IDF component — https://github.com/espressif/arduino-esp32/blob/master/docs/en/esp-idf_component.rst · secure boot and flash encryption — https://github.com/espressif/arduino-esp32/issues/8974
 * ntfy: access control, data retention, action buttons — https://github.com/binwiederhier/ntfy/tree/main/docs · pricing — https://ntfy.sh/
-* HTTP Shortcuts (Android): scripting and deep links — https://http-shortcuts.rmy.ch/scripting · https://http-shortcuts.rmy.ch/advanced
 * 2N Security Relay (switching stage inside the secured area) — https://www.2n.com/en-US/faqs/2N-Security-Relay-Describtion-and-usage-with-2N-IP-Intercoms-kA0Rn000000ttogKAA
 
 **Datasheets** are not included for copyright reasons; all part numbers appear in the bills of materials.
@@ -1265,7 +1267,8 @@ defects that would make V0.2 unusable or unsafe — the findings of the review b
 | 2 | 2026-09-26 | Revision after a review with 29 findings: path ② removed; protocol v2 with authentication of every message and sessions; challenge–response instead of a counter; remote opening with phone signature; arming window indoors; operating modes and provisioning; ESP-IDF with Arduino component; rollback after a self-test; watchdog for all tasks; door-opening log per household; hardening in stages; new: quality goals, alignment with EN 303 645, glossary |
 | 3 | 2026-11-06 | Saleability (R24, R25): setup without a PC (5.9), factory and buyer data separated (6.2), pairing by device code, message type *Event* (maintenance from inside, phone keys), remote-opening topics derived from the GF key, updates without a signing key with probation; porting steps 10a–10c. Details in `firmware/docs/Produktreife.md` and in the module headers |
 | 3.1 | 2026-11-10 | Signed updates (R26, supersedes R25): two manufacturer keys, owner's own key, downgrade protection (7.6); porting step 10d |
+| 3.2 | 2026-11-12 | Remote opening per R27 (supersedes R20): ntfy only, secret topic pair per phone, both flats, outage notice of the indoor units; 4.5 rewritten, references to the phone signature adjusted |
 
 ---
 
-*ClearBell V0.2 · Software architecture · Revision 3.1 · 2026-11-10*
+*ClearBell V0.2 · Software architecture · Revision 3.2 · 2026-11-12*

@@ -216,7 +216,7 @@ void loop() {
   update_status_led();
   cb_led_poll();
   cb_system_poll();
-  cb_remote_poll();  // signed phone commands -> door task
+  cb_remote_poll();  // outdoor: phone commands -> door task; indoor: outage notice (R27)
   cb_pairing_poll(); // maintenance request to the outdoor unit (indoor)
   cb_phones_poll();  // phone events to the outdoor unit (indoor)
   cb_setup_poll();   // setup access point on/off, reboot after saving

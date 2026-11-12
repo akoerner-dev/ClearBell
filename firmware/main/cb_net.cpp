@@ -554,7 +554,7 @@ bool cb_net_ring(UnitId flat) {
   apply_sleep();  // ring in flight: modem sleep off at once (M-23)
   // Immediate failure (no WiFi, all slots busy): the visitor hears it at once (SA 5.3 "ohne WLAN sofort").
   if (!ok && series.flat != flat) cb_on_ring_result(flat, false);
-  // Push to the phones (EG only, rate-limited inside) - also when the flat did not answer: then the push is the
+  // Push to the phones of that flat (rate-limited inside) - also when the flat did not answer: then the push is the
   // only way the visitor reaches anyone. Never for a measurement series.
   if (series.flat != flat) cb_remote_on_ring(flat);
   return ok;

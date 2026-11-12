@@ -11,22 +11,12 @@ namespace cb {
 
 namespace {
 
-constexpr const char *kScheme = "CBR1";
+constexpr const char *kScheme = "CBR2";
 
 bool is_hex_lower(const char *s, size_t n) {
   for (size_t i = 0; i < n; i++) {
     char c = s[i];
     if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) return false;
-  }
-  return true;
-}
-
-bool valid_id(const char *s) {
-  size_t n = strlen(s);
-  if (n == 0 || n > kPhoneIdMax) return false;
-  for (size_t i = 0; i < n; i++) {
-    char c = s[i];
-    if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '-')) return false;
   }
   return true;
 }
@@ -40,24 +30,33 @@ void to_hex(const uint8_t *in, size_t n, char *out) {
   out[2 * n] = 0;
 }
 
-// Splits "a b c d" into exactly four words (single spaces, surrounding whitespace trimmed).
-bool split4(const char *msg, char w[4][80]) {
+bool topic_from(const char *key_hex, const char *label, char out[kTopicLen + 1]) {
+  uint8_t mac[kMacLen];
+  Slice part = {reinterpret_cast<const uint8_t *>(label), strlen(label)};
+  if (!hmac_sha256(reinterpret_cast<const uint8_t *>(key_hex), kPhoneKeyHex, &part, 1, mac)) return false;
+  out[0] = 'c';
+  out[1] = 'b';
+  to_hex(mac, 16, out + 2);
+  return true;
+}
+
+// "CBR2 <32 hex>" with surrounding whitespace (phones and ntfy may add a newline) -> token, or false.
+bool parse(const char *msg, char token[33], bool *scheme_ok) {
+  *scheme_ok = false;
+  if (!msg) return false;
   while (*msg == ' ' || *msg == '\n' || *msg == '\r' || *msg == '\t') msg++;
-  for (int i = 0; i < 4; i++) {
-    size_t n = 0;
-    while (*msg && *msg != ' ' && *msg != '\n' && *msg != '\r' && *msg != '\t') {
-      if (n + 1 >= 80) return false;
-      w[i][n++] = *msg++;
-    }
-    w[i][n] = 0;
-    if (n == 0) return false;
-    if (i < 3) {
-      if (*msg != ' ') return false;
-      msg++;
-    }
-  }
-  while (*msg == ' ' || *msg == '\n' || *msg == '\r' || *msg == '\t') msg++;
-  return *msg == 0;
+  const char *sp = strchr(msg, ' ');
+  if (!sp) return false;
+  *scheme_ok = (size_t)(sp - msg) == 4 && strncmp(msg, kScheme, 4) == 0;
+  const char *t = sp + 1;
+  size_t n = 0;
+  while (t[n] && t[n] != ' ' && t[n] != '\n' && t[n] != '\r' && t[n] != '\t') n++;
+  const char *rest = t + n;
+  while (*rest == ' ' || *rest == '\n' || *rest == '\r' || *rest == '\t') rest++;
+  if (n != 32 || *rest || !is_hex_lower(t, 32)) return false;
+  memcpy(token, t, 32);
+  token[32] = 0;
+  return true;
 }
 
 }  // namespace
@@ -67,38 +66,59 @@ const char *remote_result_name(RemoteResult r) {
     case RemoteResult::Ok: return "ok";
     case RemoteResult::Malformed: return "malformed";
     case RemoteResult::UnknownScheme: return "unknown scheme";
-    case RemoteResult::UnknownPhone: return "unknown phone";
+    case RemoteResult::UnknownPhone: return "unknown phone (topic)";
     case RemoteResult::UnknownToken: return "unknown or used token";
     case RemoteResult::Expired: return "token expired";
-    case RemoteResult::BadSignature: return "BAD SIGNATURE";
   }
   return "?";
 }
 
-bool RemoteAuth::set_phone(int slot, const char *id, const char *key_hex) {
-  if (slot < 0 || slot >= kRemotePhones) return false;
-  if (!id || !key_hex || !valid_id(id) || strlen(key_hex) != kPhoneKeyHex || !is_hex_lower(key_hex, kPhoneKeyHex))
-    return false;
-  Phone &p = phones_[slot];
-  snprintf(p.id, sizeof p.id, "%s", id);
-  snprintf(p.key, sizeof p.key, "%s", key_hex);
-  p.used = true;
+bool valid_phone_id(const char *s) {
+  if (!s) return false;
+  size_t n = strlen(s);
+  if (n == 0 || n > kPhoneIdMax) return false;
+  for (size_t i = 0; i < n; i++) {
+    char c = s[i];
+    if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '-')) return false;
+  }
   return true;
 }
 
-int RemoteAuth::add_phone(const char *id, const char *key_hex) {
-  int slot = -1;
-  for (int i = 0; i < kRemotePhones; i++)
-    if (phones_[i].used && id && strcmp(phones_[i].id, id) == 0) slot = i;  // same id: replace (new phone)
-  for (int i = 0; i < kRemotePhones && slot < 0; i++)
-    if (!phones_[i].used) slot = i;
-  return slot >= 0 && set_phone(slot, id, key_hex) ? slot : -1;
+bool phone_topics(const char *key_hex, char push[kTopicLen + 1], char cmd[kTopicLen + 1]) {
+  if (!key_hex || strlen(key_hex) != kPhoneKeyHex || !is_hex_lower(key_hex, kPhoneKeyHex)) return false;
+  return topic_from(key_hex, "CBT1|push", push) && topic_from(key_hex, "CBT1|cmd", cmd);
 }
 
-bool RemoteAuth::remove_phone(const char *id) {
-  for (Phone &p : phones_)
-    if (p.used && id && strcmp(p.id, id) == 0) {
-      p = Phone{};
+bool RemoteAuth::set_phone(int slot, const char *id, const char *key_hex, uint8_t flat) {
+  if (slot < 0 || slot >= kRemotePhones || (flat != 2 && flat != 3) || !valid_phone_id(id)) return false;
+  Phone p{};
+  if (!phone_topics(key_hex, p.push, p.cmd)) return false;
+  snprintf(p.id, sizeof p.id, "%s", id);
+  snprintf(p.key, sizeof p.key, "%s", key_hex);
+  p.flat = flat;
+  p.used = true;
+  phones_[slot] = p;
+  for (Token &t : tokens_)
+    if (t.used && t.slot == slot) t = Token{};  // a replaced phone does not inherit open tokens
+  return true;
+}
+
+int RemoteAuth::add_phone(const char *id, const char *key_hex, uint8_t flat) {
+  int slot = -1;
+  for (int i = 0; i < kRemotePhones; i++)
+    if (phones_[i].used && phones_[i].flat == flat && id && strcmp(phones_[i].id, id) == 0) slot = i;
+  if (slot < 0 && phone_count(flat) >= kPhonesPerFlat) return -1;
+  for (int i = 0; i < kRemotePhones && slot < 0; i++)
+    if (!phones_[i].used) slot = i;
+  return slot >= 0 && set_phone(slot, id, key_hex, flat) ? slot : -1;
+}
+
+bool RemoteAuth::remove_phone(const char *id, uint8_t flat) {
+  for (int i = 0; i < kRemotePhones; i++)
+    if (phones_[i].used && phones_[i].flat == flat && id && strcmp(phones_[i].id, id) == 0) {
+      phones_[i] = Phone{};
+      for (Token &t : tokens_)
+        if (t.used && t.slot == i) t = Token{};
       return true;
     }
   return false;
@@ -110,63 +130,94 @@ int RemoteAuth::phone_count() const {
   return n;
 }
 
-void RemoteAuth::issue(uint32_t now_ms, char token_out[33]) {
-  uint8_t raw[16];
-  random_bytes(raw, sizeof raw);
-  Token &t = tokens_[next_];
-  to_hex(raw, sizeof raw, t.hex);
-  t.issued = now_ms;
-  t.used = true;
-  next_ = (next_ + 1) % kRemoteTokens;
-  memcpy(token_out, t.hex, 33);
+int RemoteAuth::phone_count(uint8_t flat) const {
+  int n = 0;
+  for (const Phone &p : phones_) n += p.used && p.flat == flat;
+  return n;
 }
 
-bool RemoteAuth::sign(const char *key_hex, const char *token, const char *phone, char out[65]) {
-  uint8_t mac[kMacLen];
-  Slice parts[] = {{reinterpret_cast<const uint8_t *>(kScheme), 4},
-                   {reinterpret_cast<const uint8_t *>("|"), 1},
-                   {reinterpret_cast<const uint8_t *>(token), strlen(token)},
-                   {reinterpret_cast<const uint8_t *>("|"), 1},
-                   {reinterpret_cast<const uint8_t *>(phone), strlen(phone)}};
-  if (!hmac_sha256(reinterpret_cast<const uint8_t *>(key_hex), strlen(key_hex), parts, 5, mac)) return false;
-  to_hex(mac, sizeof mac, out);
+bool RemoteAuth::cmd_topics(char *out, size_t cap) const {
+  size_t n = 0;
+  out[0] = 0;
+  for (const Phone &p : phones_) {
+    if (!p.used) continue;
+    int w = snprintf(out + n, cap - n, "%s%s", n ? "," : "", p.cmd);
+    if (w < 0 || (size_t)w >= cap - n) return false;
+    n += (size_t)w;
+  }
   return true;
 }
 
-RemoteResult RemoteAuth::check(const char *msg, uint32_t now_ms, char phone_out[kPhoneIdMax + 1]) const {
-  phone_out[0] = 0;
-  char w[4][80];
-  if (!msg || !split4(msg, w)) return RemoteResult::Malformed;
-  if (strcmp(w[0], kScheme) != 0) return RemoteResult::UnknownScheme;
-  if (strlen(w[1]) != 32 || !is_hex_lower(w[1], 32) || !valid_id(w[2])) return RemoteResult::Malformed;
-  // Phone tools may print the signature in upper case: normalise.
-  if (strlen(w[3]) != 64) return RemoteResult::Malformed;
-  for (char *c = w[3]; *c; c++)
-    if (*c >= 'A' && *c <= 'F') *c = (char)(*c - 'A' + 'a');
-  if (!is_hex_lower(w[3], 64)) return RemoteResult::Malformed;
+int RemoteAuth::issue(uint8_t flat, uint32_t now_ms, int slots[kPhonesPerFlat], char tokens[kPhonesPerFlat][33]) {
+  // Keep at most kRemoteRings rings per flat: drop the tokens of the oldest one(s).
+  for (;;) {
+    uint32_t oldest = 0;
+    int distinct = 0;
+    for (int i = 0; i < kRemoteTokens * 2; i++) {
+      const Token &t = tokens_[i];
+      if (!t.used || phones_[t.slot].flat != flat) continue;
+      bool seen = false;
+      for (int k = 0; k < i; k++)
+        seen |= tokens_[k].used && tokens_[k].ring == t.ring && phones_[tokens_[k].slot].flat == flat;
+      if (!seen) {
+        distinct++;
+        if (!oldest || t.ring < oldest) oldest = t.ring;
+      }
+    }
+    if (distinct < kRemoteRings) break;
+    for (Token &t : tokens_)
+      if (t.used && t.ring == oldest && phones_[t.slot].flat == flat) t = Token{};
+  }
+  uint32_t ring = ++rings_;
+  int n = 0;
+  for (int s = 0; s < kRemotePhones && n < kPhonesPerFlat; s++) {
+    if (!phones_[s].used || phones_[s].flat != flat) continue;
+    Token *free_t = nullptr;
+    for (Token &t : tokens_)
+      if (!t.used) {
+        free_t = &t;
+        break;
+      }
+    if (!free_t) break;  // cannot happen: 3 rings x 4 phones x 2 flats = array size
+    uint8_t raw[16];
+    random_bytes(raw, sizeof raw);
+    to_hex(raw, sizeof raw, free_t->hex);
+    free_t->issued = now_ms;
+    free_t->ring = ring;
+    free_t->slot = (int8_t)s;
+    free_t->used = true;
+    slots[n] = s;
+    memcpy(tokens[n], free_t->hex, 33);
+    n++;
+  }
+  return n;
+}
 
-  const Phone *phone = nullptr;
-  for (const Phone &p : phones_)
-    if (p.used && strcmp(p.id, w[2]) == 0) phone = &p;
-  if (!phone) return RemoteResult::UnknownPhone;
-
+RemoteResult RemoteAuth::check(const char *topic, const char *msg, uint32_t now_ms, int *slot_out) const {
+  *slot_out = -1;
+  char token[33];
+  bool scheme_ok = false;
+  bool parsed = parse(msg, token, &scheme_ok);
+  if (!scheme_ok) return msg && strchr(msg, ' ') && parsed ? RemoteResult::UnknownScheme : RemoteResult::Malformed;
+  if (!parsed) return RemoteResult::Malformed;
+  int slot = -1;
+  for (int i = 0; i < kRemotePhones; i++)
+    if (phones_[i].used && topic && strcmp(phones_[i].cmd, topic) == 0) slot = i;
+  if (slot < 0) return RemoteResult::UnknownPhone;
   const Token *tok = nullptr;
   for (const Token &t : tokens_)
-    if (t.used && ct_equal(reinterpret_cast<const uint8_t *>(t.hex), reinterpret_cast<const uint8_t *>(w[1]), 32))
+    if (t.used && t.slot == slot &&
+        ct_equal(reinterpret_cast<const uint8_t *>(t.hex), reinterpret_cast<const uint8_t *>(token), 32))
       tok = &t;
   if (!tok) return RemoteResult::UnknownToken;
   if (now_ms - tok->issued > kRemoteTokenMs) return RemoteResult::Expired;
-
-  char expect[65];
-  if (!sign(phone->key, w[1], w[2], expect)) return RemoteResult::BadSignature;  // fail closed
-  if (!ct_equal(reinterpret_cast<const uint8_t *>(expect), reinterpret_cast<const uint8_t *>(w[3]), 64))
-    return RemoteResult::BadSignature;
-  snprintf(phone_out, kPhoneIdMax + 1, "%s", phone->id);
+  *slot_out = slot;
   return RemoteResult::Ok;
 }
 
-void RemoteAuth::consume_all() {
-  for (Token &t : tokens_) t = Token{};
+void RemoteAuth::consume_flat(uint8_t flat) {
+  for (Token &t : tokens_)
+    if (t.used && phones_[t.slot].flat == flat) t = Token{};
 }
 
 int RemoteAuth::active(uint32_t now_ms) const {

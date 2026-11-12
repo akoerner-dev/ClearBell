@@ -39,15 +39,13 @@ struct CbProvisioning {
   bool has_key[4];
   char peer_serial[4][7];  // unit number of each paired peer ("" = unknown: found by role via mDNS)
   uint32_t peer_ip[4];     // optional fixed IPv4 (development), 0 = not set
-  // Remote opening (port steps 9/10c). Topics and the app link are DERIVED from the EG link key (cb::remote_names)
-  // on the outdoor unit and on the EG indoor unit - nothing to configure. Empty while EG is not paired.
-  char topic_out[65];
-  char topic_in[65];
-  char fern_link[160];     // outdoor: http-shortcuts://<shortcut id>?token={token}
-  char shortcut_id[37];
-  // Phones by slot (0..3), "" = free. Outdoor: id + key; EG indoor: id only (to list and remove them).
-  char phone_id[4][9];
-  char phone_key[4][65];
+  // Phones of the remote opening (R27) by slot, "" = free. Outdoor: all phones of both flats (id, key, flat);
+  // indoor: the phones of its own flat (id, key - the key gives the phone's ntfy topics, cb::phone_topics).
+  // A phone without key (indoor entries from before R27) is listed but cannot get pushes: add it again.
+  static constexpr int kPhoneSlots = 8;
+  char phone_id[kPhoneSlots][9];
+  char phone_key[kPhoneSlots][65];
+  uint8_t phone_flat[kPhoneSlots];  // UnitId value: EG 2, OG 3
   int phones;
 };
 
@@ -61,9 +59,9 @@ bool cb_prov_set_role(cb::UnitId role);  // indoor: EG or OG
 // Pairing (cb_pairing): link key and unit number of `peer`; remove = unpair.
 bool cb_prov_set_link(cb::UnitId peer, const uint8_t key[32], const char *peer_serial);
 bool cb_prov_remove_link(cb::UnitId peer);
-// Phones (10c). store: same id = replace, else a free slot; key_hex "" on the indoor unit. -> slot or -1 (full).
-int cb_prov_phone_store(const char *id, const char *key_hex);
-bool cb_prov_phone_forget(const char *id);
+// Phones (10c, R27). store: same id in the same flat = replace, else a free slot. -> slot or -1 (full).
+int cb_prov_phone_store(const char *id, const char *key_hex, uint8_t flat);
+bool cb_prov_phone_forget(const char *id, uint8_t flat);
 // Own status-page password (stored in cb_user "web_pass", takes effect at once in cb_prov().dev_pass);
 // "" = back to the device code from the label. The factory reset erases it too.
 bool cb_prov_set_web_pass(const char *pw);

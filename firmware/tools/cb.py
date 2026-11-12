@@ -37,11 +37,10 @@ Signed updates (port step 10d, R26, details in tools/signatur.py):
     python tools/cb.py besitzer-schluessel <key.pem>            key digest of an own key (buyer, status page)
     python tools/cb.py signatur-testvektor                      regenerate the self-test vector (rarely)
 
-Remote opening (port step 9, details in tools/fern.py):
-    python tools/cb.py anlage-fern [--test|--echt] [--link <t>] create ntfy topics (test / final) / set app link
-    python tools/cb.py anlage-handy H1                          add a phone key (anlage-handy-sperren H1 removes)
-    python tools/cb.py fern-handy-anleitung H1                  how to set up the phone (shows its key!)
-    python tools/cb.py fern-test H1 [s]                         PC plays phone H1: wait for a ring push, open
+Remote opening (R27, details in tools/fern.py) - the PC plays a phone:
+    python tools/cb.py fern-handy-web IN-1 PC2                  add phone PC2 over the indoor page (maintenance)
+    python tools/cb.py fern-test PC2 [s] [--fremd|--replay|--nochmal]  wait for a ring push, press "Tür öffnen"
+    (anlage-fern / anlage-handy are left-overs of the old schema-1 way and have no effect on R27 firmware)
 
 Run from anywhere; paths are relative to this file. ESP-IDF is expected in C:\\Espressif\\esp-idf-v5.5.5
 (override with the environment variable CB_IDF_PATH). The script loads the IDF environment itself, a
@@ -283,7 +282,7 @@ def main(argv: list[str]) -> int:
             return prov.einrichten(argv[2], argv[3])
         if action == "provisionieren" and len(argv) == 4:
             return prov.provisionieren(argv[2], argv[3], idf_python(), IDF_PATH)
-    if action in ("fern-handy-anleitung", "fern-test", "fern-handy-web"):
+    if action in ("fern-test", "fern-handy-web"):
         sys.path.insert(0, str(Path(__file__).parent))
         import fern
 

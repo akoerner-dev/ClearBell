@@ -30,12 +30,12 @@ Belege stehen im [Testprotokoll](docs/Testprotokoll.md).
 | 6 Touch | Baseline, Schwellen, Plausibilität außen, Scharfschaltfenster innen | ✓ ohne Finger (`touch-sim`); echte Berührung in der Sammelliste; Schwellen Entwurf bis zur Montage |
 | 7 Türöffner | Tür-Task, Puls, Sperrzeit | ✓ per Rücklesen des Pins; LED-Last und echter Öffner in der Sammelliste |
 | 8 Diagnose | Statusseite mit Gerätepasswort, Protokoll der Türöffnungen, LED-PWM, Ton-Upload in der Wartung | ✓ per Skript und Konsole; Browser-Anmeldung und LED-Abgleich in der Sammelliste |
-| 9 Fern-Öffnen | Push über ntfy.sh mit TLS-Prüfung, Einmal-Token, Handy-Signatur | ✓ mit Test-Topics und PC als Handy; echtes Handy in der Sammelliste; iOS offen |
+| 9 Fern-Öffnen | Push über ntfy.sh mit TLS-Prüfung und Knopf „Tür öffnen“, geheimes Topic-Paar je Handy, Einmal-Token; beide Wohnungen; Ausfallmeldung der Inneneinheiten (R27) | ✓ mit echtem Handy (EG) und PC als Handy (EG, OG); iOS offen |
 | 10 Updates | Upload in der Wartung, Image-Prüfung, Rollback nach Probezeit | ✓ inkl. Rückfall nach Absturz |
 | 10d Signierte Updates | nur signierte Dateien (2 Herstellerschlüssel, optional eigener Schlüssel des Besitzers), Versionsschutz (R26) | ✓ alle Fälle auf beiden Boards; Bedienung im Browser in der Sammelliste |
 | 10a Inbetriebnahme | Werk ↔ Käufer, Einrichtungs-WLAN mit Captive Portal, Werksreset per Taster ([Produktreife](docs/Produktreife.md)) | ✓ übers Heimnetz und per Scan; Handy/QR in der Sammelliste |
 | 10b Kopplung | per Gerätecode der Inneneinheit, eindeutige Namen, Wartung außen von innen, Pulslänge einstellbar | ✓ |
-| 10c Handys | über die Webseite der EG-Inneneinheit: ntfy-Link und Kurzbefehl-Import, Entfernen | ✓ mit dem PC als Handy; echtes Handy in der Sammelliste |
+| 10c Handys | über die Webseite der eigenen Inneneinheit (EG und OG, je bis 4): ein ntfy-Link, Test, Entfernen (R27) | ✓ echtes Handy an IN-1, PC als Handy an IN-1 und IN-2 |
 | 11 Abnahme | 7 h, dann 72 h Dauertest (`tools/dauertest.py`) | 7 h lautlos ✓ (08.11.2026), 72 h offen |
 
 ## 3 Schnellstart
@@ -89,7 +89,7 @@ Alles über Webseiten, Grundlage: [docs/Produktreife.md](docs/Produktreife.md).
 2. **WLAN wählen**, Passwort, innen **EG oder OG** → „Speichern und verbinden“. Danach ist die Einheit unter
    `http://clearbell-<Gerätenummer>.local` erreichbar (Benutzer `clearbell`, Passwort = Gerätecode).
 3. **Koppeln** auf der Seite der Außeneinheit: „Inneneinheiten suchen“, Gerätecode vom Etikett der Inneneinheit.
-4. **Handys** (EG) auf der Seite der EG-Inneneinheit in der Wartung: „Handy hinzufügen“ – zwei Links (ntfy, Kurzbefehl).
+4. **Handys** auf der Seite der eigenen Inneneinheit in der Wartung: „Handy hinzufügen“ – ein Link, die App ntfy abonniert.
 5. **Später:** Wartung = Boot-Taster 5 s (außen auch von innen über die gekoppelte Inneneinheit): Töne, Update,
    Pulslänge. Nach einem Routertausch geht das Einrichtungs-WLAN nach 5 min von selbst auf. Werksreset: Taster
    2 × 5 s, dann 15 s halten.
@@ -150,19 +150,19 @@ Schreibt die Daten in die Partition `fctry` des Boards. Danach `reboot` – das 
 Schlüssel. Passt die Rolle nicht zum Image (Innendaten auf dem Außen-Image), bleibt das Board im Einrichtungsmodus
 und sagt warum.
 
-### Fern-Öffnen per Handy (ab Schritt 9, Einrichtung seit 10c über die Webseite)
+### Fern-Öffnen per Handy (R27, seit 12.11.2026)
 
-Klingelt jemand an **EG**, schickt die Außeneinheit über den Dienst **ntfy.sh** eine Push aufs Handy, mit einem Knopf
-„Tür öffnen“ (Anwendungsfall: Kind steht ausgesperrt vor der Tür). Der Knopf startet einen Kurzbefehl in der App
-„HTTP Shortcuts“, der das mitgeschickte Einmal-Token mit dem **Handy-Schlüssel signiert** und zurückschickt. Nur mit
-gültiger Signatur, frischem Token (5 min) und außerhalb der Sperrzeit öffnet die Tür; danach kommt die Push „Tür per App
-geöffnet“. Wer die öffentlichen Topics mitliest, hat zwar das Token, aber ohne den Schlüssel des Handys ist es wertlos
-(Begründung im Kopf von `cb_remote_logic.h`). Ohne Internet gibt es nur das Fern-Öffnen nicht; Klingeln und Türtaste
-innen laufen weiter.
+Klingelt jemand an **EG** oder **OG**, schickt die Außeneinheit über den Dienst **ntfy.sh** jedem Handy dieser Wohnung
+eine Push mit dem Knopf „Tür öffnen“ (Anwendungsfall: Kind steht ausgesperrt vor der Tür). Auf dem Handy braucht es nur
+die App **ntfy**: Der Knopf schickt das Einmal-Token selbst an das Befehls-Topic des Handys zurück. Nur mit einem Token,
+das für genau dieses Handy und dieses Klingeln ausgegeben wurde, frisch (5 min) und außerhalb der Sperrzeit öffnet die
+Tür; danach kommt an alle Handys der Wohnung die Push „Tür per App geöffnet“. Jedes Handy hat ein eigenes, geheimes
+Topic-Paar aus seinem Schlüssel (Begründung und Restrisiko im Kopf von `cb_remote_logic.h`, SA 4.5). Ohne Internet gibt
+es nur das Fern-Öffnen nicht; Klingeln und Türtaste innen laufen weiter.
 
-**Seit 10c** braucht es dafür keinen PC: Topics und Kurzbefehl-ID leiten Außen- und EG-Inneneinheit aus ihrem
-Kopplungsschlüssel ab, Handys werden auf der Seite der EG-Inneneinheit hinzugefügt (Schritt 4 oben). Die Befehle
-`anlage-fern`, `anlage-handy`, `fern-handy-anleitung` sind Überbleibsel aus Schritt 9.
+Handys werden auf der Seite der **eigenen** Inneneinheit hinzugefügt (Schritt 4 oben, je Wohnung bis 4). Ist die
+Außeneinheit ≈ 2 min nicht erreichbar, meldet die Inneneinheit das ihren Handys, und wieder, wenn sie zurück ist.
+`anlage-fern` und `anlage-handy` sind Überbleibsel aus Schritt 9 und wirken auf die R27-Firmware nicht.
 
 Ohne Handy testen – der PC trägt sich über die Webseite als Handy ein und spielt es dann:
 
@@ -174,8 +174,9 @@ python tools/cb.py fern-handy-web IN-1 PC2
 python tools/cb.py fern-test PC2 60
 ```
 
-`--falsch` signiert mit falschem Schlüssel (darf nicht öffnen), `--replay` schickt die Antwort nach der Öffnung nochmal
-(darf nicht nochmal öffnen), `--nochmal` wiederholt eine wegen Sperrzeit abgelehnte Antwort.
+Der PC drückt dabei den Knopf der Push wie das Handy. `--fremd` schickt ein erfundenes Token (darf nicht öffnen),
+`--replay` drückt den Knopf nach der Öffnung nochmal (darf nicht nochmal öffnen), `--nochmal` wiederholt eine wegen
+Sperrzeit abgelehnte Antwort.
 
 ### Statusseite (ab Schritt 8)
 
@@ -253,8 +254,8 @@ R23), jede Zeile beginnt mit der Laufzeit in Sekunden.
 | `update-owner <64 Hex>` / `update-owner clear` | eigenen Update-Schlüssel des Besitzers eintragen / entfernen (wie auf der Seite in der Wartung) |
 | `update-owner-only on` / `off` | nur noch den eigenen Schlüssel annehmen / Herstellerschlüssel wieder annehmen |
 | `update-fault crash` / `nowifi` / `off` | **Test:** das nächste Update scheitert absichtlich in der Probezeit – muss zurückfallen |
-| `remote` | nur außen: Fern-Öffnen – Befehlskanal verbunden?, Push gesendet/fehlgeschlagen, Befehle je Ergebnis |
-| `remote-push` | nur außen: Test-Push an die Handys |
+| `remote` | außen: Fern-Öffnen – Handys je Wohnung, Befehlskanal verbunden?, Push gesendet/fehlgeschlagen, Befehle je Ergebnis; innen: Ausfallmeldung |
+| `remote-push` | Test-Push an die Handys dieser Einheit |
 | `button-sim long` / `short` / `reset` | **Test:** Boot-Taster-Geste über USB (long = 5 s, reset = 15 s) – z. B. Wartung ohne Finger |
 
 **So arbeitet der Touch** (Details und Entwurfswerte im Kopf von `cb_touch_logic.h`): Ausgewertet wird relativ zur
@@ -306,12 +307,12 @@ firmware/
 │   ├── cb_mic.*            Mikrofon nur für Diagnose: audio-check, listen
 │   ├── cb_touch.*          Touch-Elektroden abtasten, Klingeln/Türbefehl auslösen
 │   ├── cb_door.*           Tür-Task: einziger Eigentümer von GPIO47, Puls per Timer-Interrupt
-│   ├── cb_remote.*         Fern-Öffnen: Push und Befehlskanal über ntfy.sh (HTTPS), nur außen
+│   ├── cb_remote.*         Fern-Öffnen über ntfy.sh (HTTPS): außen Push und Befehlskanal, innen Ausfallmeldung
 │   ├── cb_setup.*          Einrichtungs-WLAN, Captive Portal, Einrichtungsseite, Werksreset (10a)
 │   ├── cb_setup_page.h     das HTML der Einrichtungsseite
 │   ├── cb_update.*         Firmware-Update per Upload, Signatur, Versionsschutz, Probezeit, Rollback (10, 10d)
 │   ├── cb_pairing.*        Kopplung per Gerätecode, Wartung von innen, Pulslänge (10b)
-│   ├── cb_phones.*         Handys über die Webseite der EG-Inneneinheit, Kurzbefehl-Download (10c)
+│   ├── cb_phones.*         Handys über die Webseite der eigenen Inneneinheit (10c, R27)
 │   ├── cb_status.*         Statusseite (HTTP, Digest-Anmeldung, Upload), Protokoll der Türöffnungen
 │   └── cb_status_page.h    das HTML der Statusseite (deutsch, ohne externe Dateien)
 ├── components/cb_core/     hardwareunabhängiger Kern, auf dem PC getestet
@@ -322,7 +323,7 @@ firmware/
 │   ├── include/cb_door_logic.h   Sperrzeit und Pulsgrenzen des Türöffners
 │   ├── include/cb_door_log.h     Protokoll der Türöffnungen (Ringpuffer, wer was sehen darf)
 │   ├── include/cb_http_auth.h    Gerätepasswort: HTTP Digest, Nonces, Replay-Schutz, Sperre
-│   ├── include/cb_remote_logic.h Fern-Öffnen: Einmal-Token, Handy-Signatur, Leser für ntfy-Zeilen
+│   ├── include/cb_remote_logic.h Fern-Öffnen: Topics je Handy, Einmal-Token, Leser für ntfy-Zeilen
 │   ├── include/cb_update_logic.h Image-Kopf prüfen, Versionsvergleich, Probezeit-Entscheidung
 │   ├── include/cb_update_sig.h   Signatur prüfen: Format, vertraute Schlüssel (R26) – ZUERST LESEN für Updates
 │   ├── include/cb_update_keys.h  Kennungen der beiden Herstellerschlüssel (erzeugt, öffentlich, nie ersetzen)

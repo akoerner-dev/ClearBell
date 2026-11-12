@@ -3,8 +3,9 @@
 Belege für jeden Portierungsschritt: **was** geprüft wurde, **womit**, **auf welchem Board**, **Ergebnis**. Ein
 Schritt ist erst fertig, wenn alle seine Zeilen bestanden sind. Neueste Schritte oben.
 
-**Boards am TOWER:** AU-1 = Außeneinheit an COM4, IN-1 = Inneneinheit (provisioniert als **EG**) an COM3. Eine
-OG-Einheit gibt es auf dem Prüfplatz nicht; Zeilen mit OG prüfen deshalb das Verhalten „Wohnung antwortet nicht“.
+**Boards am TOWER:** AU-1 = Außeneinheit an COM4, IN-1 = Inneneinheit (provisioniert als **EG**) an COM3, seit
+12.11.2026 IN-2 = Inneneinheit **OG** an COM5. Ältere Zeilen mit OG (vor dem 12.11.) prüfen das Verhalten „Wohnung
+antwortet nicht“.
 Keine MAC-Adressen und keine Schlüssel in dieser Datei (das Repo ist öffentlich); die vollständigen
 Konsolen-Mitschnitte liegen unversioniert in `build/konsole/`.
 
@@ -23,7 +24,8 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 |---|---|---|---|
 | 6.10 | ~~AU-1~~ (beide ✓ 08.11., nach Behebung FW-B-06) – offen nur: Werte für die endgültige Schwelle am montierten Gerät | `touch-log 30` mitlaufen lassen, Elektroden nacheinander antippen, 2 s und 5 s halten | Ruhe ±2 %, Finger deutlich über +100 %; Werte notieren (Grundlage für die endgültige Schwelle) |
 | 8.14 | beide | **verschoben bis Front/Diffusor vorhanden** (Meister 08.11.2026: ohne Front nur ein vorläufiger Wert; bis dahin Standard 40). LED ansehen (am besten mit Lichtleiter/Diffusor): grün, rot, bernstein; `led-balance 20` … `led-balance 70` probieren | grün und rot wirken gleich hell, bernstein ist als Mischfarbe erkennbar; gewählten Wert notieren (Standard 40) |
-| 9.14 | – | ~~echte Topics statt Test-Topics~~ – entfällt: seit 10c werden die Topics aus der EG-Kopplung abgeleitet | – |
+| 9.14 | – | ~~echte Topics statt Test-Topics~~ – entfällt: seit R27 hat jedes Handy eigene Topics aus seinem Schlüssel | – |
+| R27.10 | IN-2 + Handy | ein Handy an der OG-Einheit hinzufügen (Wartung, „Handy hinzufügen“, ntfy-Link), an AU-1 `ring og`, „Tür öffnen“ tippen | Push nur am OG-Handy, Tür öffnet, Bestätigung „Tür per App geöffnet“ |
 | ~~10a.12~~ | ✓ 12.11. an IN-2 statt IN-1 (Ergebnis im Abschnitt IN-2 unten) | – | – |
 | ~~10a.13~~ | ✓ 12.11. entschieden (Ergebnis im Abschnitt IN-2 unten); offen nur: Probedruck `cb.py etiketten --rahmen` gegen einen echten 3657-Bogen | – | – |
 | ~~10b.10~~ | ✓ 12.11. EG und OG nach Werksreset AU-1 (Ergebnis im Abschnitt IN-2 unten) | – | – |
@@ -74,14 +76,15 @@ Befunde 10.11.2026 abends (noch nicht behoben):
   Eingaben des Codes, z. B. Kopplung 10b) sollen Bindestriche und Leerzeichen ignorieren. Das WPA2-Passwort des
   Einrichtungs-WLANs kann die Firmware nicht tolerant machen → bei 10a.12 gezielt prüfen.
 - **FW-B-15_Import_Link_kryptisch:** HTTP Shortcuts zeigt beim Import einen langen, kryptischen Link; für Käufer zu
-  schwierig. Mindestens Erklärtext, besser ein Knopf.
+  schwierig. Mindestens Erklärtext, besser ein Knopf. **Gegenstandslos seit R27 (kein HTTP Shortcuts mehr).**
 - **FW-B-16_Fern_Oeffnen_wirkt_unfertig:** Zwei Apps, sichtbarer Skriptcode des Kurzbefehls – wirkt wie Bastelei
   (Meister). Berührt R20; Wege: A) R20 behalten und aufpolieren (Import-Knopf, Kurzbefehl still), B) nur ntfy mit
   zufälligem Topic je Handy und kurz gültigem Token, C) eigene App (nicht V0.2). **Entschieden 12.11.: Weg B (R27).**
   Ausschlaggebend: Seit 10c sind die Topics nicht mehr öffentlich erratbar, damit ist „nur ntfy“ vertretbar.
+  **Umgesetzt 12.11. (Abschnitt „Fern-Öffnen nach R27“ unten).**
 - **FW-B-17_Ausfallmeldung_durch_Inneneinheit (Funktionswunsch):** Eine „Strom weg“-Meldung wäre wichtiger als die
   Neustart-Push (Meister). Vorschlag: IN-1 meldet per Push, wenn die Außeneinheit ~2 min nicht erreichbar ist, und
-  wieder, wenn sie zurück ist (mit Dauer). **Entschieden 12.11.: in V0.2, jede Inneneinheit an ihre Handys (R27).**
+  wieder, wenn sie zurück ist (mit Dauer). **Entschieden 12.11.: in V0.2, jede Inneneinheit an ihre Handys (R27). Umgesetzt 12.11.**
 - **FW-B-20_Werkzeug_meldet_sich_mehrfach_an** (`tools/statusseite.py`, behoben 12.11.): urllib wiederholt die
   Digest-Anmeldung nach 401 selbst – ein Aufruf mit veraltetem Passwort schickte 5 Versuche in unter 2 s und löste die
   30-s-Sperre aus; auch der nächste Aufruf mit richtigem Passwort scheiterte dann. Am 12.11. erneut ausgelöst (IN-2,
@@ -102,7 +105,35 @@ Befunde 10.11.2026 abends (noch nicht behoben):
   (`cb_phones.cpp`: „Fern-Öffnen gibt es nur für das EG“), Topics und Schlüssel kommen allein aus der Kopplung
   AU-1↔EG. Der Meister wollte an IN-2 (OG) ein Handy verbinden. Mit FW-B-21 passt „nur EG“ nicht mehr: soll jede
   Wohnung eigene Handys mit eigenen Topics aus ihrer Kopplung bekommen? **Entschieden 12.11.: ja, beide Wohnungen,
-  Handys je Inneneinheit (R27).**
+  Handys je Inneneinheit (R27). Umgesetzt 12.11.**
+
+### Fern-Öffnen nach R27 (12.11.2026, TOWER, Firmware dieses Commits auf AU-1, IN-1, IN-2)
+
+Umsetzung der Entscheidung R27 (SA 4.5): nur die App ntfy, Knopf „Tür öffnen“ in der Klingel-Push schickt
+„CBR2 ‹Token›“ an das Befehls-Topic des Handys; je Handy ein geheimes Topic-Paar aus seinem Schlüssel; Token je Handy
+und Klingeln, 5 min, einmalig; beide Wohnungen, Handys je Inneneinheit (bis 4); Ausfallmeldung der Inneneinheiten.
+PC als Handy: `fern-handy-web` (Eintrag über die Seite der Inneneinheit wie beim Käufer), `fern-test` (drückt den
+Knopf der Push). Images: 21 % eines App-Slots.
+
+| Zeile | Board | Prüfung | Ergebnis |
+|---|---|---|---|
+| R27.1 | `cb.py test` | Topics gegen Python-Referenz, Token je Handy und Klingeln, Ablauf, Wiederholung, fremdes Handy, entferntes Handy, Wohnungsgrenze (EG-Token öffnet nicht über ein OG-Handy), 4 Handys je Wohnung, Ersetzen bei gleichem Namen | ✓ 128 Tests, 2894 Prüfungen, 0 Fehler |
+| R27.2 | AU-1 Neustart nach Flashen | alter Handy-Eintrag ohne Wohnung übernommen | ✓ „Andre“ als EG-Handy; auf IN-1 ohne Schlüssel → Seite zeigt „neu hinzufügen (alte Einrichtung)“ |
+| R27.3 | IN-1, `fern-handy-web IN-1 PC2` | Handy über die Seite, Antwort mit ntfy-Link | ✓ |
+| R27.4 | `fern-test PC2 --replay`, `ring eg` | Push „Es klingelt – EG“ mit http-Knopf, Knopf → Öffnung und „Tür per App geöffnet“; Knopf nochmal → keine Öffnung | ✓ geöffnet 9,3 s nach dem Drücken; Wiederholung abgelehnt |
+| R27.5 | IN-2, `fern-handy-web IN-2 PC3`; `fern-test PC3 --fremd`, `ring og` | erfundenes Token | ✓ keine Öffnung, keine Push |
+| R27.6 | `fern-test PC3`, `ring og` | OG-Öffnung, Push nur an OG-Handys | ✓ geöffnet nach 5,3 s |
+| R27.7 | AU-1 im ROM-Bootloader gehalten (offline), PC2 hört mit | Ausfallmeldung, „wieder da“, Neustart-Push | erster Lauf: Meldung erst nach ≈ 4 min (Verbindungsschicht braucht selbst ≈ 90 s, eigene 2 min kamen obendrauf) → Wartezeit auf 30 s nach der Erkennung gesenkt, Dauer rechnet die Erkennung mit. Wiederholung ✓: „Außeneinheit nicht erreichbar“ nach 132 s, nach dem Reset „Außeneinheit wieder da (Ausfall etwa 2 min)“ und „ClearBell neu gestartet“ |
+| R27.8 | IN-1 + Handy (Android) | „Andre“ entfernt und neu hinzugefügt, ntfy-Link angetippt, „Test“ | ✓ Test-Push kam; musste zweimal angelernt werden → FW-B-23 |
+| R27.9 | AU-1 + IN-1 + Handy | `ring eg`, am Handy „Tür öffnen“ | ✓ geöffnet (Meister); AU-1 `remote`: Befehle 1, ok 1, geöffnet 1, abgelehnt 0, Pushes 7 ok / 0 fehlgeschlagen |
+
+Offen: OG mit echtem Handy (Sammelliste R27.10); iOS ungeprüft. Die Test-Handys PC2 (wieder entfernt) und PC3 (IN-2)
+bleiben bis zur Abnahme eingetragen.
+
+Befunde:
+- **FW-B-23_Handy_zweimal_anlernen:** Der Meister musste das Handy an IN-1 zweimal hinzufügen, bis es ging. Ursache
+  noch nicht geklärt (welcher Schritt beim ersten Mal fehlschlug, ist nicht festgehalten); beim nächsten Handy (R27.10)
+  gezielt beobachten: Meldung der Seite nach „Hinzufügen“, kam die Test-Push, steht das Handy auf AU-1 (`remote`)?
 
 ### Statusseite neu und kleine Befunde (12.11.2026, TOWER)
 

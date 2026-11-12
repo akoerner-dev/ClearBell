@@ -8,7 +8,8 @@
 // USER namespace "cb_user" in the nvs partition (setup page, pairing):
 //   role u8 (2 = EG, 3 = OG; outdoor needs none) · wifi_ssid / wifi_pass · key_au / key_eg / key_og blob32 ·
 //   ser_au / ser_eg / ser_og (peer unit numbers) · ip_au / ip_eg / ip_og (optional, development) ·
-//   topic_out / topic_in / fern_link / pid0..3 / pk0..3 (remote opening) · web_pass (own status-page password)
+//   pid0..7 / pk0..7 / pf0..7 (phones of the remote opening: id, key, flat - R27; until then 0..3 and EG only)
+//   · web_pass (own status-page password). topic_out / topic_in / fern_link only came from legacy data, unused.
 //
 // LEGACY schema 1 (before port step 10a): fctry held role, name, wifi_ssid, wifi_pass, dev_pass, key_*, ip_*,
 // topics and phones. Copied once into cb_user (flag "legacy_done" in cb_sys, which the factory reset keeps).
@@ -140,21 +141,24 @@ const char *load_user() {
 #endif
   char own[33];
   snprintf(prov.dev_pass, sizeof prov.dev_pass, "%s", read_str(h, "web_pass", own, sizeof own) ? own : prov.dev_code);
-  // Remote opening exists only for EG (SA 6.4): derive the names from the EG link key.
-  int eg_link = CB_IS_OUTDOOR ? (int)cb::UnitId::EG : (prov.role == cb::UnitId::EG ? (int)cb::UnitId::Outdoor : 0);
-  if (eg_link && prov.has_key[eg_link] &&
-      cb::remote_names(prov.key[eg_link], prov.topic_out, prov.topic_in, prov.shortcut_id))
-    snprintf(prov.fern_link, sizeof prov.fern_link, "http-shortcuts://%s?token={token}", prov.shortcut_id);
-  for (int i = 0; i < 4; i++) {
+  // Phones (R27). Entries from before R27 have no flat: they were EG phones (remote opening was EG only).
+  for (int i = 0; i < CbProvisioning::kPhoneSlots; i++) {
     char k[8];
     snprintf(k, sizeof k, "pid%d", i);
     if (!read_str(h, k, prov.phone_id[i], sizeof prov.phone_id[0])) continue;
-#if CB_IS_OUTDOOR
     snprintf(k, sizeof k, "pk%d", i);
-    if (!read_str(h, k, prov.phone_key[i], sizeof prov.phone_key[0])) {
+    bool has_key = read_str(h, k, prov.phone_key[i], sizeof prov.phone_key[0]);
+    snprintf(k, sizeof k, "pf%d", i);
+    uint8_t flat = (uint8_t)cb::UnitId::EG;
+    nvs_get_u8(h, k, &flat);
+    prov.phone_flat[i] = CB_IS_OUTDOOR ? flat : (uint8_t)prov.role;
+#if CB_IS_OUTDOOR
+    if (!has_key) {
       prov.phone_id[i][0] = 0;  // id without key: unusable
       continue;
     }
+#else
+    (void)has_key;  // indoor entry from before R27: listed, but no pushes until added again
 #endif
     prov.phones++;
   }
@@ -292,17 +296,18 @@ bool cb_prov_remove_link(cb::UnitId peer) {
       &i);
 }
 
-int cb_prov_phone_store(const char *id, const char *key_hex) {
+int cb_prov_phone_store(const char *id, const char *key_hex, uint8_t flat) {
   int slot = -1;
-  for (int i = 0; i < 4; i++)
-    if (!strcmp(prov.phone_id[i], id)) slot = i;
-  for (int i = 0; i < 4 && slot < 0; i++)
+  for (int i = 0; i < CbProvisioning::kPhoneSlots; i++)
+    if (prov.phone_id[i][0] && prov.phone_flat[i] == flat && !strcmp(prov.phone_id[i], id)) slot = i;
+  for (int i = 0; i < CbProvisioning::kPhoneSlots && slot < 0; i++)
     if (!prov.phone_id[i][0]) slot = i;
   if (slot < 0 || strlen(id) > 8 || strlen(key_hex) > 64) return -1;
   struct P {
     int i;
     const char *id, *key;
-  } a{slot, id, key_hex};
+    uint8_t flat;
+  } a{slot, id, key_hex, flat};
   bool ok = user_write(
       [](nvs_handle_t h, const void *v) {
         const P *a = static_cast<const P *>(v);
@@ -312,26 +317,29 @@ int cb_prov_phone_store(const char *id, const char *key_hex) {
         snprintf(k, sizeof k, "pk%d", a->i);
         if (a->key[0]) nvs_set_str(h, k, a->key);
         else nvs_erase_key(h, k);
+        snprintf(k, sizeof k, "pf%d", a->i);
+        nvs_set_u8(h, k, a->flat);
       },
       &a);
   if (!ok) return -1;
   if (!prov.phone_id[slot][0]) prov.phones++;
   snprintf(prov.phone_id[slot], sizeof prov.phone_id[slot], "%s", id);
   snprintf(prov.phone_key[slot], sizeof prov.phone_key[slot], "%s", key_hex);
+  prov.phone_flat[slot] = flat;
   return slot;
 }
 
-bool cb_prov_phone_forget(const char *id) {
-  for (int i = 0; i < 4; i++) {
-    if (!prov.phone_id[i][0] || strcmp(prov.phone_id[i], id) != 0) continue;
+bool cb_prov_phone_forget(const char *id, uint8_t flat) {
+  for (int i = 0; i < CbProvisioning::kPhoneSlots; i++) {
+    if (!prov.phone_id[i][0] || prov.phone_flat[i] != flat || strcmp(prov.phone_id[i], id) != 0) continue;
     user_write(
         [](nvs_handle_t h, const void *v) {
           int i = *static_cast<const int *>(v);
           char k[8];
-          snprintf(k, sizeof k, "pid%d", i);
-          nvs_erase_key(h, k);
-          snprintf(k, sizeof k, "pk%d", i);
-          nvs_erase_key(h, k);
+          for (const char *f : {"pid%d", "pk%d", "pf%d"}) {
+            snprintf(k, sizeof k, f, i);
+            nvs_erase_key(h, k);
+          }
         },
         &i);
     prov.phone_id[i][0] = 0;

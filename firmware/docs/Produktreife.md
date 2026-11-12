@@ -50,7 +50,7 @@ Schwere: **A** = verhindert den Verkauf, **B** = muss vor dem Verkauf geändert 
 | 7 Türöffner | Pulslänge 2000 ms fest – der Käufer hat **einen anderen Türöffner** (F-3) | **B** | Pulslänge auf der Webseite der Außeneinheit einstellbar (100–5000 ms, Wartung) |
 | 8 Statusseite | Webseite ✓, Gerätepasswort je Gerät ✓, **eigenes Passwort ✓ (08.11.2026)** | – | Passwort ändern in der Wartung (verschlüsselt übertragen); Rückkehr zum Etikett-Passwort per leerem Feld oder Werksreset |
 | 8 Wartung | Wartung **nur über den Boot-Taster im Gehäuse** – für die Außeneinheit heißt das: Gehäuse öffnen | B | Wartung der Außeneinheit zusätzlich **von einer gekoppelten Inneneinheit aus** freigeben (dort Taster = physische Anwesenheit in der Wohnung); Hardwarefrage siehe Abschnitt 5 |
-| 9 Fern-Öffnen | Topics und Handy-Schlüssel nur per PC; Link braucht die Kurzbefehl-ID vom Handy | **A** | Handy hinzufügen auf der Webseite der **eigenen Inneneinheit**: zwei Links/QR – ntfy abonnieren, Kurzbefehl importieren (mit Schlüssel und festem Link, ohne Abtippen) |
+| 9 Fern-Öffnen | Topics und Handy-Schlüssel nur per PC; Link braucht die Kurzbefehl-ID vom Handy | **A** | Handy hinzufügen auf der Webseite der **eigenen Inneneinheit**: zwei Links/QR – ntfy abonnieren, Kurzbefehl importieren (mit Schlüssel und festem Link, ohne Abtippen). **Seit R27 (12.11.2026): nur noch ein ntfy-Link, kein Kurzbefehl** |
 | 9 Fern-Öffnen | Wer Handys verwaltet: heute die Anlagendatei. Die Außeneinheit gehört beiden Haushalten | B | Handys verwaltet **jeder Haushalt an seiner Inneneinheit**; sie gibt den Schlüssel verschlüsselt über die gekoppelte Verbindung an die Außeneinheit |
 | 9 Fern-Öffnen | fest `ntfy.sh` | C | Server als Einstellung (eigener ntfy-Server möglich); Hinweis im Datenschutztext: Klingelzeit läuft über den Dienst |
 | 9 Fern-Öffnen | iOS ohne Verfahren | C | offen (SA 4.5, 13) |
@@ -83,9 +83,9 @@ Etikett drucken: Gerätenummer, Gerätecode, QR-Code. Sonst nichts – kein WLAN
    Verbindungsschlüssel und schickt ihn der Inneneinheit, verschlüsselt und signiert mit einem Schlüssel aus deren
    Gerätecode. Ohne den Code vom Etikett der Inneneinheit – also ohne Zugang zu dieser Wohnung – kann sich niemand
    dazwischenschalten, auch nicht der andere Haushalt im selben WLAN (Angreifer F).
-4. **Handy (optional, EG).** Auf der Seite der **eigenen Inneneinheit** „Handy hinzufügen“: Name eingeben, dann zwei
-   Knöpfe – „ntfy abonnieren“ (`ntfy://…`) und „Kurzbefehl importieren“ (HTTP-Shortcuts-Import, der Kurzbefehl mit
-   Schlüssel kommt als einmaliger Download von der Einheit, nur im Heimnetz, 10 min gültig). „Handy sperren“ daneben.
+4. **Handy (optional, EG und OG).** Auf der Seite der **eigenen Inneneinheit** „Handy hinzufügen“: Name eingeben,
+   dann ein Link „ntfy: Nachrichten abonnieren“ (`ntfy://…`); „Test“, „Link“ und „Entfernen“ daneben (R27, 12.11.2026;
+   vorher zusätzlich ein Kurzbefehl-Import für HTTP Shortcuts).
 5. **Fertig.** Klingeln, Türtaste, Push funktionieren. Später: Töne tauschen, Pulslänge, Updates – alles in der Wartung
    auf der Webseite.
 

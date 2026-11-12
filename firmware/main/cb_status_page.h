@@ -204,24 +204,28 @@ function pairing(p,maint){
     catch(e){list.replaceChildren($('p','bad','Suche fehlgeschlagen.'))}b.disabled=false};
   c.append(b,list,$('p','mute','Erste Kopplung einer Wohnung: Gerätecode der Inneneinheit genügt. Eine bestehende Kopplung ersetzen: nur in der Wartung.'));
   return c}
+// R27: a phone needs only the ntfy app and one link; the ring push carries the "Tür öffnen" button.
+function linkOut(out,r){out.replaceChildren();if(!r.ok)return;const a=$('a','step','ntfy: Nachrichten abonnieren');a.href=r.ntfy;a.prepend(ic('send'));
+  out.append(a,$('p','mute','Auf DEM Handy öffnen, das die Nachrichten bekommen soll. Vorher nur die App „ntfy“ installieren (Play Store, F-Droid oder App Store). Danach hier „Test“ antippen.'))}
 function phones(ph,maint){
-  const c=card('phone','Handys'),l=$('div','list');
-  for(const id of ph.list){const it=$('div','item');it.append($('span','av',id.slice(0,2).toUpperCase()));const g=$('div','grow');g.append($('b','',id),$('span','','darf die Tür öffnen'));it.append(g);
-    if(maint){const b=btn('Entfernen','','danger sm');b.onclick=async()=>{if(confirm('Handy '+id+' entfernen? Es kann die Tür dann nicht mehr öffnen.')){toast(await post('/phone/remove',{name:id}));load(true)}};it.append(b)}
+  const c=card('phone','Handys'),l=$('div','list'),out=$('div');const nokey=ph.nokey||[];
+  for(const id of ph.list){const it=$('div','item');it.append($('span','av',id.slice(0,2).toUpperCase()));const g=$('div','grow');
+    g.append($('b','',id),$('span',nokey.includes(id)?'bad':'',nokey.includes(id)?'neu hinzufügen (alte Einrichtung)':'bekommt Klingel-Nachrichten'));it.append(g);
+    if(!nokey.includes(id)){const t=btn('Test','','sec sm');t.onclick=async()=>toast(await post('/phone/test',{name:id}));it.append(t)}
+    if(maint){if(!nokey.includes(id)){const k=btn('Link','','sec sm');k.onclick=async()=>{const r=await post('/phone/link',{name:id});toast(r);linkOut(out,r)};it.append(k)}
+      const b=btn('Entfernen','','danger sm');b.onclick=async()=>{if(confirm('Handy '+id+' entfernen? Es bekommt dann keine Nachrichten mehr und kann die Tür nicht öffnen.')){toast(await post('/phone/remove',{name:id}));load(true)}};it.append(b)}
     l.append(it)}
-  if(!ph.list.length)l.append($('p','mute','Noch keine Handys eingetragen.'));c.append(l);
-  if(!maint)return c;
+  if(!ph.list.length)l.append($('p','mute','Noch keine Handys eingetragen.'));c.append(l,out);
+  if(!maint){c.append($('p','mute','Handy hinzufügen: Wartung einschalten und diese Seite auf dem Handy öffnen.'));return c}
   c.append($('h3','','Handy hinzufügen'));const row=$('div','row');const n=$('input');n.placeholder='Name, z. B. Anna';n.maxLength=8;const b=btn('Hinzufügen','phone');row.append(n,b);
-  const out=$('div');b.onclick=async()=>{b.disabled=true;const r=await post('/phone/add',{name:n.value});toast(r);out.replaceChildren();b.disabled=false;
-    if(r.ok){for(const [href,txt] of [[r.ntfy,'1 · ntfy abonnieren'],[r['import'],'2 · Kurzbefehl importieren']]){const a=$('a','step',txt);a.href=href;a.prepend(ic('send'));out.append(a)}
-      out.append($('p','mute','Vorher die Apps „ntfy“ und „HTTP Shortcuts“ installieren. Beide Links nur auf dem Handy im Heim-WLAN öffnen; der zweite gilt 10 min.'))}};
-  c.append(row,out);paused=true;return c}
+  b.onclick=async()=>{b.disabled=true;const r=await post('/phone/add',{name:n.value});toast(r);b.disabled=false;linkOut(out,r);if(r.ok)n.value=''};
+  c.append(row);paused=true;return c}
 function remote(f){
   const c=card('send','Fern-Öffnen');
-  kv(c,'Befehlskanal',f.stream_up?'verbunden':'getrennt',f.stream_up?'ok':'bad');kv(c,'eingetragene Handys',f.phones);
+  kv(c,'Nachrichtenkanal',f.stream_up?'verbunden':'getrennt',f.stream_up?'ok':'bad');kv(c,'eingetragene Handys',f.phones+' (EG '+f.phones_eg+', OG '+f.phones_og+')');
   kv(c,'per App geöffnet',f.opened);kv(c,'Push gesendet / fehlgeschlagen',f.pushes_ok+' / '+f.pushes_failed,f.pushes_failed?'warn':'');
-  if(f.bad_signature)kv(c,'falsche Signatur',f.bad_signature,'bad');
-  c.append($('p','mute','Die Tür öffnet nur mit einem eingetragenen Handy und einem frischen Klingel-Token.'));return c}
+  if(f.rejected)kv(c,'abgewiesene Befehle',f.rejected,'warn');
+  c.append($('p','mute','Die Tür öffnet nur mit einem frischen Klingel-Token, das genau einem eingetragenen Handy gehört. Handys trägt jede Wohnung an ihrer Inneneinheit ein.'));return c}
 function doorlog(l){
   const c=card('list','Türöffnungen'),list=$('div','list');
   const add=(e,into)=>{const it=$('div','item');const ev=EV[e.event]||[e.event,'c-mute'];const g=$('div','grow');g.append($('b','',e.time));it.append(g,$('span','pill '+ev[1],ev[0]));into.append(it)};
@@ -332,6 +336,10 @@ function diagnosis(d){
       $('td',ch.state==='pressed'?'warn':'',ch.delta_percent.toFixed(1)+' %'));tb.append(tr)}
     b.append(tb,$('p','mute','Gedrückt ab +'+t.on_percent+' %, losgelassen unter +'+t.off_percent+' %. '+
       (t.armed===undefined?'Beide Tasten zugleich abgewiesen: '+t.rejected_both:'Scharfschaltfenster: '+(t.armed?'offen':'zu')+', abgewiesen: '+t.rejected)+(t.simulated?' · SIMULATION läuft':'')))}));
+  if(d.remote&&d.remote.outage){const o=d.remote.outage;c.append(fold('outage','Ausfallmeldung',b=>{kv(b,'überwacht',o.watching?'ja':'nein (nicht gekoppelt)');
+    kv(b,'Außeneinheit',o.outdoor_reachable?'erreichbar':'NICHT erreichbar',o.outdoor_reachable?'ok':'bad');kv(b,'Meldungen gesendet',o.notices);
+    kv(b,'Push gesendet / fehlgeschlagen',o.pushes_ok+' / '+o.pushes_failed,o.pushes_failed?'warn':'');
+    b.append($('p','mute','Antwortet die Außeneinheit 2 min nicht, bekommen die Handys dieser Wohnung eine Nachricht – und wieder, wenn sie zurück ist.'))}))}
   const a=d.audio;c.append(fold('audio','Audio',b=>{kv(b,'bereit',a.ready?'ja':'nein',a.ready?'ok':'bad');kv(b,'gespielt / Fehler',a.played+' / '+a.failed,a.failed?'warn':'')}));
   c.append(fold('sys','System',b=>{kv(b,'Firmware',sy.version);kv(b,'gebaut',sy.built);kv(b,'Rolle',sy.role);kv(b,'Laufzeit',dur(sy.uptime_s));kv(b,'Start Nr.',sy.boot);
     kv(b,'letzter Neustart',sy.reset_reason,/WATCHDOG|PANIC|BROWNOUT/.test(sy.reset_reason)?'bad':'');

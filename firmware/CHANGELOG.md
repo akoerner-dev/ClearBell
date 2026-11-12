@@ -5,6 +5,22 @@ Versionen nach SemVer; `version.txt` ist die Quelle. Solange die Portierung läu
 
 ## 0.2.0-dev (in Arbeit)
 
+### Fern-Öffnen nach R27 (12.11.2026)
+
+- **Nur noch die App ntfy** (FW-B-16, löst R20 ab): Die Klingel-Push trägt einen ntfy-Knopf „Tür öffnen“, der
+  „CBR2 ‹Token›“ selbst an das Befehls-Topic des Handys schickt. Keine Handy-Signatur, kein HTTP Shortcuts mehr.
+- **Je Handy ein geheimes Topic-Paar** aus einem 256-bit-Schlüssel (HMAC-SHA256, „cb“ + 128 bit); Token je Handy und
+  Klingeln, 5 min, einmalig; nach einer Öffnung sind alle Tokens der Wohnung verbraucht. Bestätigungs-Push an alle
+  Handys der Wohnung.
+- **Beide Wohnungen** (FW-B-22): Handys auf der Seite der eigenen Inneneinheit, je bis 4; Klingeln an EG nur an die
+  EG-Handys, an OG nur an die OG-Handys. Neue Endpunkte `/phone/test` und `/phone/link`; Kurzbefehl-Download entfällt.
+  Bestehende Handys ohne Wohnung gelten als EG; ein Handy ohne Schlüssel auf der Inneneinheit (alte Einrichtung) muss
+  neu hinzugefügt werden.
+- **Ausfallmeldung** (FW-B-17): Jede Inneneinheit meldet ihren Handys „Außeneinheit nicht erreichbar“ (≈ 2 min nach
+  dem Ausfall) und „wieder da (Ausfall etwa N min)“; 3 min Ruhe nach dem eigenen Start.
+- Werkzeuge: `fern-handy-web` und `fern-test` (Knopf drücken wie das Handy, `--fremd`, `--replay`, `--nochmal`) für R27.
+- FW-B-15 (kryptischer Import-Link) ist damit gegenstandslos.
+
 ### Statusseite neu, kleine Befunde (12.11.2026)
 
 - **Status- und Einrichtungsseite neu gestaltet:** Kopfzeile mit Modus, Übersichtskacheln, Karten, aufklappbare

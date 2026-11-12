@@ -89,8 +89,8 @@ Die Mikrofone sind gestrichelt, weil sie in V0.2 bestückt, aber ohne Funktion s
 |---|---|---|
 | **Löst aus** | Klingeln EG, Klingeln OG | Türöffner-Anfrage |
 | **Führt aus** | Türöffner-Puls, Push-Versand | Klingelton-Wiedergabe |
-| **Prüft** | Türbefehle der Inneneinheiten (Challenge–Response) und Fern-Öffnungen vom Handy (Signatur) | Klingeln und Quittungen der Außeneinheit |
-| **Kennt Schlüssel** | je einen Verbindungsschlüssel zu EG und OG, dazu die Handy-Schlüssel | nur den eigenen Verbindungsschlüssel |
+| **Prüft** | Türbefehle der Inneneinheiten (Challenge–Response) und Fern-Öffnungen vom Handy (geheimes Topic, Einmal-Token) | Klingeln und Quittungen der Außeneinheit |
+| **Kennt Schlüssel** | je einen Verbindungsschlüssel zu EG und OG, dazu die Handy-Schlüssel beider Wohnungen | den eigenen Verbindungsschlüssel und die Handy-Schlüssel der eigenen Wohnung |
 | **Protokolliert** | Fern-Öffnungen einzeln, Touch-Öffnungen nur als Summe | die Öffnungen der eigenen Wohnung |
 | **Speisung** | 12 V DC (SELV) | USB-C 5 V |
 | **Besonderheit** | zusätzliche Service-USB-C; trägt die Türöffner-Ansteuerung | Versorgung und Programmierung über dieselbe Buchse |
@@ -211,7 +211,7 @@ graph TD
         TX["Transport<br/>Sitzungen · Quittung"]
         AU["Audio<br/>WAV-Player"]
         TC["Touch<br/>Scharfschaltfenster"]
-        PU["Fern-Öffnen<br/>Push · Signatur"]
+        PU["Fern-Öffnen<br/>Push · Token"]
         MO["Betriebsmodi<br/>Wartung · Einrichtung"]
         WB["Statusseite<br/>HTTP"]
         TX ~~~ PU
@@ -279,7 +279,7 @@ V0.1 ist eine einzelne `.ino` mit 731 Zeilen — für die Erprobung richtig, fü
 | `cb_audio` | WAV-Parser, Wiedergabe, Prioritäten, Lautstärke, `SD_MODE` |
 | `cb_touch` | Hardware-Baseline, Plausibilität, Scharfschaltfenster |
 | `cb_door` *(außen)* | Türöffner-Task — **der einzige Ort, der GPIO47 anfasst** |
-| `cb_remote` *(außen)* | Push, Tokens, Kommando-Stream, Handy-Signaturen |
+| `cb_remote` | außen: Push, Tokens, Befehls-Stream; innen: Ausfallmeldung (R27) |
 | `cb_status` | LED, Statusseite, Protokoll der Türöffnungen, Zähler |
 | `cb_modes` | Normalbetrieb, Wartung, Einrichtung |
 | `cb_ota` | Update annehmen, Signatur prüfen, Selbsttest, Rollback |
@@ -419,47 +419,49 @@ Probleme nicht.
 **Kosten:** eine zusätzliche Hin- und Rückrunde im LAN. Mit Modem-Sleep kann jeder Schritt auf das nächste
 DTIM-Signal des Routers warten — die Zeit bis zum Puls wird im Bring-up gemessen (Ziel ≤ 1 s, Kapitel 1.3).
 
-### 4.5 Fern-Öffnen per Push [V0.2 — Entwurf]
+### 4.5 Fern-Öffnen per Push [V0.2 — umgesetzt nach R27]
 
-> **Abgelöst durch R27 (12.11.2026):** nur noch ntfy, ohne Handy-Signatur; je Handy ein geheimes Topic-Paar; beide
-> Wohnungen. Dieser Abschnitt beschreibt den bisherigen Stand (R20) und wird bei der Umsetzung neu geschrieben.
-
-Der Anwendungsfall ist konkret: Ein Kind steht ausgesperrt vor der Tür, kein Erwachsener ist zu Hause.
+Der Anwendungsfall ist konkret: Ein Kind steht ausgesperrt vor der Tür, kein Erwachsener ist zu Hause. Auf dem Handy
+genügt die App ntfy; ein Tipp auf „Tür öffnen“ in der Benachrichtigung öffnet.
 
 ```mermaid
 sequenceDiagram
     participant A as Außeneinheit
     participant N as ntfy.sh
-    participant H as Handy (App)
-    Note over A: Klingeln EG erkannt,<br/>Token erzeugen (128 bit, einmalig)
-    A->>N: Push mit Button (TLS geprüft)
+    participant H as Handy (ntfy-App)
+    Note over A: Klingeln EG oder OG erkannt,<br/>je Handy dieser Wohnung ein Token<br/>(128 bit, einmalig, 5 min)
+    A->>N: Push an das Melde-Topic des Handys,<br/>Knopf „Tür öffnen“ (TLS geprüft)
     N->>H: Benachrichtigung
-    Note over H: Button öffnet die App mit dem Token,<br/>HMAC mit dem Handy-Schlüssel
-    H->>N: signierte Antwort
-    N->>A: Kommando-Stream (TLS geprüft)
-    Note over A: Signatur und Token prüfen,<br/>Token verbrauchen,<br/>Öffnungsanforderung an den Tür-Task
-    A->>N: Bestätigung „Tür per App geöffnet“
+    Note over H: Tipp auf den Knopf
+    H->>N: POST „CBR2 Token“ an das Befehls-Topic des Handys
+    N->>A: Befehls-Stream aller Handys (TLS geprüft)
+    Note over A: Handy am Topic erkennen,<br/>Token prüfen und verbrauchen,<br/>Öffnungsanforderung an den Tür-Task
+    A->>N: Bestätigung „Tür per App geöffnet“<br/>an alle Handys der Wohnung
 ```
 
 | Eigenschaft | Umsetzung |
 |---|---|
-| **Das Handy signiert** | HMAC-SHA256 über das Token mit einem Schlüssel, der nur auf diesem Handy und in der Außeneinheit liegt; die Nachricht trägt eine Verfahrenskennung |
-| **Je Handy ein Schlüssel** | einzeln sperrbar, etwa bei Verlust |
-| **Token** | 128 bit, einmalig, an genau ein Klingeln gebunden; Gültigkeit wird im Bring-up festgelegt — 5 min sind vertretbar, weil das Token ohne Handy-Schlüssel wertlos ist |
+| **Je Handy ein Schlüssel** | 256 bit, erzeugt auf der Inneneinheit beim Hinzufügen, verschlüsselt per *Event* an die Außeneinheit (4.2); einzeln entfernbar, etwa bei Verlust |
+| **Je Handy ein geheimes Topic-Paar** | Melde- und Befehls-Topic = „cb“ + 128 bit aus HMAC-SHA256 über den Schlüssel; nicht erratbar, auf dem Handy nur über den Einrichtungs-Link bekannt |
+| **Token** | 128 bit aus dem Hardware-Zufall, einmalig, an genau ein Klingeln und genau ein Handy gebunden, 5 min gültig; die letzten drei Klingeln je Wohnung bleiben nutzbar; nach einer Öffnung sind alle Tokens der Wohnung verbraucht; nach einem Neustart gilt keines mehr |
+| **Nachricht** | „CBR2 ‹Token›“; die Verfahrenskennung hält den Weg für ein späteres Verfahren offen |
+| **Beide Wohnungen** | je Inneneinheit bis zu 4 Handys; das Klingeln an EG geht nur an die EG-Handys, an OG nur an die OG-Handys |
 | **TLS** | Zertifikatsprüfung gegen das im Core eingebettete Zertifikatsbündel (Mozilla-Liste); kein Pinning — die Serverzertifikate wechseln alle paar Wochen |
-| **Topics** | dürfen öffentlich bleiben; ntfy.sh ist nur noch Transportweg |
-| **Nachvollziehbar** | jede Fern-Öffnung wird per Push bestätigt und protokolliert (Kapitel 6.4) |
+| **Nachvollziehbar** | jede Fern-Öffnung wird per Push an die Handys der Wohnung bestätigt und protokolliert (Kapitel 6.4); abgelehnte Befehle werden gezählt (Statusseite) |
+| **Ausfallmeldung** | Jede Inneneinheit meldet ihren Handys, wenn die Außeneinheit nicht erreichbar ist (≈ 2 min nach dem Ausfall: 90 s Erkennung der Verbindungsschicht + 30 s), und wenn sie zurück ist, mit der Dauer; in den ersten 3 min nach dem eigenen Start schweigt sie |
 
-**Warum so.** In V0.1 stand das Einmal-Token in der Push selbst. Auf ntfy.sh ist ein Topic ohne bezahlte Reservierung
-öffentlich — „the topic is essentially a password“ —, und Nachrichten werden 12 Stunden vorgehalten. Wer das
-Melde-Topic las, hielt damit ein gültiges Öffnungs-Token in der Hand. Zugriffsschutz auf ntfy.sh kostet Geld oder
-einen eigenen, aus dem Internet erreichbaren Server. Die Handy-Signatur löst das Problem kostenlos und nimmt dabei
-auch den Dienstbetreiber aus der Vertrauenskette.
+**Warum so (R27, löst R20 ab).** In V0.1 stand das Einmal-Token in einer Push auf einem erratbaren Topic; auf
+ntfy.sh ist ein Topic ohne bezahlte Reservierung öffentlich — „the topic is essentially a password“. R20 löste das
+mit einer Signatur auf dem Handy (zweite App, Skriptcode); im Haushalt wirkte das wie Bastelei. R27 macht stattdessen
+die Topics geheim: Wer den Schlüssel eines Handys nicht kennt, kann dessen Pushes weder lesen noch ihm Befehle
+schicken, und ein Token taugt nur für eine Öffnung, ein Handy, 5 min und nach einem echten Klingeln.
 
-**Plattformen.** Android: Die App „HTTP Shortcuts“ hat eine eingebaute HMAC-Funktion und nimmt über Deep Links Werte
-entgegen — der Button der Push öffnet sie mit dem Token. iOS: Die Kurzbefehle-App kennt nach den verfügbaren
-Beschreibungen kein HMAC, nur einfache Hashes; wie dort signiert werden kann, ist [offen]. Die Verfahrenskennung hält
-den Weg für ein zweites Verfahren offen, ohne Android zu brechen.
+**Bewusst getragenes Restrisiko.** Der Betreiber von ntfy.sh sieht Topics und Tokens und könnte innerhalb von 5 min
+nach einem Klingeln öffnen; Nachrichten werden dort 12 Stunden vorgehalten, das Token ist dann längst ungültig. Die
+Bestätigungs-Push macht eine solche Öffnung sichtbar.
+
+**Plattformen.** Android: ntfy aus dem Play Store oder F-Droid. iOS: Die ntfy-App kennt dieselben Aktionsknöpfe;
+geprüft ist bisher nur Android [offen].
 
 ---
 
@@ -511,7 +513,7 @@ sequenceDiagram
     participant B as Besucher
     participant A as Außeneinheit
     participant I as Inneneinheit
-    participant P as ntfy (nur EG)
+    participant P as ntfy
     participant S as Smartphone
 
     B->>A: berührt Elektrode EG
@@ -522,7 +524,7 @@ sequenceDiagram
         Note over I: Klingelton,<br/>Fenster für kurzen Tipp öffnet
         Note over A: Bestätigungston an der Tür
     and Push-Weg (best effort)
-        Note over A: Einmal-Token erzeugen
+        Note over A: je Handy der Wohnung ein Einmal-Token
         A->>P: HTTPS POST + Button (TLS geprüft)
         P->>S: Benachrichtigung
     end
@@ -530,7 +532,8 @@ sequenceDiagram
 
 **Der Push-Weg blockiert den Funkweg nicht.** Er läuft im eigenen Task und ist ausdrücklich Best-Effort: Ohne
 Internet wird er übersprungen, ohne dass der Besucher davon etwas merkt. Was geschieht, wenn jemand in der
-Benachrichtigung auf den Button tippt, zeigt Kapitel 4.5: Das Handy signiert, die Außeneinheit prüft und öffnet.
+Benachrichtigung auf den Knopf „Tür öffnen“ tippt, zeigt Kapitel 4.5: Das Handy schickt das Token zurück, die
+Außeneinheit prüft und öffnet.
 
 | Ereignis | Zeitpunkt |
 |---|---|
@@ -548,7 +551,7 @@ Erfolgskriterium“.
 ```mermaid
 graph LR
     T1["① Touch an einer<br/>Inneneinheit"] -->|"Challenge–Response<br/>Scharfschaltfenster"| Q["Queue"]
-    T3["③ Push-Button<br/>am Handy"] -->|"Handy-Signatur<br/>TLS geprüft"| Q
+    T3["③ Push-Button<br/>am Handy"] -->|"geheimes Topic, Einmal-Token<br/>TLS geprüft"| Q
     Q --> G["Tür-Task<br/>GPIO47"]
     G --> D["Türöffner<br/>MOSFET"]
     style G fill:#5b3a1a,color:#fff
@@ -558,7 +561,7 @@ graph LR
 |---|---|---|
 | **①** Touch an einer Inneneinheit | Bewohner zu Hause | Challenge–Response (Kapitel 4.4), Touch-Plausibilität und Scharfschaltfenster (Kapitel 5.6) |
 | **②** ~~Statusseite, HTTP POST~~ | — | **entfallen:** Er hatte keine Authentifizierung — „nur POST, nur lokales Netz“ schützt weder gegen ein fremdes Gerät im WLAN noch gegen Cross-Site-Request-Forgery. Die Statusseite öffnet die Tür nicht, auch nicht mit Passwort. |
-| **③** Push-Button am Handy | Bewohner unterwegs | Handy-Signatur, TLS-Prüfung, Einmal-Token (Kapitel 4.5) |
+| **③** Push-Button am Handy | Bewohner unterwegs | geheimes Topic-Paar je Handy, Einmal-Token, TLS-Prüfung (Kapitel 4.5) |
 
 Die Nummern bleiben erhalten, damit Verweise eindeutig bleiben; ② wird nicht neu vergeben.
 
@@ -787,7 +790,7 @@ zur Laufzeit protokolliert und das kenntlich gemacht.
 |---|---|---|---|
 | **A** | Gerät im selben WLAN (Gast, kompromittiertes IoT-Gerät) | beliebige Pakete senden, mithören | jede Nachricht authentifiziert, Challenge–Response, keine Tür über das Web — und am besten ein eigenes Netzsegment |
 | **B** | Angreifer in Funkreichweite ohne WLAN-Zugang | stören, abmelden, aufgezeichnete Anmeldungen offline gegen das WLAN-Passwort testen | PMF gegen Abmelde-Angriffe, WPA3 wo möglich, starkes WLAN-Passwort |
-| **C** | Angreifer im Internet-Pfad zum Push-Dienst — oder der Dienst selbst | umlenken, mitlesen | TLS mit Zertifikatsprüfung; die Handy-Signatur macht ein mitgelesenes Token wertlos |
+| **C** | Angreifer im Internet-Pfad zum Push-Dienst — oder der Dienst selbst | umlenken, mitlesen | TLS mit Zertifikatsprüfung; geheime Topics je Handy, Token einmalig und 5 min gültig; dem Dienstbetreiber wird vertraut (R27, 4.5) |
 | **D** | physischer Zugang zur Außeneinheit | Gehäuse öffnen | **öffnet die Tür direkt** — die Ansteuerung sitzt dort; dagegen hilft die Montage. Ohne Secure Boot könnte er zusätzlich eine Firmware mit Hintertür aufspielen → Härtungsstufe C |
 | **E** | Unbefugter in der Wohnung an einer Inneneinheit | Touch betätigen | Scharfschaltfenster — außerhalb braucht es 3 s Halten; wer drinnen ist, kann ohnehin aufschließen |
 | **F** | der jeweils andere Haushalt | Statusseiten aufrufen | Protokolle je Haushalt getrennt, Gerätepasswort je Einheit |
@@ -801,7 +804,7 @@ zur Laufzeit protokolliert und das kenntlich gemacht.
 | **Challenge–Response** für den Türbefehl | A, B — Aufzeichnen und Wiedereinspielen | A |
 | **Sitzungsnummern**, Ratenbegrenzung | A — Fälschung, Flut; stille Verluste | A |
 | **Keine Tür über das Web** — Pfad ② entfallen | A — ein einzelner HTTP-Aufruf | A |
-| **Handy-Signatur** für das Fern-Öffnen, Token einmalig | C — mitgelesene Tokens, Dienstbetreiber | A |
+| **Geheimes Topic-Paar je Handy** für das Fern-Öffnen, Token einmalig | C — mitgelesene Tokens (Dienstbetreiber: Restrisiko, R27) | A |
 | **TLS mit Zertifikatsprüfung** | C | A |
 | **Scharfschaltfenster**, Auslösen beim Loslassen, Plausibilität | E, Fehlauslösung | A |
 | **Tür-Task** als einziger Eigentümer, Puls über Hardware-Timer, Sperrzeit | Nebenläufigkeit, hängende Schleife | A |
@@ -831,7 +834,7 @@ nach Revision 2:
 | S-7 | 64-bit-Tag | 128 bit (4.2) |
 | S-8 | WLAN-Zugang im Klartext | Provisionierung, Stufe B (verschlüsseltes NVS) |
 | neu | **Statusseite öffnete die Tür ohne Authentifizierung** | Pfad ② entfallen (5.4) |
-| neu | **Token stand in der Push selbst** | Handy-Signatur (4.5) |
+| neu | **Token stand in der Push selbst** | geheime Topics je Handy, Token an Klingeln und Handy gebunden (4.5, R27) |
 
 ### 7.5 Verbleibende Risiken — bewusst getragen
 
@@ -855,7 +858,7 @@ nach Revision 2:
 | Geheimnis | Wo | Stufe B / C |
 |---|---|---|
 | Verbindungsschlüssel Außen↔EG, Außen↔OG | Werkszustand-Partition | eFuse (HMAC-Peripherie: benutzbar, nicht lesbar) |
-| Handy-Schlüssel | Werkszustand-Partition der Außeneinheit, und auf dem Handy | verschlüsseltes NVS |
+| Handy-Schlüssel | Außeneinheit und eigene Inneneinheit; auf dem Handy nur die daraus abgeleiteten Topics | verschlüsseltes NVS |
 | WLAN-Zugang, Gerätepasswort | Werkszustand-Partition | verschlüsseltes NVS |
 | Update-Signaturschlüssel (R26) | **zwei Herstellerschlüssel** (RSA-3072, Secure-Boot-v2-Format): Hauptschlüssel signiert, Ersatzschlüssel **nur offline**; privat außerhalb des Repos, ihre Kennungen fest in jeder Firmware; dazu wahlweise ein **eigener Schlüssel des Besitzers** (Kennung im NVS, Wartung) | Stufe C: dieselben Schlüssel als Secure-Boot-Schlüssel; Verkaufsgeräte nur mit Besitzer-Schlüssel |
 
@@ -1029,7 +1032,7 @@ geführt; zusammen mit EN, IO0, 3V3 und GND ergibt das einen vollständigen Flas
 | Türbefehl mit NVS-Zähler | **ersetzt** durch Challenge–Response |
 | WAV-Parser und Lautstärkelogik | übernommen, dazu Upload-Prüfung und Tonrangfolge |
 | WLAN-Pflege | **neu** — ereignisgesteuert, mit wachsendem Abstand |
-| Push und Fern-Öffnen | **neu** — TLS-Prüfung, Handy-Signatur |
+| Push und Fern-Öffnen | **neu** — TLS-Prüfung, geheime Topics je Handy (R27) |
 | Touch-Auswertung | **neu** — Hardware-Baseline, M-34, Scharfschaltfenster |
 | Web-Auslösung des Türöffners (Testsketch) | **entfällt** |
 | Pinbelegung | vollständig ersetzt |
@@ -1058,7 +1061,7 @@ graph TB
     end
     subgraph D["Betrieb und Wartung"]
         direction LR
-        S8["8 · Diagnose<br/>Statusseite,<br/>Protokoll, LED"] --> S9["9 · Fern-Öffnen<br/>TLS-Prüfung,<br/>Handy-Signatur"] --> S10["10 · Updates<br/>signiert, Rollback<br/>nach Selbsttest"]
+        S8["8 · Diagnose<br/>Statusseite,<br/>Protokoll, LED"] --> S9["9 · Fern-Öffnen<br/>TLS-Prüfung,<br/>geheime Topics"] --> S10["10 · Updates<br/>signiert, Rollback<br/>nach Selbsttest"]
     end
     S0["Bring-up bestanden"] --> A
     A --> B --> C --> D --> S11["11 · Abnahme<br/>7 h, dann 72 h"]
@@ -1081,7 +1084,8 @@ Die Portierung gilt als abgeschlossen, wenn **alle** Punkte erfüllt sind:
 
 - [ ] Funktionsparität mit V0.1: beide Klingelwege, Türbefehl, Erfolgs- und Fehlertöne
 - [ ] Die Tür öffnet nur über ① und ③; die Sicherheits- und Robustheitstests aus Kapitel 11.2 sind bestanden
-- [ ] Fern-Öffnen mit Handy-Signatur auf Android; TLS mit falschem Zertifikat scheitert
+- [x] Fern-Öffnen mit der ntfy-App auf Android, beide Wohnungen (12.11.2026)
+- [ ] TLS mit falschem Zertifikat scheitert
 - [ ] Klingelton ohne PC tauschbar (Wartung, Upload)
 - [ ] Signiertes Update ohne Kabel; ein absichtlich defektes Update kehrt zurück
 - [ ] Werksreset löscht alle Geheimnisse; Neuprovisionierung funktioniert
@@ -1131,7 +1135,7 @@ Aus Layout und Entwurf bekannt und ausdrücklich zu messen:
 | **Sicherheit** | Nachricht mit falschem Tag, fremdem Empfänger, unbekannter Version | verworfen, nicht beantwortet |
 | | aufgezeichnete `DOOR_CONFIRM` wieder einspielen | verworfen |
 | | Zufallszahl nach Ablauf oder zweimal benutzt | verworfen |
-| | Fern-Öffnen mit falscher Signatur, verbrauchtem oder abgelaufenem Token, gesperrtem Handy | verworfen, protokolliert |
+| | Fern-Öffnen mit erfundenem, verbrauchtem oder abgelaufenem Token, entferntem Handy | verworfen, gezählt |
 | | TLS gegen einen Server mit falschem Zertifikat | Verbindung scheitert |
 | | die Statusseite wird nach „Tür öffnen“ gefragt | es gibt nichts zu fragen |
 | | Upload oder Update ohne Wartung | abgelehnt |
@@ -1181,7 +1185,7 @@ der Webseite der Außeneinheit ein (100–5000 ms, Schritt 10b).
 
 **Umsetzungsdetails, die der Bring-up festlegt** (ohne neue Grundsatzentscheidung): Obergrenze des langen Drucks und
 ob das Scharfschaltfenster nach der ersten Öffnung endet (5.6) · Gültigkeit des Push-Tokens (4.5) · Tastdauern der
-Betriebsmodi (5.9) · Blinkmuster und Anzeige der Wartung (8.2) · Signaturverfahren unter iOS (4.5).
+Betriebsmodi (5.9) · Blinkmuster und Anzeige der Wartung (8.2) · Fern-Öffnen unter iOS (4.5).
 
 **Am 26.09.2026 entschieden** (im Projekt als R17–R23):
 
@@ -1197,7 +1201,7 @@ Betriebsmodi (5.9) · Blinkmuster und Anzeige der Wartung (8.2) · Signaturverfa
 | R24 | *(06.11.2026, Verkaufsabsicht)* Der Käufer flasht nie: Werksschritt per USB, alles andere über Webseiten (Gerätecode auf dem Etikett, Einrichtungs-Zugangspunkt, Kopplung per Code, Handys über die eigene Inneneinheit) |
 | R25 | *(06.11.2026, durch R26 abgelöst)* ~~Updates vorerst ohne Signaturschlüssel~~ (Upload in der Wartung, Image-Prüfung, Rollback nach Probezeit); später Herstellerschlüssel mit Übernahme durch den Besitzer; Stufe C für Verkaufsgeräte nur mit Besitzer-Schlüssel |
 | R26 | *(10.11.2026)* Updates nur signiert, und zwar so, dass sie immer funktionieren: zwei Herstellerschlüssel (Haupt, Ersatz offline) in jeder Firmware, dazu ein eigener Schlüssel des Besitzers (Wartung), wahlweise allein gültig; Versionsschutz mit Bestätigung; USB-Flashen bleibt Stufe C (7.6, Portierungsschritt 10d) |
-| R27 | *(12.11.2026, löst R20 ab; FW-B-16, FW-B-22, FW-B-17)* Fern-Öffnen nur mit der ntfy-App: Push mit Knopf „Tür öffnen“, der das Token direkt zurückschickt. Je Handy ein eigenes, zufälliges und geheimes Topic-Paar (einzeln sperrbar); Token einmalig, an genau ein Klingeln gebunden, 5 min gültig; jede Öffnung per Push bestätigt und protokolliert. Dem Betreiber von ntfy.sh wird vertraut (Restrisiko bewusst angenommen: zwei Apps und Skriptcode wirkten wie Bastelei). Fern-Öffnen für **beide** Wohnungen, Handys je Inneneinheit. Inneneinheiten melden ihren Handys, wenn die Außeneinheit ≈ 2 min nicht erreichbar ist, und wenn sie zurück ist (mit Dauer). Abschnitt 4.5 wird bei der Umsetzung neu geschrieben |
+| R27 | *(12.11.2026, löst R20 ab; FW-B-16, FW-B-22, FW-B-17)* Fern-Öffnen nur mit der ntfy-App: Push mit Knopf „Tür öffnen“, der das Token direkt zurückschickt. Je Handy ein eigenes, zufälliges und geheimes Topic-Paar (einzeln sperrbar); Token einmalig, an genau ein Klingeln gebunden, 5 min gültig; jede Öffnung per Push bestätigt und protokolliert. Dem Betreiber von ntfy.sh wird vertraut (Restrisiko bewusst angenommen: zwei Apps und Skriptcode wirkten wie Bastelei). Fern-Öffnen für **beide** Wohnungen, Handys je Inneneinheit. Inneneinheiten melden ihren Handys, wenn die Außeneinheit ≈ 2 min nicht erreichbar ist, und wenn sie zurück ist (mit Dauer). Umgesetzt in 4.5 |
 
 ---
 
@@ -1264,7 +1268,6 @@ die V0.2 unbrauchbar oder unsicher machen — die Befunde des Reviews gehören d
 * ESP-IDF: HMAC-Peripherie, NVS-Verschlüsselung, Zufallszahlen, Secure Boot v2, eFuse, Touch-Sensor, WLAN-Sicherheit — https://github.com/espressif/esp-idf/tree/master/docs/en
 * Arduino-ESP32: Arduino als ESP-IDF-Komponente — https://github.com/espressif/arduino-esp32/blob/master/docs/en/esp-idf_component.rst · Secure Boot und Flash-Verschlüsselung — https://github.com/espressif/arduino-esp32/issues/8974
 * ntfy: Zugriffskontrolle, Datenhaltung, Aktions-Buttons — https://github.com/binwiederhier/ntfy/tree/main/docs · Preise — https://ntfy.sh/
-* HTTP Shortcuts (Android): Scripting und Deep Links — https://http-shortcuts.rmy.ch/scripting · https://http-shortcuts.rmy.ch/advanced
 * 2N Security Relay (Schaltstufe im gesicherten Bereich) — https://www.2n.com/en-US/faqs/2N-Security-Relay-Describtion-and-usage-with-2N-IP-Intercoms-kA0Rn000000ttogKAA
 
 **Datenblätter** sind aus Urheberrechtsgründen nicht enthalten; alle Typen stehen in den Stücklisten.
@@ -1280,7 +1283,8 @@ die V0.2 unbrauchbar oder unsicher machen — die Befunde des Reviews gehören d
 | 2 | 26.09.2026 | Überarbeitung nach einem Review mit 29 Befunden: Pfad ② entfällt; Protokoll v2 mit Authentifizierung aller Nachrichten und Sitzungen; Challenge–Response statt Zähler; Fern-Öffnen mit Handy-Signatur; Scharfschaltfenster innen; Betriebsmodi und Provisionierung; ESP-IDF mit Arduino-Komponente; Rollback nach Selbsttest; Watchdog für alle Tasks; Protokoll der Türöffnungen je Haushalt; Härtung in Stufen; neu: Qualitätsziele, Abgleich mit EN 303 645, Glossar |
 | 3 | 06.11.2026 | Verkaufsfähigkeit (R24, R25): Inbetriebnahme ohne PC (5.9), Werk- und Käuferdaten getrennt (6.2), Kopplung per Gerätecode, Nachrichtentyp *Event* (Wartung von innen, Handy-Schlüssel), Topics des Fern-Öffnens aus dem EG-Schlüssel abgeleitet, Updates ohne Signaturschlüssel mit Probezeit; Portierungsschritte 10a–10c. Einzelheiten in `firmware/docs/Produktreife.md` und im Kopf der Module |
 | 3.1 | 10.11.2026 | Signierte Updates (R26, löst R25 ab): zwei Herstellerschlüssel, eigener Schlüssel des Besitzers, Versionsschutz (7.6); Portierungsschritt 10d |
+| 3.2 | 12.11.2026 | Fern-Öffnen nach R27 (löst R20 ab): nur ntfy, geheimes Topic-Paar je Handy, beide Wohnungen, Ausfallmeldung der Inneneinheiten; 4.5 neu geschrieben, Verweise auf die Handy-Signatur angepasst |
 
 ---
 
-*ClearBell V0.2 · Softwarearchitektur · Revision 3.1 · 10.11.2026*
+*ClearBell V0.2 · Softwarearchitektur · Revision 3.2 · 12.11.2026*
