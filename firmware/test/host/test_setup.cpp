@@ -68,3 +68,61 @@ TEST(wifi_qr_text_escapes) {
   char small[10];
   CHECK(!wifi_qr_text("ClearBell-f3ac94", "x", small, sizeof small));
 }
+
+// FW-B-21: free flat names - what a buyer types, and what must never reach a push or the outdoor unit.
+TEST(flat_name_normalize_accepts_real_names) {
+  char n[kFlatNameMaxBytes + 1];
+  CHECK(flat_name_normalize("Familie Müller", n));
+  CHECK(strcmp(n, "Familie Müller") == 0);
+  CHECK(flat_name_normalize("  Praxis   Dr. Weiß \t", n));  // trimmed, inner runs folded
+  CHECK(strcmp(n, "Praxis Dr. Weiß") == 0);
+  CHECK(flat_name_normalize("Yılmaz & Söhne", n));
+  CHECK(strcmp(n, "Yılmaz & Söhne") == 0);
+  CHECK(flat_name_normalize("", n));  // empty = no own name, the default is shown
+  CHECK(n[0] == 0);
+  CHECK(flat_name_normalize("   ", n));
+  CHECK(n[0] == 0);
+  CHECK(flat_name_normalize("WG 2. OG <links>", n));  // the pages set names with textContent only
+  CHECK(strcmp(n, "WG 2. OG <links>") == 0);
+}
+
+TEST(flat_name_normalize_limits) {
+  char n[kFlatNameMaxBytes + 1];
+  CHECK(flat_name_normalize("abcdefghijklmnopqrstuvwx", n));    // 24 characters
+  CHECK(!flat_name_normalize("abcdefghijklmnopqrstuvwxy", n));  // 25
+  // 20 umlauts = 20 characters but 40 bytes: still fits; 21 do not (42 bytes) although only 21 characters.
+  CHECK(flat_name_normalize("ääääääääääääääääääää", n));
+  CHECK(strlen(n) == 40);
+  CHECK(!flat_name_normalize("äääääääääääääääääääää", n));
+  CHECK(flat_name_normalize("\xF0\x9F\x94\x94 Klingel", n));  // emoji (4 bytes) is allowed
+  CHECK(!flat_name_normalize(nullptr, n));
+}
+
+TEST(flat_name_normalize_rejects_broken_text) {
+  char n[kFlatNameMaxBytes + 1];
+  CHECK(!flat_name_normalize("A\x01" "B", n));        // control character
+  CHECK(!flat_name_normalize("A\x7F", n));            // DEL
+  CHECK(!flat_name_normalize("A\xC2\x85" "B", n));    // C1 control (NEL)
+  CHECK(!flat_name_normalize("M\xFCller", n));        // Latin-1 byte, not UTF-8
+  CHECK(!flat_name_normalize("\xC3", n));             // cut-off sequence
+  CHECK(!flat_name_normalize("\xC0\xAF", n));         // overlong '/'
+  CHECK(!flat_name_normalize("\xED\xA0\x80", n));     // UTF-16 surrogate
+  CHECK(!flat_name_normalize("\xF4\x90\x80\x80", n)); // beyond U+10FFFF
+}
+
+TEST(flat_labels_and_url_encode) {
+  CHECK(strcmp(flat_key_label(2), "Taste unten") == 0);
+  CHECK(strcmp(flat_key_label(3), "Taste oben") == 0);
+  CHECK(strcmp(flat_key_label(1), "") == 0);
+  CHECK(strcmp(flat_default_name(2), "Wohnung unten") == 0);
+  CHECK(strcmp(flat_default_name(3), "Wohnung oben") == 0);
+  char u[64];
+  CHECK(url_encode("ClearBell Familie Müller", u, sizeof u));
+  CHECK(strcmp(u, "ClearBell%20Familie%20M%C3%BCller") == 0);
+  CHECK(url_encode("a-b_c.d~e&f", u, sizeof u));
+  CHECK(strcmp(u, "a-b_c.d~e%26f") == 0);
+  char small[6];
+  CHECK(!url_encode("ä b", small, sizeof small));  // needs 9 + 1
+  CHECK(url_encode("abcde", small, sizeof small));
+  CHECK(!url_encode("abcdef", small, sizeof small));
+}

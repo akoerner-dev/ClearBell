@@ -26,6 +26,7 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 | 8.14 | beide | **verschoben bis Front/Diffusor vorhanden** (Meister 08.11.2026: ohne Front nur ein vorläufiger Wert; bis dahin Standard 40). LED ansehen (am besten mit Lichtleiter/Diffusor): grün, rot, bernstein; `led-balance 20` … `led-balance 70` probieren | grün und rot wirken gleich hell, bernstein ist als Mischfarbe erkennbar; gewählten Wert notieren (Standard 40) |
 | 9.14 | – | ~~echte Topics statt Test-Topics~~ – entfällt: seit R27 hat jedes Handy eigene Topics aus seinem Schlüssel | – |
 | R27.10 | IN-2 + Handy | ein Handy an der OG-Einheit hinzufügen (Wartung, „Handy hinzufügen“, ntfy-Link), an AU-1 `ring og`, „Tür öffnen“ tippen | Push nur am OG-Handy, Tür öffnet, Bestätigung „Tür per App geöffnet“ |
+| 21.9 | IN-2 + Handy | **zusammen mit R27.10, davor:** an IN-2 in der Wartung unter „Kopplung“ einen echten Namen für das OG eintragen (mit Umlaut), dann erst das Handy hinzufügen; danach die Seite von AU-1 am Handy ansehen | ntfy zeigt das Abo als „ClearBell ‹Name›“, die Push heißt „Es klingelt – ‹Name›“, Kopplungskarte von AU-1 zeigt ‹Name› bei „Taste oben“; Seite am Handy gut lesbar |
 | ~~10a.12~~ | ✓ 12.11. an IN-2 statt IN-1 (Ergebnis im Abschnitt IN-2 unten) | – | – |
 | ~~10a.13~~ | ✓ 12.11. entschieden (Ergebnis im Abschnitt IN-2 unten); offen nur: Probedruck `cb.py etiketten --rahmen` gegen einen echten 3657-Bogen | – | – |
 | ~~10b.10~~ | ✓ 12.11. EG und OG nach Werksreset AU-1 (Ergebnis im Abschnitt IN-2 unten) | – | – |
@@ -101,11 +102,37 @@ Befunde 10.11.2026 abends (noch nicht behoben):
   heute EG/OG steht (Statusseiten, Kopplungsliste, Push „Es klingelt – <Name>“). Zu beachten: Push läuft im Klartext
   über ntfy.sh (Name für den Dienst lesbar); Hostnamen bleiben `clearbell-<Gerätenummer>.local`. Betrifft ≈ 14
   Firmware-Dateien, beide Webseiten, die PC-Werkzeuge. Eigener Schritt nach den laufenden Prüfungen.
+  **Umgesetzt 12.11. (R28, Abschnitt „Wohnungsnamen frei wählbar“ unten).**
 - **FW-B-22_Fern_Oeffnen_fuer_beide_Wohnungen (Frage, 12.11.):** „Handy hinzufügen“ geht nur an der EG-Einheit
   (`cb_phones.cpp`: „Fern-Öffnen gibt es nur für das EG“), Topics und Schlüssel kommen allein aus der Kopplung
   AU-1↔EG. Der Meister wollte an IN-2 (OG) ein Handy verbinden. Mit FW-B-21 passt „nur EG“ nicht mehr: soll jede
   Wohnung eigene Handys mit eigenen Topics aus ihrer Kopplung bekommen? **Entschieden 12.11.: ja, beide Wohnungen,
   Handys je Inneneinheit (R27). Umgesetzt 12.11.**
+
+### Wohnungsnamen frei wählbar – FW-B-21 (12.11.2026 abends, TOWER, Firmware dieses Commits auf AU-1, IN-1, IN-2)
+
+Umsetzung von R28 (SA): Die zwei Wohnungen bleiben intern die zwei Klingeltasten (EG = Taste unten, OG = Taste oben;
+Belegung am Gerät legt die Verdrahtung der Elektroden fest). Jede Wohnung hat einen freien Namen (≤ 24 Zeichen,
+≤ 40 Byte UTF-8), eingegeben auf der Einrichtungsseite oder in der Wartung auf der Statusseite der Inneneinheit
+(`/flat/name`), Konsole `setup-name`. Die Inneneinheit schickt ihn als Event `FlatName` an die Außeneinheit, nach jedem
+Start und jeder Änderung (bei Fehlschlag alle 30 s erneut), und meldet ihn im mDNS-Eintrag (Kopplungsliste). Ohne Namen:
+„Wohnung unten“/„Wohnung oben“. Nebenbei behoben: die bekannte Warnung „unbenutztes `flat_txt`“ (`cb_pairing.cpp`).
+
+| Zeile | Board | Prüfung | Ergebnis |
+|---|---|---|---|
+| 21.1 | `cb.py test` | echte Namen (Umlaute, „Yılmaz“, Emoji), Leerzeichen bereinigt, Grenzen 24 Zeichen / 40 Byte, kaputtes UTF-8 (Latin-1, abgeschnitten, überlang, Surrogat, > U+10FFFF), Steuerzeichen (C0, DEL, C1), Tastenbezeichnungen, URL-Kodierung | ✓ 132 Tests, 2933 Prüfungen, 0 Fehler |
+| 21.2 | `cb.py bauen alle` | beide Images ohne Warnung | ✓ (auch `flat_txt` weg); außen 1417216 B, innen 1404928 B signiert |
+| 21.3 | alle drei nach dem Flashen | Standardnamen ohne eigenen Namen | ✓ AU-1 „Wohnung unten“/„Wohnung oben“, IN-1 „Wohnung unten“, IN-2 „Wohnung oben“ |
+| 21.4 | IN-2 `/flat/name` | im Normalbetrieb; in der Wartung 25 Zeichen; „␣␣Familie␣␣␣Yılmaz␣␣“ | ✓ 403 „nur in der Wartung“; 400; 200 „Familie Yılmaz“ (bereinigt), AU-1 sofort mit dem Namen |
+| 21.5 | IN-2 `/phone/link` PC3 | ntfy-Abo mit Namen | ✓ `display=ClearBell%20Familie%20Y%C4%B1lmaz` |
+| 21.6 | IN-1 Konsole `setup-name Praxis Dr. Weiß`, `reboot` | Übergabe nach dem Start | ✓ 6 s nach dem Start „handed to the outdoor unit“, AU-1 zeigt den Namen |
+| 21.7 | `fern-test PC3 --fremd`, `ring og` | Push-Titel | ✓ „Es klingelt – Familie Yılmaz“, erfundenes Token: keine Öffnung |
+| 21.8 | AU-1 `reboot` | Namen bleiben gespeichert | ✓ beide Namen nach dem Neustart |
+| 21.10 | IN-2 Einrichtung (Taster 2 × 5 s), `/setup/save` mit Steuerzeichen; mit leerem Namen | Prüfung und Rücksetzen | ✓ 400; 200, Neustart, „Wohnung oben“ an AU-1 übergeben. Danach IN-1 per `setup-name` (leer) ebenso zurück: Endstand beide Standardnamen |
+| 21.11 | Vorschau der Seiten (echte `status.json` von AU-1 und IN-2, Wartung vorgetäuscht) | Kopplungskarte, Suchliste, Kacheln, Handy-Zählung, Namensfeld innen, Einrichtungsseite | ✓ Namen mit „Taste oben/unten“, Reihenfolge oben vor unten; das Formular schickt `role` und `name` |
+
+Offen: 21.9 mit echtem Handy (Sammelliste). Bei schon abonnierten Handys zeigt ntfy weiter den alten Abo-Namen, bis
+neu abonniert wird (Hinweis auf der Seite); die Push selbst trägt sofort den neuen Namen.
 
 ### Fern-Öffnen nach R27 (12.11.2026, TOWER, Firmware dieses Commits auf AU-1, IN-1, IN-2)
 

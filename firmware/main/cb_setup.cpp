@@ -109,6 +109,11 @@ esp_err_t h_info(httpd_req_t *req) {
   j.kv("problem", p.problem ? p.problem : "");
   j.kv("ssid", p.wifi_ssid);
   j.kv("role", p.valid ? cb::unit_name(p.role) : "");
+  // FW-B-21: the key this flat belongs to and its name (indoor); "" for the outdoor unit
+  bool flat = p.role == cb::UnitId::EG || p.role == cb::UnitId::OG;
+  j.kv("role_key", flat ? (p.role == cb::UnitId::EG ? "eg" : "og") : "");
+  j.kv("key_label", flat ? cb::flat_key_label((uint8_t)p.role) : "");
+  j.kv("flat_name", flat ? p.flat_name[(int)p.role] : "");
   j.kv("wifi_up", cb_net_wifi_up());
   j.kv("ip", cb_net_wifi_up() ? WiFi.localIP().toString().c_str() : "");
   char host[32];
@@ -166,7 +171,7 @@ bool read_body(httpd_req_t *req, char *buf, size_t cap) {
 esp_err_t h_save(httpd_req_t *req) {
   if (!cb_status_authorize(req)) return ESP_OK;
   if (!may_change(req)) return reply(req, "403 Forbidden", false, "nur in der Einrichtung (Boot-Taster 2 × 5 s)");
-  char body[512], ssid[40], pass[72], role[8];
+  char body[640], ssid[40], pass[72], role[8], raw[120], name[cb::kFlatNameMaxBytes + 1];
   if (!read_body(req, body, sizeof body) || !cb::form_get(body, "ssid", ssid, sizeof ssid) ||
       !cb::form_get(body, "pass", pass, sizeof pass))
     return reply(req, "400 Bad Request", false, "Formular unvollständig");
@@ -175,11 +180,16 @@ esp_err_t h_save(httpd_req_t *req) {
     return reply(req, "400 Bad Request", false, "WLAN-Passwort: 8 bis 63 Zeichen (oder leer bei offenem WLAN)");
 #if !CB_IS_OUTDOOR
   if (!cb::form_get(body, "role", role, sizeof role) || (strcmp(role, "eg") && strcmp(role, "og")))
-    return reply(req, "400 Bad Request", false, "Bitte die Wohnung wählen (EG oder OG)");
-  if (!cb_prov_set_role(strcmp(role, "eg") == 0 ? cb::UnitId::EG : cb::UnitId::OG))
+    return reply(req, "400 Bad Request", false, "Bitte die Klingeltaste wählen (oben oder unten)");
+  // FW-B-21: free name of the flat, optional (empty = "Wohnung oben" / "Wohnung unten")
+  if (!cb::form_get(body, "name", raw, sizeof raw)) raw[0] = 0;
+  if (!cb::flat_name_normalize(raw, name))
+    return reply(req, "400 Bad Request", false, "Name der Wohnung: höchstens 24 Zeichen, keine Steuerzeichen");
+  cb::UnitId r = strcmp(role, "eg") == 0 ? cb::UnitId::EG : cb::UnitId::OG;
+  if (!cb_prov_set_role(r) || !cb_prov_set_flat_name(r, name))
     return reply(req, "500 Internal Server Error", false, "Speichern fehlgeschlagen");
 #else
-  (void)role;
+  (void)role, (void)raw, (void)name;
 #endif
   if (!cb_prov_set_wifi(ssid, pass)) return reply(req, "500 Internal Server Error", false, "Speichern fehlgeschlagen");
   cb_log("setup: WiFi '%s' saved over the setup page - rebooting", ssid);
@@ -233,6 +243,22 @@ void cmd_setup_role(const char *args) {
                                                                         : "usage: setup-role eg|og (indoor only)");
 }
 
+void cmd_setup_name(const char *args) {
+  char name[cb::kFlatNameMaxBytes + 1];
+  const CbProvisioning &p = cb_prov();
+  if (CB_IS_OUTDOOR || (p.role != cb::UnitId::EG && p.role != cb::UnitId::OG)) {
+    cb_log("setup-name: indoor units with a chosen key only (setup-role first)");
+    return;
+  }
+  if (!cb::flat_name_normalize(args, name)) {
+    cb_log("setup-name: not a valid name (max. 24 characters / 40 bytes UTF-8, no control characters)");
+    return;
+  }
+  bool ok = cb_prov_set_flat_name(p.role, name);
+  cb_log("setup-name: %s '%s' - the outdoor unit gets it after the next start", ok ? "saved" : "FAILED",
+         cb_prov_flat_name(p.role));
+}
+
 void cmd_wifi_scan(const char *) {
   int n = WiFi.scanNetworks(false, true);
   cb_log("wifi-scan: %d network(s)", n);
@@ -253,7 +279,10 @@ void cb_setup_begin() {
   snprintf(ap_ssid, sizeof ap_ssid, "ClearBell-%s", cb_prov().serial);
   cb_console_add("setup-wifi", "setup-wifi <ssid> <password> - DEV/factory: WiFi without the setup page",
                  cmd_setup_wifi);
-  cb_console_add("setup-role", "setup-role eg|og - DEV/factory: flat of an indoor unit", cmd_setup_role);
+  cb_console_add("setup-role", "setup-role eg|og - DEV/factory: key of an indoor unit (eg = bottom, og = top)",
+                 cmd_setup_role);
+  cb_console_add("setup-name", "setup-name <name> - DEV: free flat name of an indoor unit, empty = default",
+                 cmd_setup_name);
   cb_console_add("wifi-scan", "list the WiFi networks in range (incl. setup access points)", cmd_wifi_scan);
   cb_console_add("setup-ap", "setup-ap on|auto - TEST: force the setup access point", cmd_setup_ap);
   if (!cb_prov().valid) start_ap();  // first setup: also brings up the network stack for the web server

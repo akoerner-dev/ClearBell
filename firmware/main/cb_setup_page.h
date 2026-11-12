@@ -39,8 +39,11 @@ button.sec{background:var(--soft);color:var(--fg)}button.danger{background:var(-
 <button class="sec" id="scanb">WLAN-Netze suchen</button><div class="nets" id="nets"></div>
 <label for="ssid">WLAN-Name</label><input id="ssid" autocomplete="off" maxlength="32">
 <label for="pass">WLAN-Passwort</label><input id="pass" type="password" maxlength="63">
-<div id="rolebox" hidden><h2 style="margin-top:22px"><span class="n">2</span>Wohnung</h2><div class="radio">
-<label><input type="radio" name="role" value="eg">Erdgeschoss (EG)</label><label><input type="radio" name="role" value="og">Obergeschoss (OG)</label></div></div>
+<div id="rolebox" hidden><h2 style="margin-top:22px"><span class="n">2</span>Wohnung</h2>
+<p class="mute" style="margin:0 0 10px">Zu welcher Klingeltaste an der Haustür gehört diese Wohnung?</p><div class="radio">
+<label><input type="radio" name="role" value="og">Taste oben</label><label><input type="radio" name="role" value="eg">Taste unten</label></div>
+<label for="fname">Name der Wohnung (für Handy und Statusseiten)</label><input id="fname" maxlength="40" placeholder="z. B. Familie Müller" autocomplete="off">
+<p class="mute" style="margin:6px 0 0">Höchstens 24 Zeichen. Der Name geht unverschlüsselt über den Nachrichtendienst ntfy.sh an die Handys.</p></div>
 <button id="save">Speichern und verbinden</button><p id="out" class="mute"></p></section>
 <section><h2>Werkszustand</h2><p class="mute">Löscht WLAN, Kopplung, Handys, eigene Töne und Einstellungen. Der Gerätecode auf dem Etikett bleibt gültig.</p>
 <button class="danger" id="reset">Auf Werkszustand zurücksetzen</button><p id="rout" class="mute"></p></section>
@@ -56,9 +59,10 @@ async function post(url,data){try{const r=await fetch(url,{method:'POST',headers
 async function info(){const i=await (await fetch('/setup/info',{cache:'no-store'})).json();
   $('who').textContent=(i.image==='aussen'?'Außeneinheit':'Inneneinheit')+' · Gerätenummer '+i.serial;
   $('rolebox').hidden=i.image!=='innen';
+  if(i.role_key){const r=document.querySelector('input[name=role][value='+i.role_key+']');if(r)r.checked=true;$('fname').value=i.flat_name}
   if(i.configured){const s=$('state');s.hidden=false;s.replaceChildren();const w=el('div','state');const ico=el('span','i');
     ico.style.background=i.wifi_up?'var(--ok-soft)':'var(--bad-soft)';ico.style.color=i.wifi_up?'var(--ok)':'var(--bad)';ico.append(ic(i.wifi_up?'ok':'warn'));
-    const t=el('div');t.append(el('b','','Eingerichtet'),el('div','mute','WLAN „'+i.ssid+'“'+(i.role?' · '+i.role:'')+(i.wifi_up?' · verbunden, erreichbar unter http://'+i.hostname:' · zurzeit NICHT verbunden')));
+    const t=el('div');t.append(el('b','','Eingerichtet'),el('div','mute','WLAN „'+i.ssid+'“'+(i.key_label?' · '+(i.flat_name||i.key_label)+' ('+i.key_label+')':'')+(i.wifi_up?' · verbunden, erreichbar unter http://'+i.hostname:' · zurzeit NICHT verbunden')));
     w.append(ico,t);s.append(w);$('ssid').value=i.ssid}
   if(!i.may_change){$('save').disabled=true;$('reset').disabled=true;$('out').textContent='Ändern nur in der Einrichtung: Boot-Taster zweimal 5 s halten.'}}
 function bars(rssi){const b=el('span','bars');const lv=rssi>-60?4:rssi>-70?3:rssi>-80?2:1;for(let k=1;k<=4;k++){const i=el('i',k<=lv?'on':'');i.style.height=(k*4)+'px';b.append(i)}return b}
@@ -70,7 +74,7 @@ $('scanb').onclick=async()=>{const sb=$('scanb');sb.disabled=true;sb.lastChild.t
     if(!r.networks.length)n.append(el('p','mute','Keine Netze gefunden.'))}catch(e){n.append(el('p','bad','Suche fehlgeschlagen.'))}
   sb.disabled=false;sb.lastChild.textContent='WLAN-Netze suchen'};
 $('save').onclick=async()=>{const role=document.querySelector('input[name=role]:checked');
-  const r=await post('/setup/save',{ssid:$('ssid').value,pass:$('pass').value,role:role?role.value:''});
+  const r=await post('/setup/save',{ssid:$('ssid').value,pass:$('pass').value,role:role?role.value:'',name:$('fname').value});
   $('out').textContent=r.message;$('out').className=r.ok?'ok':'bad'};
 $('reset').onclick=async()=>{if(!confirm('Wirklich alles löschen und auf Werkszustand zurücksetzen?'))return;
   const r=await post('/setup/reset',{confirm:'JA'});$('rout').textContent=r.message;$('rout').className=r.ok?'ok':'bad'};

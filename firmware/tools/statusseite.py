@@ -105,6 +105,9 @@ def status(name: str, ip: str | None, raw: bool) -> int:
           f"last reset: {s['reset_reason']}, time {s['time']}")
     print(f"  heap {s['heap_free']} B (min {s['heap_min']}), slot {s['ota_slot']}, core dump {s['coredump']}, "
           f"selftest {s['selftest']}")
+    if s.get("flat_names"):  # FW-B-21: own names of the flats (EG = key at the bottom, OG = top)
+        keys = {"EG": "key bottom", "OG": "key top"}
+        print("  flats: " + ", ".join(f"{u} ({keys.get(u, '?')}) \"{n}\"" for u, n in s["flat_names"].items()))
     if "radio" in d:
         r = d["radio"]
         print(f"  WiFi {r['wifi']}, RSSI {r['rssi']} dBm, channel {r['channel']}, disconnects {r['disconnects']}")

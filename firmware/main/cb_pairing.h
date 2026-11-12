@@ -28,3 +28,5 @@ void cb_pairing_poll();                        // from loop(): sends a pending m
 void cb_pairing_json(cb::Json &j);             // status page: "pairing": {...}
 // Event from a peer (cb_net -> main.cpp): outdoor handles MaintenanceRequest here. Call from loop.
 void cb_pairing_on_event(cb::UnitId from, cb::EventCode code, const uint8_t *data, size_t len);
+// Indoor: result of our own FlatName event (FW-B-21) - failed ones are sent again after 30 s. Call from loop.
+void cb_pairing_on_event_result(cb::UnitId to, cb::EventCode code, bool ok);

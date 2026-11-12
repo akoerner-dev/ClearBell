@@ -103,11 +103,13 @@ esp_err_t link_reply(httpd_req_t *req, const char *msg, const char *key_hex) {
   char push[cb::kTopicLen + 1], cmd[cb::kTopicLen + 1];
   if (!cb::phone_topics(key_hex, push, cmd))
     return answer(req, "409 Conflict", false, "Für dieses Handy fehlt der Schlüssel – bitte entfernen und neu hinzufügen.");
-  char ntfy[120], web[80];
-  snprintf(ntfy, sizeof ntfy, "ntfy://ntfy.sh/%s?display=ClearBell%%20%s", push,
-           own_flat() == (uint8_t)cb::UnitId::OG ? "OG" : "EG");
+  char ntfy[220], web[80], display[64], enc[160];
+  // FW-B-21: the subscription carries the flat's own name ("ClearBell Familie Müller")
+  snprintf(display, sizeof display, "ClearBell %s", cb_prov_flat_name(cb_prov().role));
+  if (!cb::url_encode(display, enc, sizeof enc)) snprintf(enc, sizeof enc, "ClearBell");
+  snprintf(ntfy, sizeof ntfy, "ntfy://ntfy.sh/%s?display=%s", push, enc);
   snprintf(web, sizeof web, "https://ntfy.sh/%s", push);
-  char b[400];
+  char b[600];
   cb::Json j(b, sizeof b);
   j.begin_obj();
   j.kv("ok", true);

@@ -33,7 +33,7 @@ constexpr uint32_t kPushMaxAgeMs = 60000;  // a push that could not go out withi
 enum class Tag : uint8_t { None, Bell, Door, Warning, Ok, Test };
 struct Push {
   char topic[cb::kTopicLen + 1];
-  char title[48];
+  char title[64];  // "Es klingelt – " + flat name of up to 40 bytes (FW-B-21)
   char msg[160];
   char url[64];   // "Tür öffnen" button: POST url (empty = no button)
   char body[40];  // ... and its body "CBR2 <token>"
@@ -145,6 +145,7 @@ void queue_push(const char *topic, Tag tag, uint8_t prio, const char *title, con
 }
 
 #if CB_IS_OUTDOOR
+// Log label only (EG = key at the bottom, OG = top); buyers see cb_prov_flat_name() (FW-B-21)
 const char *flat_name(uint8_t flat) { return flat == (uint8_t)cb::UnitId::OG ? "OG" : "EG"; }
 
 // ---- Outdoor: remote opening ------------------------------------------------------------------------------------
@@ -444,8 +445,8 @@ void cb_remote_on_ring(cb::UnitId flat) {
   int slots[cb::kPhonesPerFlat];
   char tokens[cb::kPhonesPerFlat][33];
   int n = auth.issue((uint8_t)f, now, slots, tokens);
-  char title[40];
-  snprintf(title, sizeof title, "Es klingelt – %s", flat_name((uint8_t)f));
+  char title[64];  // FW-B-21: the flat's own name (<= 40 bytes) - fits without cutting a UTF-8 character
+  snprintf(title, sizeof title, "Es klingelt – %s", cb_prov_flat_name(flat));
   for (int i = 0; i < n; i++) {
     char url[64], body[40];
     snprintf(url, sizeof url, "%s/%s", kServer, auth.cmd_topic(slots[i]));

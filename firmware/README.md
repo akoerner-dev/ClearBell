@@ -13,7 +13,8 @@ Außeneinheit per WLAN/UDP ein `RING` an genau eine Wohnung; die Wohnung quittie
 läuft ein Türbefehl per Challenge–Response zur Außeneinheit, die dann den Türöffner pulst. Jede Nachricht ist mit
 einem Schlüssel je Wohnung signiert (HMAC); ohne Schlüssel kann niemand klingeln oder die Tür öffnen. Es gibt
 **ein Image für außen** und **ein Image für innen**; ob ein Innengerät EG oder OG ist, steht nicht im Image, sondern
-wird bei der Einrichtung (Provisionierung) auf das Gerät geschrieben.
+wird bei der Einrichtung (Provisionierung) auf das Gerät geschrieben. Seit R28 heißt das für den Käufer
+„Klingeltaste unten“ (EG) bzw. „oben“ (OG); angezeigt wird ein frei wählbarer Name der Wohnung.
 
 ## 2 Stand der Portierung
 
@@ -86,7 +87,8 @@ Alles über Webseiten, Grundlage: [docs/Produktreife.md](docs/Produktreife.md).
 
 1. **Einschalten.** Eine neue Einheit öffnet das WLAN `ClearBell-<Gerätenummer>`. QR-Code vom Etikett mit dem Handy
    scannen (oder WLAN wählen und den **Gerätecode** vom Etikett eingeben) – die Einrichtungsseite öffnet sich.
-2. **WLAN wählen**, Passwort, innen **EG oder OG** → „Speichern und verbinden“. Danach ist die Einheit unter
+2. **WLAN wählen**, Passwort, innen **Klingeltaste oben oder unten** und wahlweise einen **Namen der Wohnung**
+   (z. B. „Familie Müller“, steht in den Klingel-Nachrichten; später in der Wartung änderbar) → „Speichern und verbinden“. Danach ist die Einheit unter
    `http://clearbell-<Gerätenummer>.local` erreichbar (Benutzer `clearbell`, Passwort = Gerätecode).
 3. **Koppeln** auf der Seite der Außeneinheit: „Inneneinheiten suchen“, Gerätecode vom Etikett der Inneneinheit.
 4. **Handys** auf der Seite der eigenen Inneneinheit in der Wartung: „Handy hinzufügen“ – ein Link, die App ntfy abonniert.
@@ -152,8 +154,8 @@ und sagt warum.
 
 ### Fern-Öffnen per Handy (R27, seit 12.11.2026)
 
-Klingelt jemand an **EG** oder **OG**, schickt die Außeneinheit über den Dienst **ntfy.sh** jedem Handy dieser Wohnung
-eine Push mit dem Knopf „Tür öffnen“ (Anwendungsfall: Kind steht ausgesperrt vor der Tür). Auf dem Handy braucht es nur
+Klingelt jemand an einer der beiden Tasten, schickt die Außeneinheit über den Dienst **ntfy.sh** jedem Handy dieser
+Wohnung eine Push „Es klingelt – ‹Name der Wohnung›“ mit dem Knopf „Tür öffnen“ (Anwendungsfall: Kind steht ausgesperrt vor der Tür). Auf dem Handy braucht es nur
 die App **ntfy**: Der Knopf schickt das Einmal-Token selbst an das Befehls-Topic des Handys zurück. Nur mit einem Token,
 das für genau dieses Handy und dieses Klingeln ausgegeben wurde, frisch (5 min) und außerhalb der Sperrzeit öffnet die
 Tür; danach kommt an alle Handys der Wohnung die Push „Tür per App geöffnet“. Jedes Handy hat ein eigenes, geheimes
@@ -246,7 +248,8 @@ R23), jede Zeile beginnt mit der Laufzeit in Sekunden.
 | `web-pass <neu>` / `web-pass label` | eigenes Passwort der Statusseite setzen / zurück zum Etikett-Passwort (danach für die PC-Werkzeuge `cb.py anlage-webpasswort <Einheit> <neu>`) |
 | `doorlog` / `doorlog clear JA` | Protokoll der Türöffnungen dieser Einheit zeigen / löschen |
 | `led-balance` / `led-balance 30` | Helligkeit grün relativ zu rot (5–100 %, Standard 40, wird gespeichert) |
-| `setup-wifi <ssid> <pw>` / `setup-role eg` | Entwicklung/Werk: WLAN bzw. Wohnung ohne Einrichtungsseite (danach `reboot`) |
+| `setup-wifi <ssid> <pw>` / `setup-role eg` | Entwicklung/Werk: WLAN bzw. Wohnung (eg = Taste unten, og = oben) ohne Einrichtungsseite (danach `reboot`) |
+| `setup-name <Name>` / `setup-name` | Entwicklung: freier Name der Wohnung (innen) / zurück zum Standard; die Außeneinheit bekommt ihn nach dem nächsten Start |
 | `wifi-scan` | WLAN-Netze in Reichweite (auch Einrichtungs-WLANs anderer Einheiten) |
 | `setup-ap on` / `setup-ap auto` | **Test:** Einrichtungs-WLAN erzwingen |
 | `update-status` | Firmware-Slot, Probezeit, letzter Upload |

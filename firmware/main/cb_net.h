@@ -35,6 +35,8 @@ bool cb_net_ring(cb::UnitId flat);
 bool cb_net_door_request();
 // Sends an authenticated, acknowledged event (port step 10b). false = failed at once.
 bool cb_net_send_event(cb::UnitId peer, cb::EventCode code, const uint8_t *data, size_t len);
+// Indoor: (re)announce the flat's own name in the mDNS record (TXT "name", pairing list; FW-B-21). Any task.
+void cb_net_mdns_update_name();
 
 // Status page: "radio" and "protocol" objects (call from loop: the engine belongs to loop).
 void cb_net_json(cb::Json &j);

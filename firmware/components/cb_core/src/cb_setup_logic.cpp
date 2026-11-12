@@ -116,4 +116,73 @@ bool wifi_qr_text(const char *ssid, const char *password, char *out, size_t cap)
   return true;
 }
 
+bool flat_name_normalize(const char *in, char out[kFlatNameMaxBytes + 1]) {
+  if (!in) return false;
+  size_t n = 0, chars = 0;
+  bool space = false;  // a space is pending (written only before the next visible character)
+  const unsigned char *s = (const unsigned char *)in;
+  while (*s) {
+    unsigned char c = *s;
+    if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
+      space = n > 0;
+      s++;
+      continue;
+    }
+    // Length of the UTF-8 sequence and the smallest code point it may encode (rejects overlong forms).
+    size_t len;
+    uint32_t cp, min;
+    if (c < 0x80) len = 1, cp = c, min = 0;
+    else if ((c & 0xE0) == 0xC0) len = 2, cp = c & 0x1F, min = 0x80;
+    else if ((c & 0xF0) == 0xE0) len = 3, cp = c & 0x0F, min = 0x800;
+    else if ((c & 0xF8) == 0xF0) len = 4, cp = c & 0x07, min = 0x10000;
+    else return false;
+    for (size_t k = 1; k < len; k++) {
+      if ((s[k] & 0xC0) != 0x80) return false;  // also catches the terminating 0
+      cp = (cp << 6) | (s[k] & 0x3F);
+    }
+    if (cp < min || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) return false;
+    if (cp < 0x20 || (cp >= 0x7F && cp < 0xA0) || cp == 0x2028 || cp == 0x2029) return false;  // control
+    if (space) {
+      if (n + 1 > kFlatNameMaxBytes || ++chars > kFlatNameMaxChars) return false;
+      out[n++] = ' ';
+      space = false;
+    }
+    if (n + len > kFlatNameMaxBytes || ++chars > kFlatNameMaxChars) return false;
+    memcpy(out + n, s, len);
+    n += len;
+    s += len;
+  }
+  out[n] = 0;
+  return true;
+}
+
+const char *flat_key_label(uint8_t flat) {
+  return flat == 2 ? "Taste unten" : flat == 3 ? "Taste oben" : "";
+}
+
+const char *flat_default_name(uint8_t flat) {
+  return flat == 2 ? "Wohnung unten" : flat == 3 ? "Wohnung oben" : "";
+}
+
+bool url_encode(const char *in, char *out, size_t cap) {
+  static const char hex[] = "0123456789ABCDEF";
+  size_t n = 0;
+  for (const unsigned char *s = (const unsigned char *)in; *s; s++) {
+    unsigned char c = *s;
+    bool plain = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' ||
+                 c == '_' || c == '.' || c == '~';
+    if (n + (plain ? 1 : 3) >= cap) return false;
+    if (plain) {
+      out[n++] = (char)*s;
+    } else {
+      out[n++] = '%';
+      out[n++] = hex[*s >> 4];
+      out[n++] = hex[*s & 15];
+    }
+  }
+  if (n >= cap) return false;
+  out[n] = 0;
+  return true;
+}
+
 }  // namespace cb

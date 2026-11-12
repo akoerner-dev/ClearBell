@@ -28,6 +28,13 @@ constexpr uint32_t kLockMs = 10UL * 60 * 1000;
 std::atomic<int> failures{0};
 std::atomic<uint32_t> locked_until{0};
 std::atomic<bool> maint_request{false};  // web task -> loop (indoor: send the event)
+#if !CB_IS_OUTDOOR
+// Indoor: the flat name still has to reach the outdoor unit (FW-B-21) - after every start and every change.
+constexpr uint32_t kNameRetryMs = 30000;
+std::atomic<bool> name_pending{true};
+bool name_in_flight = false;
+uint32_t name_next_try = 0;
+#endif
 
 esp_err_t reply(httpd_req_t *req, const char *status, bool ok, const char *msg, const char *extra_key = nullptr,
                 const char *extra_val = nullptr, const char *extra2_key = nullptr, const char *extra2_val = nullptr) {
@@ -59,13 +66,13 @@ bool read_body(httpd_req_t *req, char *buf, size_t cap) {
   return true;
 }
 
+// ---- Indoor: accept a pairing offer (no login: the offer itself proves knowledge of THIS unit's code) -----------
+
+#if !CB_IS_OUTDOOR
 const char *flat_txt(cb::UnitId u) {
   return u == cb::UnitId::EG ? "eg" : u == cb::UnitId::OG ? "og" : "aussen";
 }
 
-// ---- Indoor: accept a pairing offer (no login: the offer itself proves knowledge of THIS unit's code) -----------
-
-#if !CB_IS_OUTDOOR
 esp_err_t h_pair_accept(httpd_req_t *req) {
   const CbProvisioning &p = cb_prov();
   uint32_t now = millis();
@@ -106,6 +113,28 @@ esp_err_t h_pair_accept(httpd_req_t *req) {
   return reply(req, "200 OK", true, "gekoppelt", "flat", flat_txt(p.role), "c", ch);
 }
 
+// The flat's own name (FW-B-21), changed in maintenance or setup (button in the flat = presence).
+esp_err_t h_flat_name(httpd_req_t *req) {
+  if (!cb_status_authorize(req)) return ESP_OK;
+  const CbProvisioning &p = cb_prov();
+  if (cb_mode() == cb::Mode::Normal && !cb_setup_from_ap(req))
+    return reply(req, "403 Forbidden", false, "nur in der Wartung dieser Inneneinheit (Boot-Taster 5 s)");
+  if (p.role != cb::UnitId::EG && p.role != cb::UnitId::OG)
+    return reply(req, "409 Conflict", false, "erst die Klingeltaste wählen (Einrichtung)");
+  char body[200], raw[120], name[cb::kFlatNameMaxBytes + 1];
+  if (!read_body(req, body, sizeof body) || !cb::form_get(body, "name", raw, sizeof raw))
+    return reply(req, "400 Bad Request", false, "Name fehlt");
+  if (!cb::flat_name_normalize(raw, name))
+    return reply(req, "400 Bad Request", false, "Name: höchstens 24 Zeichen, keine Steuerzeichen");
+  if (!cb_prov_set_flat_name(p.role, name)) return reply(req, "500 Internal Server Error", false, "Speichern fehlgeschlagen");
+  name_pending = true;  // loop sends it to the outdoor unit
+  cb_net_mdns_update_name();
+  cb_log("pairing: flat name set to '%s'", cb_prov_flat_name(p.role));
+  char msg[120];
+  snprintf(msg, sizeof msg, "Name gespeichert: „%s“", cb_prov_flat_name(p.role));
+  return reply(req, "200 OK", true, msg);
+}
+
 esp_err_t h_outdoor_maint(httpd_req_t *req) {
   if (!cb_status_authorize(req)) return ESP_OK;
   if (cb_mode() != cb::Mode::Maintenance)
@@ -133,6 +162,12 @@ esp_err_t h_pair_list(httpd_req_t *req) {
     j.begin_obj();
     j.kv("id", MDNS.txt(k, "id").c_str());
     j.kv("flat", role.c_str());
+    // FW-B-21: the indoor unit's own name and its key, so the buyer recognises the unit in the list
+    String name = MDNS.txt(k, "name");
+    char n[cb::kFlatNameMaxBytes + 1];
+    uint8_t f = role == "eg" ? (uint8_t)cb::UnitId::EG : (uint8_t)cb::UnitId::OG;
+    j.kv("name", cb::flat_name_normalize(name.c_str(), n) && n[0] ? n : cb::flat_default_name(f));
+    j.kv("key", cb::flat_key_label(f));
     j.kv("ip", MDNS.address(k).toString().c_str());
     j.kv("paired", MDNS.txt(k, "paired") == "1");
     j.end_obj();
@@ -211,7 +246,8 @@ esp_err_t h_pair_start(httpd_req_t *req) {
   memset(key, 0, sizeof key);
   if (!saved) return reply(req, "500 Internal Server Error", false, "Speichern fehlgeschlagen");
   cb_log("pairing: %s paired with indoor unit %s - restarting", cb::unit_name(flat), id);
-  snprintf(msg, sizeof msg, "%s gekoppelt (Inneneinheit %s). Beide Einheiten starten neu.", cb::unit_name(flat), id);
+  snprintf(msg, sizeof msg, "%s gekoppelt (Inneneinheit %s). Beide Einheiten starten neu.",
+           cb::flat_key_label((uint8_t)flat), id);
   cb_setup_reboot_in(3000);
   return reply(req, "200 OK", true, msg);
 }
@@ -258,8 +294,10 @@ void cb_pairing_register(httpd_handle_t s) {
 #else
   httpd_uri_t accept = {"/pair", HTTP_POST, h_pair_accept, nullptr};
   httpd_uri_t maint = {"/outdoor-maint", HTTP_POST, h_outdoor_maint, nullptr};
+  httpd_uri_t name = {"/flat/name", HTTP_POST, h_flat_name, nullptr};
   httpd_register_uri_handler(s, &accept);
   httpd_register_uri_handler(s, &maint);
+  httpd_register_uri_handler(s, &name);
 #endif
 }
 
@@ -268,6 +306,36 @@ void cb_pairing_poll() {
     bool ok = cb_net_send_event(cb::UnitId::Outdoor, cb::EventCode::MaintenanceRequest, nullptr, 0);
     cb_log("pairing: maintenance request to the outdoor unit %s", ok ? "sent" : "FAILED (not reachable?)");
   }
+#if !CB_IS_OUTDOOR
+  // Flat name to the outdoor unit once it answers (FW-B-21). A change while one is on its way sets the flag again.
+  const CbProvisioning &p = cb_prov();
+  uint32_t now = millis();
+  if (name_pending.load() && !name_in_flight && p.valid && p.has_key[(int)cb::UnitId::Outdoor] &&
+      cb_net_peer_reachable(cb::UnitId::Outdoor) && (int32_t)(now - name_next_try) >= 0) {
+    name_pending = false;
+    const char *n = p.flat_name[(int)p.role];
+    name_in_flight = cb_net_send_event(cb::UnitId::Outdoor, cb::EventCode::FlatName, (const uint8_t *)n, strlen(n));
+    if (!name_in_flight) {
+      name_pending = true;
+      name_next_try = now + kNameRetryMs;
+    }
+  }
+#endif
+}
+
+void cb_pairing_on_event_result(cb::UnitId, cb::EventCode code, bool ok) {
+#if !CB_IS_OUTDOOR
+  if (code != cb::EventCode::FlatName || !name_in_flight) return;
+  name_in_flight = false;
+  if (ok) {
+    cb_log("pairing: flat name '%s' handed to the outdoor unit", cb_prov_flat_name(cb_prov().role));
+  } else {
+    name_pending = true;
+    name_next_try = millis() + kNameRetryMs;
+  }
+#else
+  (void)code, (void)ok;
+#endif
 }
 
 void cb_pairing_json(cb::Json &j) {
@@ -282,18 +350,33 @@ void cb_pairing_json(cb::Json &j) {
 #else
   j.kv("outdoor", p.peer_serial[(int)cb::UnitId::Outdoor]);
   j.kv("paired", p.has_key[(int)cb::UnitId::Outdoor]);
+  bool flat = p.role == cb::UnitId::EG || p.role == cb::UnitId::OG;
+  j.kv("own_name", flat ? p.flat_name[(int)p.role] : "");  // what the buyer typed, "" = default shown
 #endif
   j.end_obj();
 }
 
-void cb_pairing_on_event(cb::UnitId from, cb::EventCode code, const uint8_t *, size_t) {
+void cb_pairing_on_event(cb::UnitId from, cb::EventCode code, const uint8_t *data, size_t len) {
 #if CB_IS_OUTDOOR
   if (code == cb::EventCode::MaintenanceRequest) {
     bool ok = cb_modes_request_maintenance();
     cb_log("pairing: %s asked for maintenance - %s", cb::unit_name(from), ok ? "maintenance open for 10 min" : "refused (setup mode)");
   }
+  if (code == cb::EventCode::FlatName && (from == cb::UnitId::EG || from == cb::UnitId::OG)) {
+    // FW-B-21: the sender's link decides the flat; the text is checked like a typed one
+    char raw[cb::kFlatNameMaxBytes + 1], name[cb::kFlatNameMaxBytes + 1];
+    if (len > cb::kFlatNameMaxBytes) return;
+    if (len) memcpy(raw, data, len);
+    raw[len] = 0;
+    if (!cb::flat_name_normalize(raw, name)) {
+      cb_log("pairing: flat name from %s refused (not a valid name)", cb::unit_name(from));
+      return;
+    }
+    bool changed = strcmp(cb_prov().flat_name[(int)from], name) != 0;
+    if (!cb_prov_set_flat_name(from, name)) cb_log("pairing: flat name of %s NOT saved", cb::unit_name(from));
+    else if (changed) cb_log("pairing: %s is now called '%s'", cb::unit_name(from), cb_prov_flat_name(from));
+  }
 #else
-  (void)from;
-  (void)code;
+  (void)from, (void)code, (void)data, (void)len;
 #endif
 }

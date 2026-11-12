@@ -28,4 +28,23 @@ bool form_get(const char *body, const char *key, char *out, size_t cap);
 // The text of a WiFi-join QR code for the setup access point.
 bool wifi_qr_text(const char *ssid, const char *password, char *out, size_t cap);
 
+// ---- Flat names (FW-B-21) --------------------------------------------------------------------------------------
+// Internally the two flats stay the two bell keys of the outdoor unit: UnitId EG (2) = key at the BOTTOM, OG (3) =
+// key at the TOP (the usual order on a door panel: upper flat, upper key; mounting decides, the wire numbers stay).
+// The buyer gives each flat a free name ("Familie Yılmaz", "Praxis Dr. Weiß"); it is shown wherever the flat
+// appears (status pages, pairing list, push "Es klingelt – <Name>"). The indoor unit owns it and sends it to the
+// outdoor unit (EventCode::FlatName), so it fits into one event: at most 24 characters AND 40 bytes of UTF-8.
+constexpr size_t kFlatNameMaxChars = 24;
+constexpr size_t kFlatNameMaxBytes = 40;
+
+// Trims, folds runs of white space into one space. "" is allowed (= no own name, the default is shown).
+// False for invalid UTF-8, control characters, or too long. out: kFlatNameMaxBytes + 1.
+bool flat_name_normalize(const char *in, char out[kFlatNameMaxBytes + 1]);
+// "Taste unten" (EG, 2) / "Taste oben" (OG, 3), "" otherwise.
+const char *flat_key_label(uint8_t flat);
+// Shown while a flat has no own name: "Wohnung unten" / "Wohnung oben".
+const char *flat_default_name(uint8_t flat);
+// Percent-encodes everything but A-Z a-z 0-9 - _ . ~ (for the ntfy subscribe link). False if cap is too small.
+bool url_encode(const char *in, char *out, size_t cap);
+
 }  // namespace cb

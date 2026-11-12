@@ -117,6 +117,8 @@ const ic=n=>{const s=document.createElementNS('http://www.w3.org/2000/svg','svg'
 const $=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!==undefined&&x!==null)e.textContent=x;return e};
 const byId=id=>document.getElementById(id);
 const UNIT={AUSSEN:'Außeneinheit',EG:'EG',OG:'OG'};
+// FW-B-21: inside, the flats are the two bell keys; the buyer sees the names (system.flat_names)
+const KEY={EG:'Taste unten',OG:'Taste oben'};let FN={};const flat=u=>FN[u]||UNIT[u]||u;
 const TONE={ring:'Klingelton',ok:'Bestätigung',error:'Fehler',nonet:'Kein Netz',tick:'Tipp'};
 const EV={'opened':['geöffnet','c-ok'],'remote':['per App geöffnet','c-info'],'lock-out':['Sperrzeit','c-warn'],'refused':['abgelehnt','c-bad'],
  'no answer':['keine Antwort','c-bad'],'service':['Service (USB)','c-mute']};
@@ -138,7 +140,8 @@ function fold(id,title,fill){const d=$('details');d.open=openSec.has(id);d.ontog
 function quality(rssi){return rssi>-60?['sehr gut','ok']:rssi>-70?['gut','ok']:rssi>-80?['mäßig','warn']:['schwach','bad']}
 function render(d){
   const sy=d.system,m=byId('main'),maint=sy.mode==='maintenance';m.replaceChildren();
-  const role=sy.role==='AUSSEN'?'Außeneinheit':sy.role==='none'?'nicht eingerichtet':'Wohnung '+sy.role;
+  FN=sy.flat_names||{};
+  const role=sy.role==='AUSSEN'?'Außeneinheit':sy.role==='none'?'nicht eingerichtet':flat(sy.role)+' · '+(KEY[sy.role]||sy.role);
   byId('title').textContent=sy.name||'ClearBell';document.title='ClearBell '+(sy.name||'');
   byId('sub').textContent=role+' · aktualisiert '+new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   const md={normal:['Normalbetrieb','c-ok'],maintenance:['Wartung','c-warn'],setup:['Einrichtung','c-info']}[sy.mode]||[sy.mode,'c-mute'];
@@ -153,7 +156,7 @@ function render(d){
     else T.append(tile('wifi','WLAN',{connecting:'verbindet …',waiting:'wartet'}[r.wifi]||'getrennt','',  'bad'))}
   if(d.protocol){const ps=d.protocol.peers;const bad=ps.filter(p=>!p.reachable);
     T.append(tile('link',sy.role==='AUSSEN'?'Wohnungen':'Außeneinheit',!ps.length?'nicht gekoppelt':bad.length?'nicht erreichbar':'verbunden',
-      ps.map(p=>UNIT[p.unit]+(p.reachable?' ✓':' ✗')).join('  '),!ps.length?'warn':bad.length?'bad':'ok'))}
+      ps.map(p=>flat(p.unit)+(p.reachable?' ✓':' ✗')).join('  '),!ps.length?'warn':bad.length?'bad':'ok'))}
   if(d.door){const o=d.door;T.append(tile('door','Türöffner',!o.available?'abgeschaltet':o.ready?'bereit':'Sperrzeit',
     'Puls '+o.pulse_ms+' ms',!o.available?'bad':o.ready?'ok':'warn'))}
   if(d.audio)T.append(tile('vol','Lautstärke',d.audio.volume+' %',d.audio.ready?'Audio bereit':'Audio gestört',d.audio.ready?'info':'bad'));
@@ -161,7 +164,7 @@ function render(d){
   T.append(tile('shield','Gerät',healthy?'in Ordnung':'prüfen','läuft seit '+dur(sy.uptime_s),healthy?'ok':'warn'));
   // ---- cards
   if(d.settings)m.append(settings(d,maint));
-  if(d.pairing)m.append(pairing(d.pairing,maint));
+  if(d.pairing)m.append(pairing(d.pairing,maint,sy.role));
   if(d.phones&&d.phones.available)m.append(phones(d.phones,maint));
   if(d.remote&&d.remote.enabled)m.append(remote(d.remote));
   m.append(doorlog(d.doorlog));
@@ -179,25 +182,31 @@ function settings(d,maint){
     b.onclick=async()=>{toast(await post('/settings',{vol:v}));load(true)};seg.append(b)}
   const tb=btn('Probeton','play','sec');tb.onclick=async()=>toast(await post('/settings',{tone:'1'}));c.append(seg,tb);
   return c}
-function pairing(p,maint){
+function pairing(p,maint,R){
   const c=card('link','Kopplung'),l=$('div','list');
   const item=(av,title,sub,state,txt)=>{const it=$('div','item');it.append($('span','av',av));const g=$('div','grow');g.append($('b','',title),$('span','',sub));
     it.append(g,$('span','pill '+state,txt));l.append(it);return it};
   if(p.paired!==undefined){  // indoor unit
+    item(R==='OG'?'↑':'↓',flat(R),KEY[R]+' an der Haustür','c-info',p.own_name?'eigener Name':'Standardname');
     item('AU','Außeneinheit',p.outdoor?'Nr. '+p.outdoor:'',p.paired?'c-ok':'c-bad',p.paired?'gekoppelt':'nicht gekoppelt');c.append(l);
+    if(maint){c.append($('h3','','Name der Wohnung'));const row=$('div','row');const n=$('input');n.value=p.own_name;n.maxLength=40;
+      n.placeholder='z. B. Familie Müller';n.autocomplete='off';const s=btn('Speichern','');row.append(n,s);
+      s.onclick=async()=>{s.disabled=true;const r=await post('/flat/name',{name:n.value});toast(r);s.disabled=false;if(r.ok)load(true)};
+      c.append(row,$('p','mute','Höchstens 24 Zeichen, leer = „'+(R==='OG'?'Wohnung oben':'Wohnung unten')+'“. Erscheint in den Klingel-Nachrichten (unverschlüsselt über ntfy.sh) und auf beiden Statusseiten. Bei schon eingetragenen Handys zeigt die ntfy-App den alten Namen, bis sie neu abonniert werden.'));paused=true}
     if(!p.paired)c.append($('p','mute','Koppeln an der Außeneinheit: dort „Inneneinheiten suchen“ und den Gerätecode vom Etikett dieser Einheit eingeben.'));
     if(maint&&p.paired){const b=btn('Wartung der Außeneinheit öffnen','tool','sec');b.onclick=async()=>toast(await post('/outdoor-maint',{go:'1'}));
       c.append(b,$('p','mute','Für 10 min – Töne, Update, Pulslänge der Außeneinheit, ohne ihr Gehäuse zu öffnen.'))}
     return c}
-  for(const f of ['eg','og']){const ok=p[f+'_paired'];const it=item(f.toUpperCase(),'Wohnung '+f.toUpperCase(),p[f]?'Nr. '+p[f]:'',ok?'c-ok':'c-mute',ok?'gekoppelt':'frei');
-    if(maint&&ok){const b=btn('Entfernen','','danger sm');b.onclick=async()=>{if(confirm('Kopplung '+f.toUpperCase()+' wirklich entfernen?')){toast(await post('/pair/remove',{flat:f}));load(true)}};it.append(b)}}
+  for(const f of ['og','eg']){const ok=p[f+'_paired'],F=f.toUpperCase();
+    const it=item(f==='og'?'↑':'↓',ok?flat(F):KEY[F],ok?KEY[F]+(p[f]?' · Nr. '+p[f]:''):'',ok?'c-ok':'c-mute',ok?'gekoppelt':'frei');
+    if(maint&&ok){const b=btn('Entfernen','','danger sm');b.onclick=async()=>{if(confirm('Kopplung „'+flat(F)+'“ ('+KEY[F]+') wirklich entfernen?')){toast(await post('/pair/remove',{flat:f}));load(true)}};it.append(b)}}
   c.append(l);
   const b=btn('Inneneinheiten suchen','search');const list=$('div','list');
   b.onclick=async()=>{paused=true;b.disabled=true;list.replaceChildren($('p','mute','suche … (einige Sekunden)'));
     try{const r=await (await fetch('/pair/list',{cache:'no-store'})).json();list.replaceChildren();
-      if(!r.units.length)list.append($('p','mute','Keine Inneneinheit im Netz gefunden – ist sie eingerichtet (WLAN, Wohnung)?'));
+      if(!r.units.length)list.append($('p','mute','Keine Inneneinheit im Netz gefunden – ist sie eingerichtet (WLAN, Klingeltaste)?'));
       for(const u of r.units){const it=$('div');it.style.padding='12px 0';it.style.borderTop='1px solid var(--line)';
-        it.append($('b','','Wohnung '+u.flat.toUpperCase()+' · '+u.id+(u.paired?' · schon gekoppelt':'')));
+        it.append($('b','',u.name+' · '+u.key+' · Nr. '+u.id+(u.paired?' · schon gekoppelt':'')));
         const row=$('div','row');const code=$('input');code.placeholder='Gerätecode vom Etikett';code.autocomplete='off';code.spellcheck=false;
         const k=btn('Koppeln','link');k.onclick=async()=>{k.disabled=true;const r=await post('/pair/start',{ip:u.ip,id:u.id,flat:u.flat,code:code.value});toast(r);k.disabled=false};
         row.append(code,k);it.append(row);list.append(it)}}
@@ -222,7 +231,7 @@ function phones(ph,maint){
   c.append(row);paused=true;return c}
 function remote(f){
   const c=card('send','Fern-Öffnen');
-  kv(c,'Nachrichtenkanal',f.stream_up?'verbunden':'getrennt',f.stream_up?'ok':'bad');kv(c,'eingetragene Handys',f.phones+' (EG '+f.phones_eg+', OG '+f.phones_og+')');
+  kv(c,'Nachrichtenkanal',f.stream_up?'verbunden':'getrennt',f.stream_up?'ok':'bad');kv(c,'eingetragene Handys',f.phones+' ('+flat('OG')+' '+f.phones_og+', '+flat('EG')+' '+f.phones_eg+')');
   kv(c,'per App geöffnet',f.opened);kv(c,'Push gesendet / fehlgeschlagen',f.pushes_ok+' / '+f.pushes_failed,f.pushes_failed?'warn':'');
   if(f.rejected)kv(c,'abgewiesene Befehle',f.rejected,'warn');
   c.append($('p','mute','Die Tür öffnet nur mit einem frischen Klingel-Token, das genau einem eingetragenen Handy gehört. Handys trägt jede Wohnung an ihrer Inneneinheit ein.'));return c}
@@ -326,13 +335,13 @@ function diagnosis(d){
   if(d.radio){const r=d.radio;c.append(fold('radio','Funk',b=>{kv(b,'WLAN',{up:'verbunden',connecting:'verbindet',waiting:'wartet'}[r.wifi]||r.wifi,r.wifi==='up'?'ok':'bad');
     kv(b,'Signal',r.wifi==='up'?r.rssi+' dBm':'–');kv(b,'Kanal',r.channel||'–');kv(b,'Access Point',r.bssid||'–');kv(b,'IP',r.ip||'–');
     kv(b,'Name',r.hostname+'.local');kv(b,'Verbindungsabrisse',r.disconnects);kv(b,'Modem-Sleep',r.modem_sleep?'an':'aus')}))}
-  if(d.protocol){const p=d.protocol;c.append(fold('proto','Protokoll',b=>{for(const x of p.peers)kv(b,UNIT[x.unit],x.reachable?'erreichbar':'NICHT erreichbar',x.reachable?'ok':'bad');
+  if(d.protocol){const p=d.protocol;c.append(fold('proto','Protokoll',b=>{for(const x of p.peers)kv(b,flat(x.unit),x.reachable?'erreichbar':'NICHT erreichbar',x.reachable?'ok':'bad');
     kv(b,'gesendet / wiederholt',p.tx+' / '+p.retries);kv(b,'Klingeln quittiert / verloren',p.rings_ok+' / '+p.rings_failed,p.rings_failed?'warn':'');
     kv(b,'Klingeln ohne freien Slot',p.rings_no_slot);kv(b,'empfangen gültig',p.rx_ok);kv(b,'verworfen: falsche Signatur',p.rx_bad_tag,p.rx_bad_tag?'warn':'');
     kv(b,'verworfen: sonstige',p.rx_bad_other);kv(b,'Duplikate / zu alt',p.rx_duplicate+' / '+p.rx_too_old);kv(b,'ratenbegrenzt',p.rx_rate_limited,p.rx_rate_limited?'warn':'');
     kv(b,'Sitzungen bestätigt',p.sessions_accepted);if(d.door)kv(b,'Türbefehle geöffnet / abgelehnt',p.door_opened+' / '+(p.door_refused+p.door_bad_nonce+p.door_failed))}))}
   const t=d.touch;c.append(fold('touch','Touch-Tasten',b=>{const tb=$('table');const h=$('tr');for(const x of ['Taste','Rohwert','Baseline','Abw.'])h.append($('th','',x));tb.append(h);
-    for(const ch of t.channels){const tr=$('tr');tr.append($('td','',ch.name+' ('+(ST[ch.state]||ch.state)+')'),$('td','',ch.raw),$('td','',Math.round(ch.baseline)),
+    for(const ch of t.channels){const tr=$('tr');tr.append($('td','',(KEY[ch.name]?KEY[ch.name]+' · '+flat(ch.name):ch.name)+' ('+(ST[ch.state]||ch.state)+')'),$('td','',ch.raw),$('td','',Math.round(ch.baseline)),
       $('td',ch.state==='pressed'?'warn':'',ch.delta_percent.toFixed(1)+' %'));tb.append(tr)}
     b.append(tb,$('p','mute','Gedrückt ab +'+t.on_percent+' %, losgelassen unter +'+t.off_percent+' %. '+
       (t.armed===undefined?'Beide Tasten zugleich abgewiesen: '+t.rejected_both:'Scharfschaltfenster: '+(t.armed?'offen':'zu')+', abgewiesen: '+t.rejected)+(t.simulated?' · SIMULATION läuft':'')))}));

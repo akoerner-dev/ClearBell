@@ -274,6 +274,7 @@ void handle_wifi(uint32_t now) {
         MDNS.addServiceTxt("clearbell", "udp", "id", cb_prov().serial);
         // Indoor: shown on the outdoor unit's pairing list ("already paired?")
         MDNS.addServiceTxt("clearbell", "udp", "paired", cb_prov().has_key[(int)UnitId::Outdoor] ? "1" : "0");
+        cb_net_mdns_update_name();
       }
       if (!sntp_started) {
         // Clock for the door log (SA 6.4). Without internet it simply stays unset; the log then writes
@@ -572,6 +573,12 @@ __attribute__((weak)) cb::DoorResult cb_on_door_decide(UnitId) {
 }
 __attribute__((weak)) void cb_on_door_open(UnitId) {}
 __attribute__((weak)) void cb_on_door_result(cb::DoorResult, bool, uint32_t) {}
+
+void cb_net_mdns_update_name() {
+  const CbProvisioning &p = cb_prov();
+  if (!mdns_started || (p.role != UnitId::EG && p.role != UnitId::OG)) return;
+  MDNS.addServiceTxt("clearbell", "udp", "name", p.flat_name[(int)p.role]);
+}
 
 bool cb_net_send_event(UnitId peer, cb::EventCode code, const uint8_t *data, size_t len) {
   bool ok = engine.send_event(peer, code, data, len, millis());

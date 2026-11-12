@@ -177,6 +177,12 @@ void cb_system_json(cb::Json &j) {
   j.kv("image", CB_UNIT_TYPE_NAME);
   j.kv("name", cb_prov().valid ? cb_prov().name : "");
   j.kv("role", cb_prov().valid ? cb::unit_name(cb_prov().role) : "none");
+  // FW-B-21: what the buyer calls the flats, by key (EG = key at the bottom, OG = top). Outdoor: both; indoor: own.
+  j.key("flat_names");
+  j.begin_obj();
+  for (cb::UnitId f : {cb::UnitId::EG, cb::UnitId::OG})
+    if (CB_IS_OUTDOOR || cb_prov().role == f) j.kv(cb::unit_name(f), cb_prov_flat_name(f));
+  j.end_obj();
   j.kv("mode", cb::mode_name(cb_mode()));
   j.kv("built", CB_BUILD_STAMP);
   j.kv("uptime_s", (unsigned long)(millis() / 1000));

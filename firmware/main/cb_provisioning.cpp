@@ -7,6 +7,7 @@
 //
 // USER namespace "cb_user" in the nvs partition (setup page, pairing):
 //   role u8 (2 = EG, 3 = OG; outdoor needs none) · wifi_ssid / wifi_pass · key_au / key_eg / key_og blob32 ·
+//   name_eg / name_og (free flat name, FW-B-21: indoor its own, outdoor as sent by the indoor units) ·
 //   ser_au / ser_eg / ser_og (peer unit numbers) · ip_au / ip_eg / ip_og (optional, development) ·
 //   pid0..7 / pk0..7 / pf0..7 (phones of the remote opening: id, key, flat - R27; until then 0..3 and EG only)
 //   · web_pass (own status-page password). topic_out / topic_in / fern_link only came from legacy data, unused.
@@ -132,6 +133,10 @@ const char *load_user() {
     snprintf(k, sizeof k, "ser_%s", peer_suffix(i));
     read_str(h, k, prov.peer_serial[i], sizeof prov.peer_serial[i]);
     read_ip(h, i);
+    if (i >= 2) {
+      snprintf(k, sizeof k, "name_%s", peer_suffix(i));
+      read_str(h, k, prov.flat_name[i], sizeof prov.flat_name[i]);
+    }
   }
   // A unit never pairs with its own kind: drop keys that do not fit the image (e.g. after a legacy migration).
 #if CB_IS_OUTDOOR
@@ -224,6 +229,34 @@ bool cb_prov_set_role(cb::UnitId role) {
 #endif
 }
 
+bool cb_prov_set_flat_name(cb::UnitId flat, const char *name) {
+  int i = (int)flat;
+  if ((flat != cb::UnitId::EG && flat != cb::UnitId::OG) || !name || strlen(name) > cb::kFlatNameMaxBytes)
+    return false;
+  if (!strcmp(prov.flat_name[i], name)) return true;
+  struct N {
+    int i;
+    const char *n;
+  } a{i, name};
+  bool ok = user_write(
+      [](nvs_handle_t h, const void *v) {
+        const N *a = static_cast<const N *>(v);
+        char k[8];
+        snprintf(k, sizeof k, "name_%s", peer_suffix(a->i));
+        if (*a->n) nvs_set_str(h, k, a->n);
+        else nvs_erase_key(h, k);
+      },
+      &a);
+  if (ok) snprintf(prov.flat_name[i], sizeof prov.flat_name[i], "%s", name);
+  return ok;
+}
+
+const char *cb_prov_flat_name(cb::UnitId flat) {
+  int i = (int)flat;
+  if (flat != cb::UnitId::EG && flat != cb::UnitId::OG) return cb::unit_name(flat);
+  return prov.flat_name[i][0] ? prov.flat_name[i] : cb::flat_default_name((uint8_t)i);
+}
+
 bool cb_prov_set_web_pass(const char *pw) {
   if (!pw || strlen(pw) >= sizeof prov.dev_pass) return false;
   bool ok = user_write(
@@ -277,6 +310,10 @@ bool cb_prov_set_link(cb::UnitId peer, const uint8_t key[32], const char *peer_s
         nvs_set_str(h, k, l->s);
         snprintf(k, sizeof k, "ip_%s", peer_suffix(l->i));
         nvs_erase_key(h, k);  // a fixed development address would point at the old unit
+#if CB_IS_OUTDOOR
+        snprintf(k, sizeof k, "name_%s", peer_suffix(l->i));
+        nvs_erase_key(h, k);  // the old unit's flat name; the new unit sends its own after the restart
+#endif
       },
       &l);
 }
@@ -288,9 +325,9 @@ bool cb_prov_remove_link(cb::UnitId peer) {
       [](nvs_handle_t h, const void *a) {
         int i = *static_cast<const int *>(a);
         char k[8];
-        for (const char *f : {"key_%s", "ser_%s", "ip_%s"}) {
+        for (const char *f : {"key_%s", "ser_%s", "ip_%s", "name_%s"}) {
           snprintf(k, sizeof k, f, peer_suffix(i));
-          nvs_erase_key(h, k);
+          if (CB_IS_OUTDOOR || f[0] != 'n') nvs_erase_key(h, k);  // indoor keeps its own name
         }
       },
       &i);

@@ -8,7 +8,7 @@
 //            (6 hex characters) comes from the MAC and is not stored.
 //
 //   USER     NVS namespace "cb_user" in the normal `nvs` partition, written by the setup page (and pairing):
-//            WiFi, flat (EG/OG, indoor only), link keys and peer numbers, phones and topics of the remote opening,
+//            WiFi, flat (key bottom/top = EG/OG, indoor only) and its free name (FW-B-21), link keys and peer numbers, phones and topics of the remote opening,
 //            own status-page password. The factory reset erases exactly this (plus settings, door log, own tones).
 //
 // Legacy (schema 1, development boards before step 10a): `fctry` held everything. On the first start such data is
@@ -22,6 +22,7 @@
 #include <cstdint>
 
 #include "cb_protocol.h"
+#include "cb_setup_logic.h"
 
 struct CbProvisioning {
   bool valid;             // WiFi configured and the role fits this image -> normal operation
@@ -39,6 +40,9 @@ struct CbProvisioning {
   bool has_key[4];
   char peer_serial[4][7];  // unit number of each paired peer ("" = unknown: found by role via mDNS)
   uint32_t peer_ip[4];     // optional fixed IPv4 (development), 0 = not set
+  // Own names of the flats (FW-B-21), indexed by UnitId, "" = none (the default is shown, cb_prov_flat_name).
+  // Indoor: [role] - typed on its pages; outdoor: [EG] and [OG] - sent by the indoor units (EventCode::FlatName).
+  char flat_name[4][cb::kFlatNameMaxBytes + 1];
   // Phones of the remote opening (R27) by slot, "" = free. Outdoor: all phones of both flats (id, key, flat);
   // indoor: the phones of its own flat (id, key - the key gives the phone's ntfy topics, cb::phone_topics).
   // A phone without key (indoor entries from before R27) is listed but cannot get pushes: add it again.
@@ -56,6 +60,11 @@ const CbProvisioning &cb_prov();
 // ---- Writing (setup page, console). Takes effect after the reboot that follows a save. ----
 bool cb_prov_set_wifi(const char *ssid, const char *pass);
 bool cb_prov_set_role(cb::UnitId role);  // indoor: EG or OG
+// Name of a flat (FW-B-21): already normalized (cb::flat_name_normalize), "" = back to the default. Takes effect
+// at once. Indoor: its own flat; outdoor: what an indoor unit sent. Unchanged names are not written again.
+bool cb_prov_set_flat_name(cb::UnitId flat, const char *name);
+// What to show for a flat: its own name, else "Wohnung unten" / "Wohnung oben".
+const char *cb_prov_flat_name(cb::UnitId flat);
 // Pairing (cb_pairing): link key and unit number of `peer`; remove = unpair.
 bool cb_prov_set_link(cb::UnitId peer, const uint8_t key[32], const char *peer_serial);
 bool cb_prov_remove_link(cb::UnitId peer);

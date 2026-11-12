@@ -35,7 +35,8 @@ constexpr size_t kMaxFrame = kHeaderLen + kMaxPayload + kTagLen;
 constexpr size_t kNonceLen = 16;  // challenges for session setup and door command
 
 // The three units of one installation. The numeric values are on the wire - never renumber.
-// EG/OG are the names of the two flats (ground floor / upper floor) used throughout the schematics.
+// EG/OG are the names of the two flats (ground floor / upper floor) used throughout the schematics. Since FW-B-21
+// they only mean the two bell keys (EG = key at the bottom, OG = key at the top); buyers see the flat's own name.
 enum class UnitId : uint8_t {
   None = 0,
   Outdoor = 1,  // Außeneinheit at the front door
@@ -64,6 +65,8 @@ enum class EventCode : uint8_t {
                            // outdoor unit's maintenance for 10 min - no need to open the outdoor housing
   PhoneAdd = 2,            // indoor -> outdoor: phone id + phone key, encrypted with the link key (10c)
   PhoneRemove = 3,         // indoor -> outdoor: phone id (10c)
+  FlatName = 4,            // indoor -> outdoor: the flat's own name, UTF-8 without terminator, 0..40 bytes, 0 = none
+                           // (FW-B-21). Sent after every start and after a change; the link decides the flat.
 };
 // Every answer names the session AND seq of the message it answers. That ties it to one message of one
 // boot of the asking unit, so a recorded answer from an earlier boot (where seq numbers repeat) can never

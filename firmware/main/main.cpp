@@ -181,12 +181,13 @@ void cb_on_door_result(cb::DoorResult r, bool answered, uint32_t elapsed_ms) {
 
 // Events from a peer (port step 10b): maintenance request from an indoor unit.
 void cb_on_event(cb::UnitId from, cb::EventCode code, const uint8_t *data, size_t len) {
-  cb_pairing_on_event(from, code, data, len);  // maintenance request
+  cb_pairing_on_event(from, code, data, len);  // maintenance request, flat name (FW-B-21)
   cb_phones_on_event(from, code, data, len);   // phone keys (port step 10c)
 }
 
 void cb_on_event_result(cb::UnitId to, cb::EventCode code, bool ok) {
   cb_phones_on_event_result(to, code, ok);
+  cb_pairing_on_event_result(to, code, ok);  // flat name (FW-B-21)
 }
 
 // Normal-mode LED (Softwarearchitektur 8.2): green = WiFi up and every peer answers the heartbeat,

@@ -743,7 +743,7 @@ belegt.
 | Partition | Inhalt | Geschrieben |
 |---|---|---|
 | `nvs` | Lautstärke, Touch-Kalibrierung, Protokoll der Öffnungen, Schema-Version | im Betrieb |
-| `nvs`, Bereich `cb_user` | **Käuferdaten:** WLAN, Wohnung, Verbindungsschlüssel und Gerätenummern der Gegenstellen, Handys, eigenes Passwort | Einrichtungsseite, Kopplung; gelöscht durch den Werksreset |
+| `nvs`, Bereich `cb_user` | **Käuferdaten:** WLAN, Wohnung (Klingeltaste und freier Name, R28), Verbindungsschlüssel und Gerätenummern der Gegenstellen, Handys, eigenes Passwort | Einrichtungsseite, Kopplung; gelöscht durch den Werksreset |
 | `fctry` | **Werk:** Gerätecode (Etikett) | einmal im Werk; bleibt beim Werksreset |
 
 Revision 3: Der Werksreset löscht genau die Käuferdaten (samt Einstellungen, Öffnungsprotokoll, eigenen Tönen) — das
@@ -895,6 +895,8 @@ gesprochenen Wortes § 201 StGB, dazu kommt die DSGVO — erst recht, sobald Ton
 * **Kein eigener Aktivitäts-Indikator in Hardware** — reversibel entschieden: Die Status-LED könnte ihn per Firmware
   nachrüsten.
 * **Die Protokolle sind je Haushalt getrennt** (Kapitel 6.4).
+* **Der freie Wohnungsname** (R28) steht in jeder Klingel-Push und geht damit im Klartext über ntfy.sh; die
+  Einrichtungsseite sagt das. Wer keinen Familiennamen dort haben will, lässt den Standard „Wohnung oben/unten“.
 * Wann das Mikrofon überhaupt aktiv sein darf, ist [offen] — Kapitel 12.
 
 *Ich bin kein Anwalt; dieser Abschnitt ist keine Rechtsberatung.*
@@ -1202,6 +1204,7 @@ Betriebsmodi (5.9) · Blinkmuster und Anzeige der Wartung (8.2) · Fern-Öffnen 
 | R25 | *(06.11.2026, durch R26 abgelöst)* ~~Updates vorerst ohne Signaturschlüssel~~ (Upload in der Wartung, Image-Prüfung, Rollback nach Probezeit); später Herstellerschlüssel mit Übernahme durch den Besitzer; Stufe C für Verkaufsgeräte nur mit Besitzer-Schlüssel |
 | R26 | *(10.11.2026)* Updates nur signiert, und zwar so, dass sie immer funktionieren: zwei Herstellerschlüssel (Haupt, Ersatz offline) in jeder Firmware, dazu ein eigener Schlüssel des Besitzers (Wartung), wahlweise allein gültig; Versionsschutz mit Bestätigung; USB-Flashen bleibt Stufe C (7.6, Portierungsschritt 10d) |
 | R27 | *(12.11.2026, löst R20 ab; FW-B-16, FW-B-22, FW-B-17)* Fern-Öffnen nur mit der ntfy-App: Push mit Knopf „Tür öffnen“, der das Token direkt zurückschickt. Je Handy ein eigenes, zufälliges und geheimes Topic-Paar (einzeln sperrbar); Token einmalig, an genau ein Klingeln gebunden, 5 min gültig; jede Öffnung per Push bestätigt und protokolliert. Dem Betreiber von ntfy.sh wird vertraut (Restrisiko bewusst angenommen: zwei Apps und Skriptcode wirkten wie Bastelei). Fern-Öffnen für **beide** Wohnungen, Handys je Inneneinheit. Inneneinheiten melden ihren Handys, wenn die Außeneinheit ≈ 2 min nicht erreichbar ist, und wenn sie zurück ist (mit Dauer). Umgesetzt in 4.5 |
+| R28 | *(12.11.2026, FW-B-21)* Wohnungsnamen frei wählbar: Intern bleiben die zwei Wohnungen die zwei Klingeltasten der Außeneinheit (Kennung EG = Taste unten, OG = Taste oben; die Werte 2/3 auf dem Funk ändern sich nicht, mehr Wohnungen erst V0.3). Jede Wohnung bekommt einen freien Namen (höchstens 24 Zeichen bzw. 40 Byte UTF-8, keine Steuerzeichen), eingegeben an der eigenen Inneneinheit (Einrichtung oder Wartung), per *Event* `FlatName` an die Außeneinheit übergeben (nach jedem Start und jeder Änderung) und überall angezeigt, wo der Käufer die Wohnung sieht: Statusseiten, Kopplungsliste, Push „Es klingelt – ‹Name›“, ntfy-Abo. Ohne Namen gilt „Wohnung unten“/„Wohnung oben“. Der Name geht im Klartext über ntfy.sh (7.8); Hostnamen bleiben `clearbell-<Gerätenummer>.local` |
 
 ---
 
@@ -1284,7 +1287,8 @@ die V0.2 unbrauchbar oder unsicher machen — die Befunde des Reviews gehören d
 | 3 | 06.11.2026 | Verkaufsfähigkeit (R24, R25): Inbetriebnahme ohne PC (5.9), Werk- und Käuferdaten getrennt (6.2), Kopplung per Gerätecode, Nachrichtentyp *Event* (Wartung von innen, Handy-Schlüssel), Topics des Fern-Öffnens aus dem EG-Schlüssel abgeleitet, Updates ohne Signaturschlüssel mit Probezeit; Portierungsschritte 10a–10c. Einzelheiten in `firmware/docs/Produktreife.md` und im Kopf der Module |
 | 3.1 | 10.11.2026 | Signierte Updates (R26, löst R25 ab): zwei Herstellerschlüssel, eigener Schlüssel des Besitzers, Versionsschutz (7.6); Portierungsschritt 10d |
 | 3.2 | 12.11.2026 | Fern-Öffnen nach R27 (löst R20 ab): nur ntfy, geheimes Topic-Paar je Handy, beide Wohnungen, Ausfallmeldung der Inneneinheiten; 4.5 neu geschrieben, Verweise auf die Handy-Signatur angepasst |
+| 3.3 | 12.11.2026 | Wohnungsnamen frei wählbar (R28, FW-B-21): Event `FlatName`, Name in den Käuferdaten (6.2), Hinweis im Datenschutz (7.8) |
 
 ---
 
-*ClearBell V0.2 · Softwarearchitektur · Revision 3.2 · 12.11.2026*
+*ClearBell V0.2 · Softwarearchitektur · Revision 3.3 · 12.11.2026*

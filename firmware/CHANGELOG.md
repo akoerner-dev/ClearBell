@@ -5,6 +5,18 @@ Versionen nach SemVer; `version.txt` ist die Quelle. Solange die Portierung läu
 
 ## 0.2.0-dev (in Arbeit)
 
+### Wohnungsnamen frei wählbar (12.11.2026, FW-B-21, R28)
+
+- Jede Wohnung hat einen **freien Namen** (≤ 24 Zeichen, Umlaute erlaubt), eingegeben an der eigenen Inneneinheit:
+  auf der Einrichtungsseite oder in der Wartung auf der Statusseite (Karte „Kopplung“). Er steht in der Push
+  „Es klingelt – ‹Name›“, im ntfy-Abo, auf beiden Statusseiten und in der Kopplungsliste; ohne Namen „Wohnung oben“/
+  „Wohnung unten“.
+- Die Einrichtungsseite fragt nach der **Klingeltaste** (oben/unten) statt nach EG/OG. Intern bleiben EG (unten) und
+  OG (oben) mit denselben Werten auf dem Funk.
+- Neues Event `FlatName` (innen → außen, nach jedem Start und jeder Änderung), mDNS-Eintrag `name`, Endpunkt
+  `/flat/name`, Konsole `setup-name`; `cb.py status` zeigt die Namen.
+- Warnung „unbenutztes `flat_txt`“ behoben.
+
 ### Fern-Öffnen nach R27 (12.11.2026)
 
 - **Nur noch die App ntfy** (FW-B-16, löst R20 ab): Die Klingel-Push trägt einen ntfy-Knopf „Tür öffnen“, der
