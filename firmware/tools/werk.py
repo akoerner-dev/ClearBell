@@ -10,6 +10,9 @@ What it does, once per unit, over USB (this is the only step that needs a PC - t
      <ClearBell>/Geheimnisse/etiketten/<number>.txt (plus .png if the Python package "qrcode" is installed)
   4. notes number -> code in <ClearBell>/Geheimnisse/werk_geraete.json (the factory register; whoever sells the
      units decides whether to keep it - the buyer does not depend on it, the code is on the label and in the box)
+  5. with --name and a development installation file: enters unit number and device code for that unit there
+     (for the PC tools; a unit added later with `anlage-einheit` gets both from the factory register)
+  6. checks that the firmware starts (console "info"); exit code 2 with a clear hint if the board needs replugging
 
 Afterwards the unit starts in setup mode with the access point "ClearBell-<number>" (docs/Produktreife.md).
 For development boards without a phone at hand: cb.py konsole <port> "setup-wifi <ssid> <pw> | setup-role eg | reboot".
@@ -98,4 +101,68 @@ def werk(unit: str, port: str, name: str | None, idf_python: Path, idf_path: Pat
     reg[serial] = {"typ": unit, "name": name or "", "geraetecode": code}
     reg_path.write_text(json.dumps(reg, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"factory step done: label {labels / (serial + '.txt')} (device code not shown here)")
-    return 0
+    if name:
+        anlage_nachtragen(name, serial, code)
+    return 0 if check_start(port, idf_python) else 2
+
+
+def anlage_nachtragen(name: str, serial: str, code: str) -> None:
+    """Development installation: the PC tools (status, update) need the unit number and the label's device code.
+    Units not yet in the installation file get both later from `anlage-einheit` (it reads the factory register)."""
+    if not prov.ANLAGE.exists():
+        return
+    data = prov._load()
+    u = data["einheiten"].get(name)
+    if not u:
+        print(f"{name} is not in the installation file yet: cb.py anlage-einheit {name} aussen|eg|og "
+              "(takes unit number and device code from the factory register)")
+        return
+    u["seriennummer"], u["geraetepasswort"] = serial, code
+    prov._save(data)
+    extra = " - it also has an own status-page password recorded, check it still applies" if u.get("webpasswort") else ""
+    print(f"installation file: {name} now has unit number {serial} and the new device code{extra}")
+
+
+def _answers(port: str, seconds: float = 6) -> bool:
+    """True if the firmware answers the console command "info" (opening the port does not reset the board)."""
+    import time
+
+    import serial  # pyserial
+
+    end = time.time() + seconds + 6  # the USB port may need a few seconds to come back after the reset
+    while time.time() < end:
+        try:
+            s = serial.Serial()
+            s.port, s.baudrate, s.timeout = port, 115200, 0.3
+            s.dtr = s.rts = False
+            s.open()
+        except serial.SerialException:
+            time.sleep(0.5)
+            continue
+        try:
+            s.write(b"\ninfo\n")
+            buf, stop = b"", time.time() + seconds
+            while time.time() < stop and b"ClearBell firmware" not in buf:
+                buf += s.read(4096)
+            return b"ClearBell firmware" in buf
+        finally:
+            s.close()
+    return False
+
+
+def check_start(port: str, idf_python: Path) -> bool:
+    """A brand-new board (IN-2, 12.11.2026) stayed in the ROM download mode after its very first flashing - also
+    after another esptool hard reset; only unplugging helped, and it never happened again on the same board.
+    So: check that the firmware runs, try the watchdog reset once, otherwise say clearly what to do."""
+    if _answers(port):
+        print("unit started: firmware answers on the console")
+        return True
+    print("firmware does not answer - trying a watchdog reset")
+    subprocess.run([str(idf_python), "-m", "esptool", "--chip", "esp32s3", "-p", port, "--before", "no_reset",
+                    "--after", "watchdog_reset", "read_mac"], capture_output=True)
+    if _answers(port):
+        print("unit started after the watchdog reset")
+        return True
+    print("UNIT DID NOT START: unplug USB, plug it in again (LED then blinks red/green = setup mode), then check "
+          f"with: cb.py konsole {port} \"info\" 5")
+    return False

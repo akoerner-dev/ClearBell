@@ -101,7 +101,10 @@ python tools/cb.py werk aussen COM4 --name AU-1
 ```
 
 Flasht Firmware und Töne (mit Werkskopien), schreibt einen zufälligen Gerätecode und legt das Etikett unter
-`ClearBell\Geheimnisse\etiketten\<Gerätenummer>.txt` (+ `.png` mit Python-Paket `qrcode`) ab. Für Prüfplatz-Boards ohne
+`ClearBell\Geheimnisse\etiketten\<Gerätenummer>.txt` (+ `.png` mit Python-Paket `qrcode`) ab. Am Ende prüft er, ob die
+Firmware startet; meldet er „UNIT DID NOT START“, USB ab- und wieder anstecken (kam bei einem fabrikneuen Board vor).
+Steht die Einheit (`--name`) schon in der Anlagendatei, trägt er Gerätenummer und Gerätecode dort ein; sonst holt
+`cb.py anlage-einheit <Name> eg|og` beides aus dem Werksregister – die PC-Werkzeuge melden sich damit an. Für Prüfplatz-Boards ohne
 Handy ersetzt dieser Befehl die Einrichtungsseite (WLAN und Wohnung aus der Anlagendatei, über USB):
 
 ```bash

@@ -83,6 +83,28 @@ Befunde 10.11.2026 abends (noch nicht behoben):
   wieder, wenn sie zurück ist (mit Dauer). Ob noch V0.2: Entscheidung offen.
 - **Werkzeug `tools/statusseite.py`:** urllib wiederholt die Basic-Anmeldung nach 401 selbst – ein Aufruf mit
   veraltetem Passwort schickte 5 Versuche in 0,3 s und löste die 30-s-Sperre aus. Einmal anmelden, bei 401 abbrechen.
+  Am 12.11. erneut ausgelöst (IN-2, siehe FW-B-19).
+
+### Zweite Inneneinheit IN-2 (OG) 12.11.2026 (TOWER, Firmware `c6dc996`)
+
+| Zeile | Board | Ergebnis |
+|---|---|---|
+| IN-2 Werk | IN-2 an COM5 | ✓ `cb.py werk innen COM5 --name IN-2`: Firmware, Töne, Gerätecode, Etikett `<Gerätenummer>.txt`; Board startete danach nicht → FW-B-18 |
+| IN-2 Einrichten | IN-2 | ✓ `anlage-einheit IN-2 og`, `einrichten IN-2 COM5`: WLAN verbunden, RSSI −43 dBm, Selbsttest OK |
+| IN-2 Kopplung | AU-1 + IN-2 | ✓ über die Seite von AU-1 (Meister): OG gekoppelt, Sitzung auf beiden Seiten bestätigt |
+| IN-2 Klingel OG | AU-1 + IN-2 + IN-1 | ✓ `touch-sim og 400 300` an AU-1 → quittiert nach 29 ms, IN-2 „RING“, Klingelton gespielt (Zähler 1/0, 15 %); IN-1 still. Hörprobe offen (Sammelliste) |
+
+Befunde 12.11.2026 (behoben in `tools/werk.py`, `tools/provisionieren.py`):
+- **FW-B-18_Neues_Board_bleibt_im_Download-Modus:** Nach dem ersten `werk` eines fabrikneuen Boards antwortete die
+  Firmware nicht; esptool erreichte nur den ROM-Bootloader, auch ein weiterer Hard-Reset half nicht, erst USB ab/an.
+  Danach am selben Board nicht nachstellbar (Flashen, Töne, `fctry` einzeln nachgespielt: startet jedes Mal). Abhilfe:
+  `werk` prüft am Ende per `info`, ob die Firmware läuft, versucht sonst einen Watchdog-Reset (am absichtlich im
+  Bootloader gelassenen IN-2 erprobt: startet) und meldet andernfalls klar „USB ab- und wieder anstecken“ (Exit-Code 2).
+  Ob der Watchdog-Reset den Fall vom 12.11. gelöst hätte, ist offen.
+- **FW-B-19_Anlagendatei_ohne_Geraetecode:** `werk` trug Gerätenummer und Gerätecode nicht in die Anlagendatei ein,
+  `anlage-einheit` erzeugte ein zufälliges Altpasswort; `cb.py status IN-2` meldete sich damit falsch an (Sperre, s. o.).
+  Jetzt: `werk --name X` trägt beides bei vorhandener Einheit X ein, `anlage-einheit X …` übernimmt es aus dem
+  Werksregister. Beide Reihenfolgen mit Testdateien geprüft; IN-2 von Hand nachgetragen.
 
 ---
 

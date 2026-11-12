@@ -5,6 +5,14 @@ Versionen nach SemVer; `version.txt` ist die Quelle. Solange die Portierung läu
 
 ## 0.2.0-dev (in Arbeit)
 
+### Werkzeuge: Werksschritt für weitere Boards (12.11.2026)
+
+- **FW-B-18_Neues_Board_bleibt_im_Download-Modus:** `cb.py werk` prüft am Ende, ob die Firmware auf der Konsole
+  antwortet, versucht sonst einen Watchdog-Reset und meldet andernfalls „USB ab- und wieder anstecken“ (Exit-Code 2).
+- **FW-B-19_Anlagendatei_ohne_Geraetecode:** `werk --name X` trägt Gerätenummer und Gerätecode in die Anlagendatei ein,
+  wenn X dort steht; `anlage-einheit X eg|og` übernimmt beides aus dem Werksregister, wenn `werk` schon lief.
+  Firmware unverändert.
+
 ### Schritt 10d – Signierte Updates (10.11.2026, R26)
 
 - **Nur signierte Updates:** Das Upload muss einen Signatursektor im Format Secure Boot v2 (RSA-3072, RSA-PSS) tragen;

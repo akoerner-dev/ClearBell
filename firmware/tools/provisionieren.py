@@ -81,16 +81,39 @@ def anlage_anlegen(wlan_aus: str | None, ssid: str | None, passwort: str | None)
     return 0
 
 
+WERK_REGISTER = ANLAGE.parent / "werk_geraete.json"  # written by werk.py: unit number -> type, name, device code
+
+
+def werk_eintrag(name: str) -> tuple[str, str] | None:
+    """(unit number, device code) of the unit that the factory step (werk --name) registered under this name."""
+    if not WERK_REGISTER.exists():
+        return None
+    reg = json.loads(WERK_REGISTER.read_text(encoding="utf-8"))
+    hits = [(serial, e["geraetecode"]) for serial, e in reg.items() if e.get("name") == name]
+    if len(hits) > 1:
+        raise SystemExit(f"{name} is registered for several units in {WERK_REGISTER.name} "
+                         f"({', '.join(s for s, _ in hits)}) - fix the register first")
+    return hits[0] if hits else None
+
+
 def anlage_einheit(name: str, rolle: str) -> int:
     if rolle not in ROLES:
         raise SystemExit(f"role must be one of {', '.join(ROLES)}")
     data = _load()
     if name in data["einheiten"]:
         raise SystemExit(f"unit {name} already exists")
-    # Device password: unique per unit (EN 303 645 5.1 - no universal default passwords).
-    data["einheiten"][name] = {"rolle": rolle, "geraetepasswort": secrets.token_urlsafe(12)}
+    werk = werk_eintrag(name)
+    if werk:
+        # Factory step already done: the PC tools log in with the label's device code (status page, update).
+        serial, code = werk
+        data["einheiten"][name] = {"rolle": rolle, "geraetepasswort": code, "seriennummer": serial}
+        note = f", unit number {serial} and device code from the factory register"
+    else:
+        # Old schema-1 way: device password unique per unit (EN 303 645 5.1 - no universal default passwords).
+        data["einheiten"][name] = {"rolle": rolle, "geraetepasswort": secrets.token_urlsafe(12)}
+        note = " (not in the factory register yet - cb.py werk ... --name " + name + " fills in number and code)"
     _save(data)
-    print(f"unit {name} added as {rolle}")
+    print(f"unit {name} added as {rolle}{note}")
     return 0
 
 
