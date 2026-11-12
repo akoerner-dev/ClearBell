@@ -24,9 +24,9 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 | 6.10 | ~~AU-1~~ (beide ✓ 08.11., nach Behebung FW-B-06) – offen nur: Werte für die endgültige Schwelle am montierten Gerät | `touch-log 30` mitlaufen lassen, Elektroden nacheinander antippen, 2 s und 5 s halten | Ruhe ±2 %, Finger deutlich über +100 %; Werte notieren (Grundlage für die endgültige Schwelle) |
 | 8.14 | beide | **verschoben bis Front/Diffusor vorhanden** (Meister 08.11.2026: ohne Front nur ein vorläufiger Wert; bis dahin Standard 40). LED ansehen (am besten mit Lichtleiter/Diffusor): grün, rot, bernstein; `led-balance 20` … `led-balance 70` probieren | grün und rot wirken gleich hell, bernstein ist als Mischfarbe erkennbar; gewählten Wert notieren (Standard 40) |
 | 9.14 | – | ~~echte Topics statt Test-Topics~~ – entfällt: seit 10c werden die Topics aus der EG-Kopplung abgeleitet | – |
-| 10a.12 | IN-1 | Werksreset (Taster 2 × 5 s, dann 15 s), mit dem Handy den QR-Code aus `Geheimnisse/etiketten/f3ac94.png` bzw. die Daten aus der `.txt` scannen | Handy verbindet sich mit `ClearBell-f3ac94`, Einrichtungsseite öffnet sich von selbst (Captive Portal); WLAN wählen, EG, Speichern → Einheit im Heim-WLAN |
+| ~~10a.12~~ | ✓ 12.11. an IN-2 statt IN-1 (Ergebnis im Abschnitt IN-2 unten) | – | – |
 | 10a.13 | – | Etikett ansehen (`.txt`/`.png`): passt Inhalt und Größe zum geplanten Aufkleber? | Entscheidung Etikett |
-| 10b.10 | AU-1 + IN-1 | nach 10a.12: auf der Seite der Außeneinheit „Inneneinheiten suchen“, Gerätecode vom Etikett eintippen | gekoppelt, beide starten neu, Klingeln geht |
+| ~~10b.10~~ | ✓ 12.11. EG und OG nach Werksreset AU-1 (Ergebnis im Abschnitt IN-2 unten) | – | – |
 | 5.13 | IN-1 | im Gehäuse am Montageort: Klingel mit üblicher Lautstärke | laut genug (10.11.: bei 15 % ohne Gehäuse zu leise) |
 | 5.14 | AU-1 | im Gehäuse: `play error` mit 50 / 75 / 100 % | kein Klirren; sonst Höchstgrenze außen senken (10.11.: ohne Gehäuse klirrt es bei 75 % deutlich) |
 
@@ -87,6 +87,19 @@ Befunde 10.11.2026 abends (noch nicht behoben):
   siehe FW-B-19). Jetzt bricht ein 401 auf eine schon angemeldete Anfrage ab (Wiederholung nur bei `stale=true`), mit
   Hinweis auf `anlage-webpasswort`. Gemessen über die Konsole `web`: vorher 5 falsche Versuche + 1 Sperre je Aufruf,
   nachher 1 Versuch, keine Sperre; richtige Anmeldung an AU-1 ✓. Gilt auch für `fern.py`.
+- **FW-B-14 Ergebnis WLAN-Passwort (12.11.):** Mit Bindestrichen abgetippt verbindet das Handy nicht, per QR-Code
+  problemlos. Beim Etikett (10a.13) entscheiden: Code ohne Striche drucken oder Hinweis „Striche weglassen“.
+- **FW-B-21_Wohnungsnamen_frei_waehlbar (Funktionswunsch, Meister 12.11.: umsetzen):** EG/OG passt nicht für jedes
+  Haus. Umsetzung wie vorgeschlagen: intern zwei Plätze nach den zwei Klingeltasten der Außeneinheit („Taste oben“ /
+  „Taste unten“, mehr Wohnungen erst V0.3); dazu ein frei wählbarer Name je Wohnung (≈ 24 Zeichen, Umlaute), auf der
+  Einrichtungsseite der Inneneinheit eingegeben, bei der Kopplung an die Außeneinheit übergeben, angezeigt überall, wo
+  heute EG/OG steht (Statusseiten, Kopplungsliste, Push „Es klingelt – <Name>“). Zu beachten: Push läuft im Klartext
+  über ntfy.sh (Name für den Dienst lesbar); Hostnamen bleiben `clearbell-<Gerätenummer>.local`. Betrifft ≈ 14
+  Firmware-Dateien, beide Webseiten, die PC-Werkzeuge. Eigener Schritt nach den laufenden Prüfungen.
+- **FW-B-22_Fern_Oeffnen_fuer_beide_Wohnungen (Frage, 12.11.):** „Handy hinzufügen“ geht nur an der EG-Einheit
+  (`cb_phones.cpp`: „Fern-Öffnen gibt es nur für das EG“), Topics und Schlüssel kommen allein aus der Kopplung
+  AU-1↔EG. Der Meister wollte an IN-2 (OG) ein Handy verbinden. Mit FW-B-21 passt „nur EG“ nicht mehr: soll jede
+  Wohnung eigene Handys mit eigenen Topics aus ihrer Kopplung bekommen? Zusammen mit FW-B-16 entscheiden.
 
 ### Zweite Inneneinheit IN-2 (OG) 12.11.2026 (TOWER, Firmware `c6dc996`)
 
@@ -96,6 +109,11 @@ Befunde 10.11.2026 abends (noch nicht behoben):
 | IN-2 Einrichten | IN-2 | ✓ `anlage-einheit IN-2 og`, `einrichten IN-2 COM5`: WLAN verbunden, RSSI −43 dBm, Selbsttest OK |
 | IN-2 Kopplung | AU-1 + IN-2 | ✓ über die Seite von AU-1 (Meister): OG gekoppelt, Sitzung auf beiden Seiten bestätigt |
 | IN-2 Klingel OG | AU-1 + IN-2 + IN-1 | ✓ `touch-sim og 400 300` an AU-1 → quittiert nach 29 ms, IN-2 „RING“, Klingelton gespielt (Zähler 1/0, 15 %); IN-1 still. Hörprobe offen (Sammelliste) |
+| 10a.12 | IN-2 + Handy | ✓ (an IN-2 statt IN-1: kein Neuaufbau von Fern-Öffnen/Handys an EG nötig) Werksreset am Taster 5 s → Wartung, 5 s → Einrichtung, 15 s → „FACTORY RESET done - device code and firmware stay“, Werkstöne zurück, Neustart im Einrichtungsmodus. Gerätecode **mit** Bindestrichen als WLAN-Passwort: Handy verbindet nicht (erwartet, FW-B-14). QR-Code (`<Gerätenummer>.png`) gescannt: verbunden, Einrichtungsseite ging von selbst auf (Meister: „sehr komfortabel“), WLAN + OG gespeichert → Neustart, Normalbetrieb, Heim-WLAN. Nebenbei: Lautstärke nach Werksreset 75 % (Werkswert), für die Prüfung auf 15 % gestellt |
+| Werksreset AU-1 | AU-1 + Handy | ✓ (versehentlich, Meister) gleiche Tastenfolge; danach Einrichtungsmodus, Kopplungen EG/OG, Handys, eigenes Passwort weg. AU-1 hat kein Etikett (alter Weg Schema 1): QR fürs Einrichtungs-WLAN aus der Anlagendatei erzeugt (`<Gerätenummer>_einrichtung.png`), gescannt, WLAN gespeichert → Normalbetrieb. Altes eigenes Passwort ging erwartungsgemäß nicht mehr |
+| 10b.10 | AU-1 + IN-1 + IN-2 + Handy | ✓ Kopplung über die Seite von AU-1: IN-1 zuerst abgelehnt (HTTP 409 „schon gekoppelt – Wartung öffnen“, wie vorgesehen), nach Wartung an IN-1 „EG paired“; IN-2 „OG paired“, Gerätecode **mit** Bindestrichen angenommen (Kopplung normalisiert schon, FW-B-14 betrifft nur die Anmeldung). Alle drei Boards: Sitzung bestätigt, erreichbar |
+| 10c.8 (Wdh.) | IN-1 + Handy + AU-1 | ✓ Handy an IN-1 neu hinzugefügt (alte Topics durch neue EG-Kopplung ungültig), Fern-Öffnen 11:07:28 „remote“, Puls 2000 ms, Sperrzeit 5000 ms. Handy an IN-2 nicht möglich → FW-B-22 |
+| Klingel EG/OG | AU-1 + IN-1 + IN-2 | ✓ `touch-sim eg` → quittiert 49 ms, nur IN-1 klingelt; `touch-sim og` → 45 ms, nur IN-2. Beide Inneneinheiten standen dabei unbemerkt auf **100 %** (zwischen 10:33 und 11:08 von 15 % verstellt, Weg unbekannt: Statusseite oder Tastendrücke; kein Mitschnitt), danach auf 15 % zurück |
 
 Befunde 12.11.2026 (behoben in `tools/werk.py`, `tools/provisionieren.py`):
 - **FW-B-18_Neues_Board_bleibt_im_Download-Modus:** Nach dem ersten `werk` eines fabrikneuen Boards antwortete die
