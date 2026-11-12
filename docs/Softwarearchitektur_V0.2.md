@@ -421,6 +421,9 @@ DTIM-Signal des Routers warten — die Zeit bis zum Puls wird im Bring-up gemess
 
 ### 4.5 Fern-Öffnen per Push [V0.2 — Entwurf]
 
+> **Abgelöst durch R27 (12.11.2026):** nur noch ntfy, ohne Handy-Signatur; je Handy ein geheimes Topic-Paar; beide
+> Wohnungen. Dieser Abschnitt beschreibt den bisherigen Stand (R20) und wird bei der Umsetzung neu geschrieben.
+
 Der Anwendungsfall ist konkret: Ein Kind steht ausgesperrt vor der Tür, kein Erwachsener ist zu Hause.
 
 ```mermaid
@@ -1187,13 +1190,14 @@ Betriebsmodi (5.9) · Blinkmuster und Anzeige der Wartung (8.2) · Signaturverfa
 | R17 | Die Statusseite öffnet die Tür nicht — Pfad ② entfällt |
 | R18 | Innen: kurzer Tipp nur bis 2 min nach dem Klingeln, sonst 3 s halten |
 | R19 | Protokoll der Türöffnungen je Haushalt getrennt |
-| R20 | Fern-Öffnen: das Handy signiert selbst |
+| R20 | *(durch R27 abgelöst)* ~~Fern-Öffnen: das Handy signiert selbst~~ |
 | R21 | Build als ESP-IDF-Projekt mit Arduino als Komponente |
 | R22 | Härtung in Stufen; Stufe C nur außen, nach Montage und stabilem Betrieb |
 | R23 | Bezeichner und Kommentare im Code englisch |
 | R24 | *(06.11.2026, Verkaufsabsicht)* Der Käufer flasht nie: Werksschritt per USB, alles andere über Webseiten (Gerätecode auf dem Etikett, Einrichtungs-Zugangspunkt, Kopplung per Code, Handys über die eigene Inneneinheit) |
 | R25 | *(06.11.2026, durch R26 abgelöst)* ~~Updates vorerst ohne Signaturschlüssel~~ (Upload in der Wartung, Image-Prüfung, Rollback nach Probezeit); später Herstellerschlüssel mit Übernahme durch den Besitzer; Stufe C für Verkaufsgeräte nur mit Besitzer-Schlüssel |
 | R26 | *(10.11.2026)* Updates nur signiert, und zwar so, dass sie immer funktionieren: zwei Herstellerschlüssel (Haupt, Ersatz offline) in jeder Firmware, dazu ein eigener Schlüssel des Besitzers (Wartung), wahlweise allein gültig; Versionsschutz mit Bestätigung; USB-Flashen bleibt Stufe C (7.6, Portierungsschritt 10d) |
+| R27 | *(12.11.2026, löst R20 ab; FW-B-16, FW-B-22, FW-B-17)* Fern-Öffnen nur mit der ntfy-App: Push mit Knopf „Tür öffnen“, der das Token direkt zurückschickt. Je Handy ein eigenes, zufälliges und geheimes Topic-Paar (einzeln sperrbar); Token einmalig, an genau ein Klingeln gebunden, 5 min gültig; jede Öffnung per Push bestätigt und protokolliert. Dem Betreiber von ntfy.sh wird vertraut (Restrisiko bewusst angenommen: zwei Apps und Skriptcode wirkten wie Bastelei). Fern-Öffnen für **beide** Wohnungen, Handys je Inneneinheit. Inneneinheiten melden ihren Handys, wenn die Außeneinheit ≈ 2 min nicht erreichbar ist, und wenn sie zurück ist (mit Dauer). Abschnitt 4.5 wird bei der Umsetzung neu geschrieben |
 
 ---
 

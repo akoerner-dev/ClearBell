@@ -77,10 +77,11 @@ Befunde 10.11.2026 abends (noch nicht behoben):
   schwierig. Mindestens Erklärtext, besser ein Knopf.
 - **FW-B-16_Fern_Oeffnen_wirkt_unfertig:** Zwei Apps, sichtbarer Skriptcode des Kurzbefehls – wirkt wie Bastelei
   (Meister). Berührt R20; Wege: A) R20 behalten und aufpolieren (Import-Knopf, Kurzbefehl still), B) nur ntfy mit
-  zufälligem Topic je Handy und kurz gültigem Token, C) eigene App (nicht V0.2). Entscheidung offen.
+  zufälligem Topic je Handy und kurz gültigem Token, C) eigene App (nicht V0.2). **Entschieden 12.11.: Weg B (R27).**
+  Ausschlaggebend: Seit 10c sind die Topics nicht mehr öffentlich erratbar, damit ist „nur ntfy“ vertretbar.
 - **FW-B-17_Ausfallmeldung_durch_Inneneinheit (Funktionswunsch):** Eine „Strom weg“-Meldung wäre wichtiger als die
   Neustart-Push (Meister). Vorschlag: IN-1 meldet per Push, wenn die Außeneinheit ~2 min nicht erreichbar ist, und
-  wieder, wenn sie zurück ist (mit Dauer). Ob noch V0.2: Entscheidung offen.
+  wieder, wenn sie zurück ist (mit Dauer). **Entschieden 12.11.: in V0.2, jede Inneneinheit an ihre Handys (R27).**
 - **FW-B-20_Werkzeug_meldet_sich_mehrfach_an** (`tools/statusseite.py`, behoben 12.11.): urllib wiederholt die
   Digest-Anmeldung nach 401 selbst – ein Aufruf mit veraltetem Passwort schickte 5 Versuche in unter 2 s und löste die
   30-s-Sperre aus; auch der nächste Aufruf mit richtigem Passwort scheiterte dann. Am 12.11. erneut ausgelöst (IN-2,
@@ -100,7 +101,8 @@ Befunde 10.11.2026 abends (noch nicht behoben):
 - **FW-B-22_Fern_Oeffnen_fuer_beide_Wohnungen (Frage, 12.11.):** „Handy hinzufügen“ geht nur an der EG-Einheit
   (`cb_phones.cpp`: „Fern-Öffnen gibt es nur für das EG“), Topics und Schlüssel kommen allein aus der Kopplung
   AU-1↔EG. Der Meister wollte an IN-2 (OG) ein Handy verbinden. Mit FW-B-21 passt „nur EG“ nicht mehr: soll jede
-  Wohnung eigene Handys mit eigenen Topics aus ihrer Kopplung bekommen? Zusammen mit FW-B-16 entscheiden.
+  Wohnung eigene Handys mit eigenen Topics aus ihrer Kopplung bekommen? **Entschieden 12.11.: ja, beide Wohnungen,
+  Handys je Inneneinheit (R27).**
 
 ### Zweite Inneneinheit IN-2 (OG) 12.11.2026 (TOWER, Firmware `c6dc996`)
 

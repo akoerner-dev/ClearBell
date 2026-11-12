@@ -417,6 +417,9 @@ time to the pulse is measured during bring-up (target ≤ 1 s, section 1.3).
 
 ### 4.5 Remote opening via push [V0.2 — design]
 
+> **Superseded by R27 (2026-11-12):** ntfy only, no phone signature; one secret topic pair per phone; both flats.
+> This section describes the previous state (R20) and will be rewritten when R27 is implemented.
+
 The use case is concrete: a child is locked out, no adult is home.
 
 ```mermaid
@@ -1172,13 +1175,14 @@ of the operating modes (5.9) · blink patterns and the maintenance indication (8
 | R17 | The status page does not open the door — path ② removed |
 | R18 | Indoors: a short tap only within 2 min after a ring, otherwise hold for 3 s |
 | R19 | Door-opening log separated per household |
-| R20 | Remote opening: the phone signs itself |
+| R20 | *(superseded by R27)* ~~Remote opening: the phone signs itself~~ |
 | R21 | Build as an ESP-IDF project with Arduino as a component |
 | R22 | Hardening in stages; stage C only outdoors, after mounting and stable operation |
 | R23 | Identifiers and comments in the code in English |
 | R24 | *(2026-11-06, intention to sell)* The buyer never flashes: factory step over USB, everything else through web pages (device code on the label, setup access point, pairing by code, phones via the own indoor unit) |
 | R25 | *(2026-11-06, superseded by R26)* ~~Updates without a signing key for now~~ (upload in maintenance, image check, rollback after probation); later a manufacturer key with owner takeover; stage C for sold units only with an owner key |
 | R26 | *(2026-11-10)* Updates only signed, in a way that always works: two manufacturer keys (main, spare offline) in every firmware, plus an owner's own key (maintenance), optionally the only one accepted; downgrade protection with confirmation; USB flashing stays stage C (7.6, porting step 10d) |
+| R27 | *(2026-11-12, supersedes R20; FW-B-16, FW-B-22, FW-B-17)* Remote opening with the ntfy app only: a push with an "open door" button that sends the token straight back. One random, secret topic pair per phone (revocable individually); token single-use, bound to exactly one ring, valid 5 min; every opening confirmed by push and logged. The ntfy.sh operator is trusted (residual risk accepted on purpose: two apps and visible script code looked like a hack). Remote opening for **both** flats, phones per indoor unit. Indoor units tell their phones when the outdoor unit has been unreachable for ≈ 2 min, and when it is back (with duration). Section 4.5 is rewritten when this is implemented |
 
 ---
 
