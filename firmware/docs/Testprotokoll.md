@@ -118,7 +118,7 @@ Grenze ist nicht die Hardware, sondern „ohne Internet“: Systemschrift, einge
 | FW-B-11 Build-Datum veraltet | eigener Zeitstempel `cb_build_stamp.h`, bei jedem Bau neu (`main/build_stamp.cmake`) | AU-1/IN-2 geflasht: „built 2026-11-12 13:18/13:19“ ✓ |
 | FW-B-12 Meldung verschwindet | Rückmeldungen als Einblendung unten, unabhängig vom Neuaufbau der Karten | Vorschau: Einblendung erscheint und bleibt 5–9 s ✓ |
 | FW-B-13 Etikett-Passwort ≠ Gerätecode | Seite sagt durchgehend „Gerätecode“ | Vorschau ✓ |
-| FW-B-14 Code mit Strichen abgelehnt | Anmeldung nimmt den Gerätecode auch in Vierergruppen mit „-“ oder Leerzeichen und klein geschrieben (nur solange kein eigenes Passwort gilt) | PC-Test `auth_device_code_typed_like_the_label` ✓ (128 Tests, 0 Fehler); am Gerät offen, weil alle drei eigene Passwörter haben |
+| FW-B-14 Code mit Strichen abgelehnt | Anmeldung nimmt den Gerätecode auch in Vierergruppen mit „-“ oder Leerzeichen und klein geschrieben (nur solange kein eigenes Passwort gilt) | PC-Test `auth_device_code_typed_like_the_label` ✓ (128 Tests, 0 Fehler); am Gerät AU-1 ✓: per USB `web-pass label`, Anmeldung mit Code am Stück / mit „-“ / mit Leerzeichen / klein → je HTTP 200, eigenes Passwort und ein falsches Zeichen → 401 (keine Sperre), danach eigenes Passwort per USB zurück → 200 |
 
 Neue Gestaltung (Status- und Einrichtungsseite): Kopfzeile mit Einheit, Wohnung und Modus-Abzeichen; Übersichtskacheln
 (WLAN mit Güte, Verbindung, Türöffner, Lautstärke, Gerätezustand); Karten Klingel, Kopplung, Handys, Fern-Öffnen,
