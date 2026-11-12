@@ -36,6 +36,10 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 **Reihenfolge (Meister 10.11.2026):** zuerst diese Handprüfungen; der 72-h-Test läuft ganz zum Schluss mit beiden
 Einheiten im Gehäuse.
 
+**Abnahme P6 durch den Meister am 12.11.2026** (nach R27.10/21.9 mit echtem Handy und dem Durchklicken der neuen
+Status- und Wartungsseite am Handy). Die übrigen Zeilen oben brauchen Front, Gehäuse oder Montageort und laufen nach P6
+weiter.
+
 ### Handprüfungen 10.11.2026 (TOWER, gemeinsam mit dem Meister, Firmware `c6dc996`)
 
 | Zeile | Board | Ergebnis |
