@@ -32,10 +32,37 @@ def _unit(name: str) -> dict:
     return data["einheiten"][name]
 
 
+class _DigestOnce(urllib.request.HTTPDigestAuthHandler):
+    """urllib answers every 401 with a new attempt (up to 5) - with a wrong password that is 5 wrong logins in under
+    2 s, the unit locks for 30 s and refuses the next call with the right password too (FW-B-20). Here a 401 to a
+    request that already carried our login ends the call; only stale=true (nonce expired, password fine) retries."""
+
+    def http_error_401(self, req, fp, code, msg, headers):
+        challenge = headers.get("WWW-Authenticate", "")
+        if req.get_header("Authorization") and "stale=true" not in challenge.lower():
+            return None  # -> HTTPError 401 to the caller
+        return super().http_error_401(req, fp, code, msg, headers)
+
+
 def _opener(base: str, password: str) -> urllib.request.OpenerDirector:
     mgr = urllib.request.HTTPPasswordMgrWithDefaultRealm()
     mgr.add_password(None, base, USER, password)
-    return urllib.request.build_opener(urllib.request.HTTPDigestAuthHandler(mgr))
+    return urllib.request.build_opener(_DigestOnce(mgr))
+
+
+def _refused(e: urllib.error.HTTPError) -> str:
+    """Message of a refused call, with what to do for the two login answers."""
+    body = e.read().decode(errors="replace").strip()
+    try:
+        body = json.loads(body)["message"]
+    except (ValueError, KeyError, TypeError):
+        pass
+    if e.code == 401:
+        return (f"HTTP 401: wrong password - own status-page password? record it with "
+                f"cb.py anlage-webpasswort <unit> <pw> (or 'label')  [{body}]")
+    if e.code == 429:
+        return f"HTTP 429: unit locked for 30 s after wrong passwords - wait, then fix the password  [{body}]"
+    return f"refused (HTTP {e.code}): {body}"
 
 
 def _host(u: dict) -> str:
@@ -65,7 +92,7 @@ def status(name: str, ip: str | None, raw: bool) -> int:
     try:
         d = fetch_status(name, ip)
     except urllib.error.HTTPError as e:
-        print(f"HTTP {e.code}: {e.read().decode(errors='replace').strip()}")
+        print(_refused(e))
         return 1
     except OSError as e:
         print(f"not reachable: {e} - try --ip <address> (console: net)")
@@ -113,11 +140,7 @@ def ton_hochladen(name: str, ton: str, wav: str, ip: str | None) -> int:
             print(json.loads(r.read().decode())["message"])
             return 0
     except urllib.error.HTTPError as e:
-        try:
-            msg = json.loads(e.read().decode())["message"]
-        except (ValueError, KeyError):
-            msg = ""
-        print(f"refused (HTTP {e.code}): {msg}")
+        print(_refused(e))
         return 1
 
 
@@ -133,11 +156,7 @@ def update(name: str, image: str, ip: str | None, older: bool = False) -> int:
             print(json.loads(r.read().decode())["message"])
             return 0
     except urllib.error.HTTPError as e:
-        try:
-            msg = json.loads(e.read().decode())["message"]
-        except (ValueError, KeyError):
-            msg = ""
-        print(f"refused (HTTP {e.code}): {msg}")
+        print(_refused(e))
         return 1
 
 

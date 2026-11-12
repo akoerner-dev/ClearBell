@@ -11,6 +11,8 @@ Versionen nach SemVer; `version.txt` ist die Quelle. Solange die Portierung läu
   antwortet, versucht sonst einen Watchdog-Reset und meldet andernfalls „USB ab- und wieder anstecken“ (Exit-Code 2).
 - **FW-B-19_Anlagendatei_ohne_Geraetecode:** `werk --name X` trägt Gerätenummer und Gerätecode in die Anlagendatei ein,
   wenn X dort steht; `anlage-einheit X eg|og` übernimmt beides aus dem Werksregister, wenn `werk` schon lief.
+- **FW-B-20_Werkzeug_meldet_sich_mehrfach_an:** `status`, `update`, `ton-hochladen` und `fern-*` melden sich bei
+  falschem Passwort nur noch einmal an (vorher 5 Versuche → 30-s-Sperre) und nennen `anlage-webpasswort` als Abhilfe.
   Firmware unverändert.
 
 ### Schritt 10d – Signierte Updates (10.11.2026, R26)

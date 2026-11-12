@@ -81,9 +81,12 @@ Befunde 10.11.2026 abends (noch nicht behoben):
 - **FW-B-17_Ausfallmeldung_durch_Inneneinheit (Funktionswunsch):** Eine „Strom weg“-Meldung wäre wichtiger als die
   Neustart-Push (Meister). Vorschlag: IN-1 meldet per Push, wenn die Außeneinheit ~2 min nicht erreichbar ist, und
   wieder, wenn sie zurück ist (mit Dauer). Ob noch V0.2: Entscheidung offen.
-- **Werkzeug `tools/statusseite.py`:** urllib wiederholt die Basic-Anmeldung nach 401 selbst – ein Aufruf mit
-  veraltetem Passwort schickte 5 Versuche in 0,3 s und löste die 30-s-Sperre aus. Einmal anmelden, bei 401 abbrechen.
-  Am 12.11. erneut ausgelöst (IN-2, siehe FW-B-19).
+- **FW-B-20_Werkzeug_meldet_sich_mehrfach_an** (`tools/statusseite.py`, behoben 12.11.): urllib wiederholt die
+  Digest-Anmeldung nach 401 selbst – ein Aufruf mit veraltetem Passwort schickte 5 Versuche in unter 2 s und löste die
+  30-s-Sperre aus; auch der nächste Aufruf mit richtigem Passwort scheiterte dann. Am 12.11. erneut ausgelöst (IN-2,
+  siehe FW-B-19). Jetzt bricht ein 401 auf eine schon angemeldete Anfrage ab (Wiederholung nur bei `stale=true`), mit
+  Hinweis auf `anlage-webpasswort`. Gemessen über die Konsole `web`: vorher 5 falsche Versuche + 1 Sperre je Aufruf,
+  nachher 1 Versuch, keine Sperre; richtige Anmeldung an AU-1 ✓. Gilt auch für `fern.py`.
 
 ### Zweite Inneneinheit IN-2 (OG) 12.11.2026 (TOWER, Firmware `c6dc996`)
 
