@@ -19,7 +19,7 @@ import sys
 import time
 
 HIER = pathlib.Path(__file__).resolve().parent
-BOARDS = {"AU-1": "COM4", "IN-1": "COM3"}
+BOARDS = {"AU-1": "COM4", "IN-1": "COM3", "IN-2": "COM5"}  # IN-2 (OG) seit 12.11.2026
 
 MUSTER = {
     "uptime": r"uptime (\d+) s",
@@ -40,8 +40,16 @@ MUSTER = {
     "tx": r"net: tx (\d+)",
     "retries": r"retries (\d+)",
     "rings_failed": r"rings ok \d+ failed (\d+)",
+    "nvs": r"haertung: storage (plain|encrypted[^,]*?)(?: \(key source| \(|,)",  # Härtung Stufe B
 }
 FELDER = ["zeit", "board"] + list(MUSTER) + ["peer_reachable", "fehler"]
+# Welcher Konsolenbefehl welche Felder liefert (für das Wiederholen fehlender Zeilen)
+QUELLE = {
+    "info": ["uptime", "boot", "reset", "heap_free", "heap_min", "psram_free", "coredump", "selftest"],
+    "net": ["rssi", "disconnects", "rx_ok", "dropped", "unknown_session", "dup", "queue_full", "tx", "retries",
+            "rings_failed"],
+    "haertung": ["nvs"],
+}
 
 
 def abfragen(port, befehl):
@@ -61,8 +69,9 @@ def auswerten(text):
         else:
             werte[name] = t.group(1).strip()
     peers = re.findall(r"net: peer (\S+)\s+(\S+)\s+\(\w+\) session \w+, (reachable|unreachable)", text)
-    # OG fehlt im Aufbau - nur Gegenstellen mit Adresse zählen
-    werte["peer_reachable"] = ";".join(f"{n}={z}" for n, ip, z in peers if ip != "0.0.0.0")
+    # nur Gegenstellen mit Adresse zählen (früher fehlte OG im Aufbau)
+    # dict: bei wiederholter Abfrage jede Gegenstelle nur einmal (der letzte Stand zählt)
+    werte["peer_reachable"] = ";".join(f"{n}={z}" for n, z in {n: z for n, ip, z in peers if ip != "0.0.0.0"}.items())
     return werte
 
 
@@ -89,22 +98,28 @@ def zusammenfassung(zeilen):
         aus.append(f"   Neustart: {'keiner' if len(boots) == 1 and monoton else 'JA'} "
                    f"(Start #{sorted(boots)}, Laufzeit {ups[0]} -> {ups[-1]} s)")
         aus.append(f"   Coredump: {sorted({r['coredump'] for r in ok})}, Selbsttest: {sorted({r['selftest'] for r in ok})}")
-        hf = [zahl(r, "heap_free") for r in ok]
-        aus.append(f"   Heap frei: Anfang {hf[0]}, Ende {hf[-1]}, kleinster Abfragewert {min(hf)}, "
-                   f"Firmware-Minimum Ende {e['heap_min']}; Differenz Ende-Anfang {hf[-1] - hf[0]} B")
+        hf = [x for x in (zahl(r, "heap_free") for r in ok) if x is not None]
+        if hf:
+            aus.append(f"   Heap frei: Anfang {hf[0]}, Ende {hf[-1]}, kleinster Abfragewert {min(hf)}, "
+                       f"Firmware-Minimum Ende {e['heap_min']}; Differenz Ende-Anfang {hf[-1] - hf[0]} B "
+                       f"({len(hf)} Werte)")
         for k in ("disconnects", "retries", "dropped", "unknown_session", "dup", "queue_full", "rings_failed"):
-            aus.append(f"   {k}: {a[k]} -> {e[k]} (Zuwachs {zahl(e, k) - zahl(a, k)})")
+            va, ve = zahl(a, k), zahl(e, k)
+            aus.append(f"   {k}: {a[k]} -> {e[k]} (Zuwachs {ve - va if None not in (va, ve) else '?'})")
         unerreichbar = [r["zeit"] for r in ok if "unreachable" in r["peer_reachable"]]
         aus.append(f"   Gegenstelle unerreichbar bei {len(unerreichbar)} von {len(ok)} Abfragen"
                    + (f": {unerreichbar[:5]}" if unerreichbar else ""))
-        aus.append(f"   RSSI: {min(zahl(r, 'rssi') for r in ok)} .. {max(zahl(r, 'rssi') for r in ok)} dBm")
+        rs = [x for x in (zahl(r, "rssi") for r in ok) if x is not None]
+        aus.append(f"   RSSI: {min(rs)} .. {max(rs)} dBm" if rs else "   RSSI: keine Werte")
+        aus.append(f"   Speicher (Härtung Stufe B): {sorted({r['nvs'] for r in ok})}")
     # Pakete: gesendet von der einen Seite gegen empfangen auf der anderen (gleiche Zeitspanne, grob)
     def delta(board, k):
         ok = [r for r in zeilen if r["board"] == board and not r["fehler"]]
-        return (zahl(ok[-1], k) - zahl(ok[0], k)) if len(ok) >= 2 else None
-    aus.append(f"== Pakete AU-1 tx {delta('AU-1', 'tx')} / IN-1 rx ok {delta('IN-1', 'rx_ok')}; "
-               f"IN-1 tx {delta('IN-1', 'tx')} / AU-1 rx ok {delta('AU-1', 'rx_ok')} "
-               f"(grob: Abfragezeitpunkte der Boards liegen einige Sekunden auseinander)")
+        va, ve = (zahl(ok[0], k), zahl(ok[-1], k)) if len(ok) >= 2 else (None, None)
+        return ve - va if None not in (va, ve) else None
+    aus.append(f"== Pakete AU-1 tx {delta('AU-1', 'tx')} / IN-1 + IN-2 rx ok {delta('IN-1', 'rx_ok')} + "
+               f"{delta('IN-2', 'rx_ok')}; IN-1 + IN-2 tx {delta('IN-1', 'tx')} + {delta('IN-2', 'tx')} / AU-1 rx ok "
+               f"{delta('AU-1', 'rx_ok')} (grob: Abfragezeitpunkte der Boards liegen einige Sekunden auseinander)")
     return "\n".join(aus)
 
 
@@ -136,8 +151,16 @@ def main():
             for board, port in BOARDS.items():
                 jetzt = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 try:
-                    text = abfragen(port, "info") + abfragen(port, "net")
+                    text = abfragen(port, "info") + abfragen(port, "net") + abfragen(port, "haertung")
                     werte = auswerten(text)
+                    # Das Logging der Firmware verwirft Zeilen, wenn viele auf einmal kommen (blockiert nie) -
+                    # fehlt eine Zeile, die Abfrage bis zu zweimal wiederholen statt "unvollstaendig" zu melden.
+                    for befehl, felder in QUELLE.items():
+                        for _ in range(3):
+                            if all(werte[f] != "" for f in felder):
+                                break
+                            text += abfragen(port, befehl)
+                            werte = auswerten(text)
                     werte["fehler"] = "" if werte["uptime"] and werte["tx"] else "unvollstaendig"
                 except Exception as ex:  # Port weg, Zeitüberschreitung ...
                     text, werte = repr(ex), {k: "" for k in MUSTER} | {"peer_reachable": "", "fehler": repr(ex)}
