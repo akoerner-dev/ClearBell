@@ -253,6 +253,9 @@ R23), jede Zeile beginnt mit der Laufzeit in Sekunden.
 | `wifi-scan` | WLAN-Netze in Reichweite (auch Einrichtungs-WLANs anderer Einheiten) |
 | `setup-ap on` / `setup-ap auto` | **Test:** Einrichtungs-WLAN erzwingen |
 | `update-status` | Firmware-Slot, Probezeit, letzter Upload |
+| `haertung` | Härtung Stufe B: Speicher verschlüsselt?, eFuse KEY0, Sicherheitsversion (`docs/Haertung_Stufe_B.md`) |
+| `haertung nvs-schluessel BRENNEN <Gerätenummer>` | **brennt den NVS-Schlüssel endgültig ins eFuse** – nur nach Freigabe, siehe Konzept |
+| `nvs-liste` | alle NVS-Einträge mit Typ, Länge und Prüfsumme (keine Werte) – Vorher/Nachher-Vergleich |
 | `update-keys` | Schlüssel, denen die Einheit bei Updates vertraut (Haupt, Ersatz, eigener) |
 | `update-owner <64 Hex>` / `update-owner clear` | eigenen Update-Schlüssel des Besitzers eintragen / entfernen (wie auf der Seite in der Wartung) |
 | `update-owner-only on` / `off` | nur noch den eigenen Schlüssel annehmen / Herstellerschlüssel wieder annehmen |

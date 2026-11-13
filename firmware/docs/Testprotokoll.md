@@ -113,6 +113,29 @@ Befunde 10.11.2026 abends (noch nicht behoben):
   Wohnung eigene Handys mit eigenen Topics aus ihrer Kopplung bekommen? **Entschieden 12.11.: ja, beide Wohnungen,
   Handys je Inneneinheit (R27). Umgesetzt 12.11.**
 
+### Härtung Stufe B – umkehrbarer Teil HB.1–HB.6 (12./13.11.2026, TOWER, an IN-2; Konzept `docs/Haertung_Stufe_B.md`)
+
+Neu: `main/cb_nvs_secure` (NVS-Verschlüsselung mit HMAC-Schlüssel in eFuse KEY0, Umleitung von `nvs_flash_init`,
+Markierung in `nvs_keys`, Übernahme, Brennbefehl `haertung nvs-schluessel BRENNEN <Gerätenummer>`, Liste
+`nvs-liste`), Prüfung der Sicherheitsversion beim Update, Testbauten `innen-hbtest` / `innen-hbemu`. Ausgangslage
+aller drei Boards per `espefuse summary` (nur lesend): eFuses im Auslieferungszustand.
+
+| Zeile | Board | Prüfung | Ergebnis |
+|---|---|---|---|
+| HB.1 | `cb.py test` | Sicherheitsversion aus dem Image-Kopf, Vergleich mit eFuse | ✓ 133 Tests, 2949 Prüfungen, 0 Fehler |
+| HB.0 | Linker-Map | ruft `initArduino` den Wrapper? | ✓ `call8 … <__wrap_nvs_flash_init>` |
+| HB.4 | IN-2, Normalbau | ungebrannt wie bisher | ✓ „storage plain“, KEY0 frei, Sicherheitsversion 0; IN-2 normal |
+| HB.3 | IN-2, `innen-hbtest` | Übernahme Klartext → verschlüsselt | ✓ „migrated“, WLAN, Wohnungsname, Startzähler fortlaufend; 39/39 Einträge |
+| HB.2 | IN-2, verschlüsselt | Klingeln, Neustart | ✓ `ring og` quittiert, nach `reboot` „encrypted“, Einrichtung erhalten. **Nicht geprüft:** Werksreset verschlüsselt, Stromausfall mitten in der Übernahme |
+| HB.5 | IN-2, `innen-hbtest` (eFuse-Nachbildung) | Stufe-1-Firmware per Webseite, dann Stufe 0 | ✓ nach 60 s Probezeit Sicherheitsversion 1; Stufe 0 auch mit „ältere Version zulassen“ abgelehnt: HTTP 422 „Sicherheitsstufe 0 dieser Firmware liegt unter der des Geräts (1)“. Zusätzlich: der Bootloader startete eine per USB geflashte Stufe-0-Firmware nicht |
+| HB.3b | IN-2 | Rückweg `haertung klartext JA`, Normalbau | ✓ 40/40 Einträge, 39 identisch, nur `cb_sys/boots` geändert (gewollt) |
+| HB.6 | IN-2, `innen-hbemu` | Brennbefehl gegen nachgebildete eFuses | ✓ falsche Gerätenummer abgelehnt; mit richtiger: KEY0 Zweck 8 (`HMAC_UP`), belegt; Ableitung scheitert erwartungsgemäß (HMAC-Baustein sieht die echten eFuses) → Speicher bleibt Klartext. **Echte eFuses danach gegengelesen: KEY0 USER, Sicherheitsversion 0, keine Sperren** |
+| HB.6b | – | Meldung des Brennbefehls | ✗ → behoben: meldete „NOT burned … restarting“, obwohl geschrieben und kein Neustart; jetzt nach eFuse-Zustand (gebrannt + nutzbar / gebrannt, Ableitung fehlgeschlagen / nicht gebrannt) |
+| HB.4b | AU-1, IN-1, IN-2 | Normalbau mit B1-Code auf allen | ✓ alle „storage plain“, KEY0 frei; `ring eg` quittiert, Gegenstellen ok |
+
+Aufgeräumt an IN-2: Bereich `emul_efuse` und App-Slot app1 (mit Testimage Stufe 1) gelöscht; IN-2 startet aus app0.
+Offen: Freigabe HB.7 (IN-2 brennen).
+
 ### OG mit echtem Handy – R27.10, 21.9, FW-B-23 (12.11.2026 abends, TOWER, gemeinsam mit dem Meister, Firmware `67e3e6f`)
 
 | Zeile | Board | Ergebnis |

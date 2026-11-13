@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <Preferences.h>
 #include <esp_app_desc.h>
+#include <esp_efuse.h>
 #include <esp_image_format.h>
 #include <esp_ota_ops.h>
 #include <esp_system.h>
@@ -278,6 +279,13 @@ bool cb_update_write(const uint8_t *d, size_t len, char *msg, size_t n) {
     const char *running = esp_app_get_description()->version;
     if (!allow_older && cb::version_older(version, running)) {
       snprintf(msg, n, "ältere Version %s (läuft: %s) - nur mit „ältere Version zulassen“", version, running);
+      return false;
+    }
+    // Härtung Stufe B (B2): below the security version in the eFuse nothing boots any more - say so before writing.
+    uint32_t sv = cb::image_secure_version(head), fuse = esp_efuse_read_secure_version();
+    if (!cb::secure_version_allowed(sv, fuse)) {
+      snprintf(msg, n, "Sicherheitsstufe %lu dieser Firmware liegt unter der des Geräts (%lu) - startet hier nie mehr",
+               (unsigned long)sv, (unsigned long)fuse);
       return false;
     }
     esp_err_t e = esp_ota_begin(target, OTA_WITH_SEQUENTIAL_WRITES, &ota);

@@ -104,7 +104,8 @@ def signieren(unit: str, py: Path, build_root: Path, spare: bool = False) -> int
     assert blk[0] == 0xE7 and blk[4:36] == hashlib.sha256(data[:-SECTOR]).digest(), "signature block not as expected"
     version = _image_version(data)
     core, _, img_unit = version.partition("+")
-    if img_unit != unit:
+    # Test builds of Härtung Stufe B ("innen-hbtest", "innen-hbemu") carry the unit "innen" in their image.
+    if img_unit != unit.split("-")[0]:
         raise SystemExit(f"image says unit '{img_unit}', expected '{unit}' - wrong build directory?")
     release = build_root / unit / f"clearbell-{core}-{unit}.bin"
     shutil.copyfile(out, release)

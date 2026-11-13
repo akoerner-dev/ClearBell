@@ -1,0 +1,12 @@
+# Test build "innen-hbtest" (Härtung Stufe B, docs/Haertung_Stufe_B.md) - NEVER for a product or a normal unit.
+# tools/cb.py bauen innen-hbtest adds this file after sdkconfig.defaults and sdkconfig.defaults.innen and passes
+# -D CB_HB_TESTKEY=1 (NVS key from software instead of eFuse, see main/cb_nvs_secure.h).
+#
+# Anti-rollback with EMULATED eFuses: every eFuse read/write goes to the partition "emul_efuse" in flash, nothing
+# is burned. Needs the partition table below (coredump gives 0x2000 to emul_efuse; going back to a normal build
+# restores the normal table with the next USB flash).
+CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK=y
+CONFIG_BOOTLOADER_APP_SECURE_VERSION=0
+CONFIG_BOOTLOADER_APP_SEC_VER_SIZE_EFUSE_FIELD=16
+CONFIG_BOOTLOADER_EFUSE_SECURE_VERSION_EMULATE=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions_hbtest.csv"

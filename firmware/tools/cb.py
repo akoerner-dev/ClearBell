@@ -2,6 +2,9 @@
 
     python tools/cb.py test                        PC unit tests (g++), no board needed
     python tools/cb.py bauen aussen|innen|alle     build the firmware image(s) with ESP-IDF
+    python tools/cb.py bauen innen-hbtest          TEST build Härtung Stufe B (software NVS key, emulated eFuses;
+                                                   flashen innen-hbtest COMx - never on a unit in real use)
+    python tools/cb.py bauen innen-hbemu           TEST build: emulated eFuses only (try the burn command)
     python tools/cb.py flashen aussen COM4         build if needed, then flash over USB
     python tools/cb.py toene COM4                  generate the tone files and flash them (LittleFS)
     python tools/cb.py konsole COM4                read the console for 15 s
@@ -69,6 +72,7 @@ IDF_PATH = Path(os.environ.get("CB_IDF_PATH", r"C:\Espressif\esp-idf-v5.5.5"))
 # locks during upload make builds fail at random. Override with CB_BUILD_DIR.
 BUILD_ROOT = Path(os.environ.get("CB_BUILD_DIR", Path.home() / "clearbell-build"))
 UNITS = ("aussen", "innen")
+HB_TEST_UNITS = ("innen-hbtest", "innen-hbemu")  # Härtung Stufe B test builds, docs/Haertung_Stufe_B.md
 
 
 def ensure_managed_components_outside_onedrive() -> None:
@@ -87,10 +91,16 @@ def ensure_managed_components_outside_onedrive() -> None:
 
 
 def idf(unit: str, *args: str) -> int:
-    """Runs idf.py for one unit type inside a PowerShell that has the IDF environment loaded."""
+    """Runs idf.py for one unit type inside a PowerShell that has the IDF environment loaded.
+    unit "innen-hbtest" = test build of Härtung Stufe B (own build dir, software NVS key, emulated eFuses);
+    unit "innen-hbemu"  = the same without the software key: tries the burn command against the emulated eFuses."""
     ensure_managed_components_outside_onedrive()
     build = BUILD_ROOT / unit
-    defaults = f"sdkconfig.defaults;sdkconfig.defaults.{unit}"
+    test = unit in HB_TEST_UNITS
+    testkey = unit == "innen-hbtest"
+    if test:
+        unit = "innen"
+    defaults = f"sdkconfig.defaults;sdkconfig.defaults.{unit}" + (";sdkconfig.defaults.hbtest" if test else "")
     # Each unit has its own build dir AND its own generated sdkconfig, so switching between the two
     # images never mixes configurations.
     # Note: no $ErrorActionPreference='Stop' - Windows PowerShell 5.1 would treat every stderr line of a
@@ -100,6 +110,7 @@ def idf(unit: str, *args: str) -> int:
         f"Set-Location '{FIRMWARE}'; "
         f"idf.py -B '{build}' -D SDKCONFIG='{build / 'sdkconfig'}' -D SDKCONFIG_DEFAULTS='{defaults}' "
         f"-D CB_UNIT_NAME={unit} "
+        + (f"-D CB_HB_TESTKEY={1 if testkey else 0} " if test else "")
         + " ".join(args)
         + "; exit $LASTEXITCODE"
     )
@@ -349,9 +360,9 @@ def main(argv: list[str]) -> int:
         return cmd_test()
     if action == "toene":
         return cmd_toene(argv[2] if len(argv) > 2 else None)
-    if action == "bauen" and len(argv) == 3 and argv[2] in (*UNITS, "alle"):
+    if action == "bauen" and len(argv) == 3 and argv[2] in (*UNITS, "alle", *HB_TEST_UNITS):
         return cmd_bauen(argv[2])
-    if action == "flashen" and len(argv) == 4 and argv[2] in UNITS:
+    if action == "flashen" and len(argv) == 4 and argv[2] in (*UNITS, *HB_TEST_UNITS):
         return cmd_flashen(argv[2], argv[3])
     if action == "konsole" and len(argv) >= 3:
         # "" or "-" = only read. ("-" exists because PowerShell's Start-Job drops empty arguments.)

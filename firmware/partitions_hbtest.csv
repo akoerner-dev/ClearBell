@@ -1,0 +1,15 @@
+# ClearBell V0.2 - flash layout of the TEST BUILD "innen-hbtest" only (Härtung Stufe B, anti-rollback emulation).
+# Identical to partitions.csv except at the end: coredump gives 0x2000 to emul_efuse, where the emulated eFuses live
+# (CONFIG_BOOTLOADER_EFUSE_SECURE_VERSION_EMULATE). All offsets of the data partitions stay - nvs, littlefs, fctry and
+# nvs_keys keep their content when switching between the normal and the test build.
+#
+# Name,     Type, SubType,  Offset,   Size,     Flags
+nvs,        data, nvs,      0x9000,   0x5000,
+otadata,    data, ota,      0xe000,   0x2000,
+app0,       app,  ota_0,    0x10000,  0x640000,
+app1,       app,  ota_1,    0x650000, 0x640000,
+littlefs,   data, littlefs, 0xc90000, 0x350000,
+fctry,      data, nvs,      0xfe0000, 0xf000,
+nvs_keys,   data, nvs_keys, 0xfef000, 0x1000,
+coredump,   data, coredump, 0xff0000, 0xe000,
+emul_efuse, data, efuse,    0xffe000, 0x2000,

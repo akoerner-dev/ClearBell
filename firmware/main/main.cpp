@@ -22,6 +22,7 @@
 #include "cb_log.h"
 #include "cb_modes.h"
 #include "cb_net.h"
+#include "cb_nvs_secure.h"
 #include "cb_provisioning.h"
 #include "cb_remote.h"
 #include "cb_status.h"
@@ -76,6 +77,8 @@ void setup() {
   cb_system_begin();
 
   // Step 6: factory data (role, keys, WiFi). Missing or for the wrong image -> setup mode, nothing else.
+  // Before it: what the NVS wrapper did at Arduino's start (plain / encrypted / migrated, Härtung Stufe B).
+  cb_nvs_secure_begin();
   cb_provisioning_begin();
   // A freshly updated firmware runs on probation (port step 10); a test fault armed with update-fault acts here.
   cb_update_begin();

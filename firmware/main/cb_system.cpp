@@ -17,6 +17,7 @@
 #include "cb_crypto.h"
 #include "cb_log.h"
 #include "cb_modes.h"
+#include "cb_nvs_secure.h"
 #include "cb_provisioning.h"
 #include "cb_status.h"
 #include "cb_update_sig.h"
@@ -184,6 +185,7 @@ void cb_system_json(cb::Json &j) {
     if (CB_IS_OUTDOOR || cb_prov().role == f) j.kv(cb::unit_name(f), cb_prov_flat_name(f));
   j.end_obj();
   j.kv("mode", cb::mode_name(cb_mode()));
+  cb_nvs_secure_json(j);  // Härtung Stufe B: storage encrypted?, eFuse security version
   j.kv("built", CB_BUILD_STAMP);
   j.kv("uptime_s", (unsigned long)(millis() / 1000));
   j.kv("boot", (unsigned long)boot_count);

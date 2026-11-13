@@ -1,6 +1,7 @@
 # Härtung Stufe B – Konzept und Testplan
 
-Stand 12.11.2026 abends, **Entwurf, noch nichts gebrannt.** Grundlage: SA 7.7 (Stufen A/B/C) und R22 („B nach der
+Stand 12.11.2026 abends, **Entscheidungen HB-E1 bis HB-E3 getroffen (Abschnitt 7), umkehrbarer Teil umgesetzt,
+noch nichts gebrannt.** Grundlage: SA 7.7 (Stufen A/B/C) und R22 („B nach der
 Abnahme der Portierung“ – P6 abgenommen am 12.11.2026). Reihenfolge nach Meister 12.11.2026: erst dieses Konzept, dann
 alles Umkehrbare ausprobieren, **gebrannt wird erst nach ausdrücklicher Freigabe, zuerst nur an IN-2.**
 Geprüft gegen ESP-IDF v5.5.5 (Quelltext und Kconfig im lokalen IDF), nicht nur gegen Doku.
@@ -53,9 +54,15 @@ schon das bloße Aufspielen der Firmware würde brennen. **Entwurf deshalb:**
 - **Schlüssel auf dem Chip erzeugt** (Vorschlag, Entscheidung HB-E1 unten): niemand kennt ihn, auch der Hersteller
   nicht. Folge: PC-Werkzeuge können keine fertigen NVS-Abbilder mehr schreiben. Heute schreiben `werk` und
   `provisionieren` nur `fctry`; die Käuferdaten entstehen ohnehin auf der Einrichtungsseite (R24) → kein Verlust.
-- **Bootablauf:** Der Arduino-Kern öffnet `nvs` schon vor `setup()` im Klartext (`initArduino` → `nvs_flash_init`).
-  Schritt 6 der Startsequenz (vor jedem anderen NVS-Nutzer, vor WLAN) schließt ihn wieder (`nvs_flash_deinit`) und
-  öffnet ihn verschlüsselt. Das WLAN speichert nichts im NVS (`WiFi.persistent(false)`).
+- **Bootablauf (umgesetzt in `main/cb_nvs_secure`):** Der Arduino-Kern öffnet `nvs` schon vor `setup()` im
+  Klartext (`initArduino` → `nvs_flash_init`), und ein Klartext-Öffnen über verschlüsselten Daten **löscht** die
+  Einträge (Kopf-CRC passt nicht, `nvs_page.cpp`). Deshalb wird `nvs_flash_init` beim Linken umgeleitet
+  (`--wrap`); die Entscheidung Klartext/verschlüsselt/Übernahme fällt genau dort. Eine Markierung (Kennung +
+  8-Byte-Fingerabdruck der abgeleiteten Schlüssel) in der bisher reservierten Partition `nvs_keys` sagt, ob und mit
+  welchem Schlüssel der NVS verschlüsselt ist. Fälle: kein Schlüssel → Klartext; Schlüssel + passende Markierung →
+  verschlüsselt; Schlüssel ohne Markierung → Übernahme; Markierung eines anderen Schlüssels → löschen, leer
+  verschlüsselt; Markierung ohne Schlüssel → nicht öffnen (Einheit bleibt unkonfiguriert statt Daten zu löschen).
+  Das WLAN speichert nichts im NVS (`WiFi.persistent(false)`).
 - **Übernahme der bestehenden Daten** (Vorschlag, HB-E2): Beim ersten Start mit Schlüssel liest die Firmware alle
   Einträge des Klartext-NVS in den RAM, löscht die Partition, öffnet sie verschlüsselt und schreibt alles zurück.
   Stromausfall genau in diesem Moment = Daten weg → Einrichtung neu (Werksreset-Zustand, nichts Schlimmeres). Die
@@ -89,12 +96,12 @@ Erst umkehrbar (HB.1–HB.6), dann endgültig an IN-2 (HB.7–HB.10), dann die �
 
 | Zeile | Was | umkehrbar? |
 |---|---|---|
-| HB.1 | PC-Tests: Übernahme-Logik (Einträge lesen/zurückschreiben) mit Nachbildung | ja |
+| HB.1 | PC-Tests: Sicherheitsversion aus dem Image-Kopf, Vergleich mit dem eFuse-Wert (die Übernahme-Logik braucht die echte NVS-Bibliothek → am Gerät, HB.3) | ja |
 | HB.2 | NVS verschlüsselt mit einem **Testschlüssel aus der Software** (kein eFuse) an IN-2: Einrichtung, Kopplung, Handys, Neustart, Werksreset | ja (danach Klartext zurück) |
 | HB.3 | Übernahme Klartext → verschlüsselt mit Testschlüssel, inkl. Stromausfall mitten drin | ja |
 | HB.4 | Image mit B1-Code auf ungebranntem Board: läuft wie heute (Klartext), Statusseite „verschlüsselt: nein“ | ja |
 | HB.5 | Anti-Rollback mit eFuse-Nachbildung an IN-2: Version 0 → 1 → Update mit 0 abgelehnt, Probezeit abgebrochen brennt nicht | ja |
-| HB.6 | Brennbefehl gegen `espefuse --virt` (virtuelle eFuses am PC) und in der Nachbildung: richtiger Platz, Zweck, Sperren | ja |
+| HB.6 | Brennbefehl in der eFuse-Nachbildung (`innen-hbemu`): Bestätigung, richtiger Platz und Zweck; echte eFuses danach gegenlesen | ja |
 | HB.7 | **IN-2: NVS-Schlüssel brennen** (nach Freigabe), `espefuse summary` vorher/nachher | **nein** |
 | HB.8 | IN-2: Übernahme der echten Daten, Klingeln, Tür, Handy, Neustart, Werksreset, erneute Einrichtung | – |
 | HB.9 | IN-2: Bootloader mit Anti-Rollback per USB, Sicherheitsversion 0 (brennt nichts) | ja |
@@ -103,19 +110,38 @@ Erst umkehrbar (HB.1–HB.6), dann endgültig an IN-2 (HB.7–HB.10), dann die �
 
 Danach 24 h Normalbetrieb aller drei, bevor Stufe B als fertig gilt.
 
-## 7 Offene Entscheidungen des Meisters
+**Stand 13.11.2026:** HB.1–HB.6 bestanden (Belege: Testprotokoll „Härtung Stufe B – umkehrbarer Teil“); nicht geprüft
+sind der Werksreset im verschlüsselten Zustand und ein Stromausfall mitten in der Übernahme. Alle drei Boards laufen
+mit dem B1-Code ungebrannt im Klartext. **Nächster Schritt HB.7 wartet auf die Freigabe des Meisters.**
 
-- **HB-E1_Schluessel_auf_dem_Chip:** Schlüssel auf dem Chip erzeugen (Vorschlag; niemand kennt ihn) oder am PC
-  erzeugen und in `Geheimnisse` aufbewahren (PC-Werkzeuge könnten dann verschlüsselte NVS-Abbilder schreiben, dafür
-  ein weiteres Geheimnis je Gerät).
-- **HB-E2_Daten_uebernehmen:** bestehende Einrichtung automatisch übernehmen (Vorschlag) oder je Board neu einrichten.
-- **HB-E3_Sicherheitsversion_nur_bei_Luecken:** Regel zum Erhöhen der Sicherheitsversion wie in Abschnitt 5.
-- **Freigabe zum Brennen** je Board (HB.7, HB.11) – erst nach HB.1–HB.6.
+## 7 Entscheidungen des Meisters
+
+**12.11.2026: „Ja, alle drei“** (Vorschläge angenommen):
+
+- **HB-E1_Schluessel_auf_dem_Chip:** Der Schlüssel wird auf dem Chip erzeugt; niemand kennt ihn.
+- **HB-E2_Daten_uebernehmen:** Die bestehende Einrichtung wird beim ersten Start mit Schlüssel automatisch übernommen.
+- **HB-E3_Sicherheitsversion_nur_bei_Luecken:** Die Sicherheitsversion steigt nur bei einer ernsten Lücke, mit Grund
+  im CHANGELOG.
+
+Offen: **Freigabe zum Brennen** je Board (HB.7, HB.11) – erst nach HB.1–HB.6.
+
+## 7a Testbauten
+
+`cb.py bauen innen-hbtest` (Softwareschlüssel + eFuse-Nachbildung + Tabelle `partitions_hbtest.csv`) und
+`cb.py bauen innen-hbemu` (nur eFuse-Nachbildung, für den Brennbefehl). Eigene Bauordner; beide nie auf einer Einheit im
+echten Einsatz lassen. Zurück: `haertung klartext JA` (nur im Testbau mit Softwareschlüssel), dann normal per USB flashen.
 
 ## 8 Fallen (12.11.2026)
 
 - `espefuse summary` lässt das Board im Download-Modus; danach `esptool --after watchdog_reset read_mac` (wie FW-B-18).
   Die pySerial-Fehlermeldung beim Neuverbinden ist dabei harmlos.
 - `nvs_flash_init()` mit `CONFIG_NVS_ENCRYPTION` brennt selbst (Abschnitt 4).
+- **Anti-Rollback wirkt auch im Test:** Nach Sicherheitsversion 1 in der Nachbildung startete der Bootloader eine
+  per USB geflashte Stufe-0-Firmware nicht, sondern die Stufe-1-Firmware aus dem anderen Slot. Zurück: Bereich
+  `emul_efuse` löschen (`esptool erase_region 0xffe000 0x2000`), danach den anderen App-Slot löschen, damit kein
+  Testimage mehr startbar ist.
+- Das Logging verwirft Zeilen, wenn viele auf einmal kommen (gewollt, blockiert nie) – lange Listen auf der Konsole
+  takten (`nvs-liste` wartet 15 ms je Zeile).
+- `Out-File` in PowerShell bricht lange Zeilen um → Konsolenausgaben aus `build/konsole/*.log` auswerten.
 - Die eFuse-Nachbildung ändert nicht, was der HMAC-Baustein sieht – B1 lässt sich nur mit Softwareschlüssel (HB.2)
   oder echt (HB.7) testen, nicht in der Nachbildung.

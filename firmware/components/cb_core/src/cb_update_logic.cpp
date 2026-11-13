@@ -56,6 +56,10 @@ ImageCheck check_image_header(const uint8_t *b, size_t n, const char *unit, char
   return ImageCheck::Ok;
 }
 
+uint32_t image_secure_version(const uint8_t *b) {
+  return b ? get_u32le(b + kDesc + 4) : 0;
+}
+
 namespace {
 struct SemVer {
   long part[3];

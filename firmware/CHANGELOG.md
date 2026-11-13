@@ -5,6 +5,16 @@ Versionen nach SemVer; `version.txt` ist die Quelle. Solange die Portierung läu
 
 ## 0.2.0-dev (in Arbeit)
 
+### Härtung Stufe B vorbereitet (12./13.11.2026, nichts gebrannt)
+
+- NVS-Verschlüsselung mit HMAC-Schlüssel in eFuse KEY0 (`main/cb_nvs_secure`): ein Image für gebrannte und ungebrannte
+  Boards; gebrannt wird nur mit `haertung nvs-schluessel BRENNEN <Gerätenummer>` über USB (Schlüssel entsteht auf dem
+  Chip, HB-E1); beim ersten Start mit Schlüssel wird die bestehende Einrichtung übernommen (HB-E2).
+  `CONFIG_NVS_ENCRYPTION` bleibt bewusst aus (würde selbst brennen).
+- Update-Seite lehnt Firmware unterhalb der Sicherheitsversion im eFuse mit Klartext ab (Anti-Rollback, HB-E3).
+- Konsole `haertung`, `nvs-liste`; Statusseite (Diagnose → System): „Speicher verschlüsselt“, „Sicherheitsstufe“.
+- Testbauten `cb.py bauen innen-hbtest` (Softwareschlüssel + eFuse-Nachbildung) und `innen-hbemu` (nur Nachbildung).
+
 ### Handy hinzufügen ohne Wiederholung (12.11.2026, FW-B-23)
 
 - Nach „Hinzufügen“ lädt die Handy-Liste sofort neu; der ntfy-Link bleibt stehen, darunter „Test an ‹Handy› senden“

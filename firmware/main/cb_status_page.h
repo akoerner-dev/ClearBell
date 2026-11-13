@@ -358,7 +358,8 @@ function diagnosis(d){
     kv(b,'Push gesendet / fehlgeschlagen',o.pushes_ok+' / '+o.pushes_failed,o.pushes_failed?'warn':'');
     b.append($('p','mute','Antwortet die Außeneinheit 2 min nicht, bekommen die Handys dieser Wohnung eine Nachricht – und wieder, wenn sie zurück ist.'))}))}
   const a=d.audio;c.append(fold('audio','Audio',b=>{kv(b,'bereit',a.ready?'ja':'nein',a.ready?'ok':'bad');kv(b,'gespielt / Fehler',a.played+' / '+a.failed,a.failed?'warn':'')}));
-  c.append(fold('sys','System',b=>{kv(b,'Firmware',sy.version);kv(b,'gebaut',sy.built);kv(b,'Rolle',sy.role);kv(b,'Laufzeit',dur(sy.uptime_s));kv(b,'Start Nr.',sy.boot);
+  c.append(fold('sys','System',b=>{kv(b,'Firmware',sy.version);kv(b,'gebaut',sy.built);kv(b,'Rolle',sy.role);
+    kv(b,'Speicher verschlüsselt',sy.nvs_encrypted?'ja':'nein ('+sy.nvs_state+')',sy.nvs_encrypted?'ok':'');kv(b,'Sicherheitsstufe',sy.efuse_secure_version);kv(b,'Laufzeit',dur(sy.uptime_s));kv(b,'Start Nr.',sy.boot);
     kv(b,'letzter Neustart',sy.reset_reason,/WATCHDOG|PANIC|BROWNOUT/.test(sy.reset_reason)?'bad':'');
     kv(b,'RAM frei (kleinster Wert)',kb(sy.heap_free)+' ('+kb(sy.heap_min)+')',sy.heap_min<40960?'bad':'');kv(b,'PSRAM frei',kb(sy.psram_free));
     kv(b,'Firmware-Slot',sy.ota_slot+(sy.update_pending?' (Update unbestätigt)':''));kv(b,'Absturzabbild',sy.coredump?'vorhanden':'keins',sy.coredump?'bad':'ok');

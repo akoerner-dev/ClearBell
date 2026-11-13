@@ -33,6 +33,13 @@ const char *image_check_name(ImageCheck c);
 // image's version string (e.g. "0.2.1+innen") when the description could be read.
 ImageCheck check_image_header(const uint8_t *b, size_t n, const char *unit, char version_out[33]);
 
+// Anti-rollback (Härtung Stufe B, B2): the image's security version (esp_app_desc_t.secure_version, set by
+// CONFIG_BOOTLOADER_APP_SECURE_VERSION). Call only after check_image_header() returned Ok.
+uint32_t image_secure_version(const uint8_t *b);
+// May an image with security version `image` run on a chip whose eFuse holds `efuse`? (The bootloader and
+// esp_ota_set_boot_partition() refuse it otherwise - the update page says so before writing a byte.)
+inline bool secure_version_allowed(uint32_t image, uint32_t efuse) { return image >= efuse; }
+
 // Downgrade protection (port step 10d, R26): is `candidate` an OLDER firmware than `running`? Versions are SemVer
 // "major.minor.patch[-pre][+unit]"; the unit part is ignored, a pre-release is older than its release
 // ("0.2.0-dev" < "0.2.0"), two pre-releases compare as text. A version that cannot be parsed counts as older, so it
