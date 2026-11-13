@@ -113,6 +113,18 @@ Befunde 10.11.2026 abends (noch nicht behoben):
   Wohnung eigene Handys mit eigenen Topics aus ihrer Kopplung bekommen? **Entschieden 12.11.: ja, beide Wohnungen,
   Handys je Inneneinheit (R27). Umgesetzt 12.11.**
 
+### Härtung Stufe B – IN-2 gebrannt, HB.7/HB.8/HB.10 (13.11.2026 morgens, TOWER, Firmware `845753c`)
+
+Freigabe Meister 13.11.2026: „Ja, IN-2 brennen“ – nur IN-2.
+
+| Zeile | Board | Prüfung | Ergebnis |
+|---|---|---|---|
+| HB.10a | IN-2 vorher | Flash-Abzug `nvs` (0x9000, 0x5000) auf Klartext-Geheimnisse | WLAN-Name, WLAN-Passwort, Statusseiten-Passwort, Schlüsselnamen je ≥ 1× lesbar (Gegenprobe, dass die Suche greift) |
+| HB.7 | IN-2 | vorher `haertung`: Normalbau, Schlüsselquelle keine, KEY0 frei (automatisch geprüft); `haertung nvs-schluessel BRENNEN <Gerätenummer>` | ✓ „NVS key BURNED into eFuse KEY0 and usable“, Neustart, „storage MIGRATED to encrypted (40 entries, key efuse)“ |
+| HB.7b | IN-2, `espefuse summary` vorher/nachher | eFuse-Zustand | vorher alles leer; nachher `KEY_PURPOSE_0` = HMAC_UP (schreibgesperrt), `RD_DIS` = 1, `WR_DIS` gesetzt, `BLOCK_KEY0` = „?? …“ (nicht les-/schreibbar); Secure Boot, Flash-Verschlüsselung, Download-Sperre weiter aus, Sicherheitsversion 0 |
+| HB.8 | IN-2 | Übernahme, Klingeln, Neustart | ✓ `nvs-liste` 40/40, 39 identisch (nur `cb_sys/boots`); Wohnungsname, WLAN, Kopplung, Handy „Andre“ erhalten; `ring og` quittiert; nach `reboot` und nach Kaltstart „storage encrypted (key efuse)“. **Offen:** Werksreset mit erneuter Einrichtung (würde das Handy löschen – nur mit dem Meister) |
+| HB.10 | IN-2 nachher | derselbe Flash-Abzug | ✓ WLAN-Name, WLAN-Passwort, Statusseiten-Passwort, Schlüsselnamen je 0× im Klartext |
+
 ### Härtung Stufe B – umkehrbarer Teil HB.1–HB.6 (12./13.11.2026, TOWER, an IN-2; Konzept `docs/Haertung_Stufe_B.md`)
 
 Neu: `main/cb_nvs_secure` (NVS-Verschlüsselung mit HMAC-Schlüssel in eFuse KEY0, Umleitung von `nvs_flash_init`,

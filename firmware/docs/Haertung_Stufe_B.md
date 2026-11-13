@@ -110,7 +110,11 @@ Erst umkehrbar (HB.1–HB.6), dann endgültig an IN-2 (HB.7–HB.10), dann die �
 
 Danach 24 h Normalbetrieb aller drei, bevor Stufe B als fertig gilt.
 
-**Stand 13.11.2026:** HB.1–HB.6 bestanden (Belege: Testprotokoll „Härtung Stufe B – umkehrbarer Teil“); nicht geprüft
+**Stand 13.11.2026 morgens:** **IN-2 gebrannt** (HB.7, Freigabe Meister „Ja, IN-2 brennen“), Übernahme und
+Flash-Gegenprobe bestanden (HB.8 teilweise, HB.10). Offen: HB.8 Werksreset mit erneuter Einrichtung (löscht das
+eingetragene Handy), HB.9 Bootloader mit Anti-Rollback, HB.11 IN-1 und AU-1 (je eigene Freigabe), 24 h Normalbetrieb.
+
+**Stand 13.11.2026 (davor):** HB.1–HB.6 bestanden (Belege: Testprotokoll „Härtung Stufe B – umkehrbarer Teil“); nicht geprüft
 sind der Werksreset im verschlüsselten Zustand und ein Stromausfall mitten in der Übernahme. Alle drei Boards laufen
 mit dem B1-Code ungebrannt im Klartext. **Nächster Schritt HB.7 wartet auf die Freigabe des Meisters.**
 

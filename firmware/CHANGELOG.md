@@ -5,6 +5,11 @@ Versionen nach SemVer; `version.txt` ist die Quelle. Solange die Portierung läu
 
 ## 0.2.0-dev (in Arbeit)
 
+### Härtung Stufe B: IN-2 gebrannt (13.11.2026)
+
+- Erstes Board mit NVS-Schlüssel im eFuse (IN-2, Freigabe des Meisters); Speicher übernommen und verschlüsselt, keine
+  Geheimnisse mehr im Klartext im Flash. IN-1 und AU-1 weiter ungebrannt.
+
 ### Härtung Stufe B vorbereitet (12./13.11.2026, nichts gebrannt)
 
 - NVS-Verschlüsselung mit HMAC-Schlüssel in eFuse KEY0 (`main/cb_nvs_secure`): ein Image für gebrannte und ungebrannte
