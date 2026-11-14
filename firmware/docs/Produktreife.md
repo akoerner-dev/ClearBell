@@ -1,6 +1,8 @@
 # Produktreife der Firmware – Prüfung der Schritte 1–9 und Konzept „Inbetriebnahme ohne PC“
 
-Stand 06.11.2026. **Umgesetzt in den Portierungsschritten 10, 10a, 10b, 10c (06.11.2026); Belege im
+Stand 06.11.2026, nachgeführt 14.11.2026 (Sicherheitskatalog Phase 2: Entscheidungen R30–R33 der Entscheidungstabelle in Abschnitt 12 von
+[Softwarearchitektur_V0.2](../../docs/Softwarearchitektur_V0.2.md) – Kopplung nur mit Taster, Zugangspunkt eingeschränkt,
+Besitzerschlüssel mit Tastenbestätigung, Passwort mindestens 10 Zeichen). **Umgesetzt in den Portierungsschritten 10, 10a, 10b, 10c (06.11.2026); Belege im
 [Testprotokoll](Testprotokoll.md). Offen: ~~eigenes Statusseiten-Passwort wählen~~ (✓ 08.11.2026), Ländercode als Einstellung,
 iOS-Verfahren, Etikett-Entscheidung.** Anlass: ClearBell soll unter Umständen verkauft werden. Daraus zwei Maßstäbe (Meister 06.11.2026):
 
@@ -49,7 +51,9 @@ Schwere: **A** = verhindert den Verkauf, **B** = muss vor dem Verkauf geändert 
 | 6 Touch | Schwellen sind Entwürfe für **unsere** Holzfront | C | nach der Montage festlegen; später Empfindlichkeit als Einstellung |
 | 7 Türöffner | Pulslänge 2000 ms fest – der Käufer hat **einen anderen Türöffner** (F-3) | **B** | Pulslänge auf der Webseite der Außeneinheit einstellbar (100–5000 ms, Wartung) |
 | 8 Statusseite | Webseite ✓, Gerätepasswort je Gerät ✓, **eigenes Passwort ✓ (08.11.2026)** | – | Passwort ändern in der Wartung (verschlüsselt übertragen); Rückkehr zum Etikett-Passwort per leerem Feld oder Werksreset |
-| 8 Wartung | Wartung **nur über den Boot-Taster im Gehäuse** – für die Außeneinheit heißt das: Gehäuse öffnen | B | Wartung der Außeneinheit zusätzlich **von einer gekoppelten Inneneinheit aus** freigeben (dort Taster = physische Anwesenheit in der Wohnung); Hardwarefrage siehe Abschnitt 5 |
+| 8 Wartung | Wartung **nur über den Boot-Taster im Gehäuse** – für die Außeneinheit heißt das: Gehäuse öffnen | B | Wartung der Außeneinheit zusätzlich **von einer gekoppelten Inneneinheit aus** freigeben (dort Taster = physische Anwesenheit in der Wohnung); Hardwarefrage siehe Abschnitt 5. **Seit R31 (14.11.2026) nur Töne, Update und Pulslänge – Koppeln und Entfernen bleiben am Taster der Außeneinheit** |
+| 8 Statusseite | eigenes Passwort ohne Mindestlänge (4 Zeichen), Login-Sperre für das ganze Gerät: ein Fremder im WLAN konnte alle aussperren | B | seit R33 (14.11.2026): mindestens 10 Zeichen (bereits gespeicherte kürzere gelten weiter), Sperre je Absender |
+| 10 Updates | eigener Update-Schlüssel und „nur eigener“ ließen sich ohne Anwesenheit setzen | B | seit R32 (14.11.2026): auf der Seite nur vorgemerkt, wirksam erst mit kurzem Druck auf den Boot-Taster der Einheit innerhalb von 60 s (LED blinkt schnell gelb) |
 | 9 Fern-Öffnen | Topics und Handy-Schlüssel nur per PC; Link braucht die Kurzbefehl-ID vom Handy | **A** | Handy hinzufügen auf der Webseite der **eigenen Inneneinheit**: zwei Links/QR – ntfy abonnieren, Kurzbefehl importieren (mit Schlüssel und festem Link, ohne Abtippen). **Seit R27 (12.11.2026): nur noch ein ntfy-Link, kein Kurzbefehl** |
 | 9 Fern-Öffnen | Wer Handys verwaltet: heute die Anlagendatei. Die Außeneinheit gehört beiden Haushalten | B | Handys verwaltet **jeder Haushalt an seiner Inneneinheit**; sie gibt den Schlüssel verschlüsselt über die gekoppelte Verbindung an die Außeneinheit |
 | 9 Fern-Öffnen | fest `ntfy.sh` | C | Server als Einstellung (eigener ntfy-Server möglich); Hinweis im Datenschutztext: Klingelzeit läuft über den Dienst |
@@ -78,21 +82,32 @@ Etikett drucken: Gerätenummer, Gerätecode, QR-Code. Sonst nichts – kein WLAN
    draufhalten, verbunden. Die Einrichtungsseite öffnet sich von selbst (Captive Portal), sonst `http://192.168.4.1`.
 2. **Heim-WLAN wählen** (Liste), Passwort eingeben; innen zusätzlich **Wohnung EG oder OG**. „Speichern“ – die Einheit
    verbindet sich und ist unter `clearbell-<Gerätenummer>.local` erreichbar. Der Zugangspunkt geht aus.
-3. **Koppeln.** Auf der Seite der Außeneinheit „Inneneinheit koppeln“: Sie zeigt die gefundenen Inneneinheiten im
+3. **Koppeln.** Außeneinheit vorher in die Wartung versetzen: Boot-Taster an der Außeneinheit 5 s halten (R31; gilt
+   auch für die erste Kopplung einer freien Wohnung; die Wartung endet nach 10 min). Dann auf der Seite der
+   Außeneinheit „Inneneinheit koppeln“: Sie zeigt die gefundenen Inneneinheiten im
    Netz; man wählt eine und tippt **deren Gerätecode** vom Etikett ein. Die Außeneinheit erzeugt den
    Verbindungsschlüssel und schickt ihn der Inneneinheit, verschlüsselt und signiert mit einem Schlüssel aus deren
    Gerätecode. Ohne den Code vom Etikett der Inneneinheit – also ohne Zugang zu dieser Wohnung – kann sich niemand
-   dazwischenschalten, auch nicht der andere Haushalt im selben WLAN (Angreifer F).
+   dazwischenschalten, auch nicht der andere Haushalt im selben WLAN (Angreifer F). Wer nur Zugang zum WLAN hat, aber
+   nicht zum Taster der Außeneinheit, kann weder koppeln noch entfernen. Die „Wartung von innen“ (von einer
+   Inneneinheit geöffnet) ersetzt den Taster hier nicht.
    **Entfernen oder Ersetzen einer Kopplung löscht die Handys dieser Wohnung** – nach einem Auszug oder Gerätetausch
    kann kein früheres Handy mehr öffnen; die Handys werden an der Inneneinheit neu hinzugefügt (VK-01, 14.11.2026).
 4. **Handy (optional, EG und OG).** Auf der Seite der **eigenen Inneneinheit** „Handy hinzufügen“: Name eingeben,
    dann ein Link „ntfy: Nachrichten abonnieren“ (`ntfy://…`); „Test“, „Link“ und „Entfernen“ daneben (R27, 12.11.2026;
    vorher zusätzlich ein Kurzbefehl-Import für HTTP Shortcuts).
 5. **Fertig.** Klingeln, Türtaste, Push funktionieren. Später: Töne tauschen, Pulslänge, Updates – alles in der Wartung
-   auf der Webseite.
+   auf der Webseite (an der Außeneinheit auch von einer Inneneinheit aus freigebbar, R31). Setzt der Besitzer einen
+   eigenen Update-Schlüssel oder „nur eigener“, merkt die Seite das nur vor; dann innerhalb von 60 s den Boot-Taster
+   der Einheit kurz drücken (LED blinkt schnell gelb), erst dann gilt es (R32).
+
+**Passwort der Statusseite:** ein eigenes Passwort hat mindestens 10 Zeichen (R33); falsche Eingaben sperren nur das
+Gerät des Eingebenden, nicht alle.
 
 **Wieder einrichten** (Routertausch): Taster 2 × 5 s → Einrichtung, der Zugangspunkt kommt wieder; Kopplung und
-Handys bleiben erhalten. **Werksreset**: in der Einrichtung Taster 15 s oder Knopf auf der Seite – alles des Käufers
+Handys bleiben erhalten. Fällt das WLAN von selbst aus, öffnet die Einheit nach 5 min den Zugangspunkt von allein
+(R30) – ohne Taster, aber nur zum **WLAN-Wechsel**, höchstens 30 min je WLAN-Verlust, mit eigenem Passwort, sobald
+eines gesetzt ist. Werksreset, Klingeltaste, Name und Kopplung gibt es dort nicht; dafür Einrichtung per Taster. **Werksreset**: in der Einrichtung Taster 15 s oder Knopf auf der Seite – alles des Käufers
 ist weg, das Etikett gilt weiter.
 
 ### 3.3 Folgen für die Architektur (SA, deutsch und englisch)
@@ -100,8 +115,10 @@ ist weg, das Etikett gilt weiter.
 - SA 5.9 „Die Erstprovisionierung läuft über USB“ → nur noch Werk; Käufer über den Einrichtungs-Zugangspunkt.
 - SA 6.2: `fctry` = nur Werk (Nummer, Code); Käuferdaten in eigenem NVS-Bereich (`cb_user`), den der Werksreset löscht.
 - SA 4.x: neuer Nachrichtentyp „Kopplung“ und „Handy-Schlüssel übergeben“ (verschlüsselt, nicht nur signiert).
-- SA 7.x: Gerätecode als Besitznachweis (wie Espressifs „Proof of Possession“); Zugangspunkt nur in der Einrichtung,
-  mit Zeitlimit 30 min.
+- SA 7.x: Gerätecode als Besitznachweis (wie Espressifs „Proof of Possession“); Zugangspunkt in der Einrichtung
+  (Taster) ohne Einschränkung; der von selbst geöffnete Zugangspunkt nur für den WLAN-Wechsel, höchstens 30 min je
+  WLAN-Verlust, PMF verlangt, wo der Router es kann (R30). Koppeln nur mit Taster (R31), Besitzerschlüssel mit
+  Tastenbestätigung (R32), Passwort mindestens 10 Zeichen, Sperre je Absender (R33).
 - Portierungsplan: neuer Schritt **„Inbetriebnahme per Webseite“** vor der Abnahme.
 
 ---
@@ -112,7 +129,7 @@ ist weg, das Etikett gilt weiter.
 |---|---|---|
 | 10 | Updates per Upload in der Wartung, Rollback nach Selbsttest (wie besprochen, ohne Schlüssel) | 1 Sitzung |
 | 10a (neu) | Werk ↔ Käufer trennen, Werksreset korrigieren, Einrichtungs-Zugangspunkt mit Captive Portal, WLAN-Auswahl, Rolle | 1–2 Sitzungen |
-| 10b (neu) | Kopplung per Gerätecode, eindeutige Namen, Pulslänge einstellbar, Wartung der Außeneinheit von innen | 1–2 Sitzungen |
+| 10b (neu) | Kopplung per Gerätecode, eindeutige Namen, Pulslänge einstellbar, Wartung der Außeneinheit von innen (seit R31 ohne Kopplung) | 1–2 Sitzungen |
 | 10c (neu) | Handy hinzufügen/sperren über die Inneneinheit, ntfy- und Import-Link | 1 Sitzung |
 | 11 | Abnahme, Dauertests | wie geplant |
 
