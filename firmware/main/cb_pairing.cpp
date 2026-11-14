@@ -68,11 +68,8 @@ esp_err_t h_pair_accept(httpd_req_t *req) {
   const CbProvisioning &p = cb_prov();
   uint32_t now = millis(), src = cb_http_peer_ipv4(req);
   if (pair_guard.locked(src, now)) return reply(req, "429 Too Many Requests", false, "gesperrt - später erneut");
-  bool ready = !p.has_key[(int)cb::UnitId::Outdoor] || cb_mode() != cb::Mode::Normal;
-  if (!ready)
-    return reply(req, "409 Conflict", false,
-                 "Inneneinheit ist schon gekoppelt - zum Neu-Koppeln dort Wartung öffnen (Boot-Taster 5 s)");
-  if (!p.valid) return reply(req, "409 Conflict", false, "Inneneinheit ist noch nicht eingerichtet (WLAN, Wohnung)");
+  cb::Access acc = cb::mode_access(cb::Endpoint::PairAccept, cb_access_input(req));  // RV-45
+  if (!acc.ok) return reply(req, acc.status, false, acc.message);
   char body[400], au[8], in[8], n[40], e[72], t[72];
   cb::PairOffer o;
   if (!read_body(req, body, sizeof body) || !cb::form_get(body, "au", au, sizeof au) ||
@@ -113,10 +110,8 @@ esp_err_t h_pair_accept(httpd_req_t *req) {
 esp_err_t h_flat_name(httpd_req_t *req) {
   if (!cb_status_authorize(req)) return ESP_OK;
   const CbProvisioning &p = cb_prov();
-  if (cb_mode() == cb::Mode::Normal && !cb_setup_from_ap(req))
-    return reply(req, "403 Forbidden", false, "nur in der Wartung dieser Inneneinheit (Boot-Taster 5 s)");
-  if (p.role != cb::UnitId::EG && p.role != cb::UnitId::OG)
-    return reply(req, "409 Conflict", false, "erst die Klingeltaste wählen (Einrichtung)");
+  cb::Access acc = cb::mode_access(cb::Endpoint::FlatName, cb_access_input(req));  // RV-45: rules in cb_access
+  if (!acc.ok) return reply(req, acc.status, false, acc.message);
   char body[200], raw[120], name[cb::kFlatNameMaxBytes + 1];
   if (!read_body(req, body, sizeof body) || !cb::form_get(body, "name", raw, sizeof raw))
     return reply(req, "400 Bad Request", false, "Name fehlt");
@@ -133,9 +128,8 @@ esp_err_t h_flat_name(httpd_req_t *req) {
 
 esp_err_t h_outdoor_maint(httpd_req_t *req) {
   if (!cb_status_authorize(req)) return ESP_OK;
-  if (cb_mode() != cb::Mode::Maintenance)
-    return reply(req, "403 Forbidden", false, "nur in der Wartung dieser Inneneinheit (Boot-Taster 5 s)");
-  if (!cb_prov().has_key[(int)cb::UnitId::Outdoor]) return reply(req, "409 Conflict", false, "nicht gekoppelt");
+  cb::Access acc = cb::mode_access(cb::Endpoint::OutdoorMaint, cb_access_input(req));
+  if (!acc.ok) return reply(req, acc.status, false, acc.message);
   maint_request = true;  // the protocol engine belongs to loop()
   return reply(req, "200 OK", true, "Anfrage gesendet - die Außeneinheit ist gleich 10 min in der Wartung");
 }
@@ -208,9 +202,10 @@ esp_err_t h_pair_start(httpd_req_t *req) {
     return reply(req, "400 Bad Request", false, "Gerätecode: 16 Zeichen vom Etikett der Inneneinheit");
   cb::UnitId flat = !strcmp(flat_req, "eg") ? cb::UnitId::EG : !strcmp(flat_req, "og") ? cb::UnitId::OG : cb::UnitId::None;
   if (flat == cb::UnitId::None) return reply(req, "400 Bad Request", false, "Wohnung unbekannt");
-  if (p.has_key[(int)flat] && cb_mode() == cb::Mode::Normal)
-    return reply(req, "403 Forbidden", false,
-                 "Diese Wohnung ist schon gekoppelt - zum Ersetzen erst die Wartung der Außeneinheit öffnen");
+  cb::AccessInput ai = cb_access_input(req);
+  ai.target_paired = p.has_key[(int)flat];
+  cb::Access acc = cb::mode_access(cb::Endpoint::PairStart, ai);  // RV-45
+  if (!acc.ok) return reply(req, acc.status, false, acc.message);
   uint8_t key[32], nonce[cb::kPairNonceLen];
   cb::random_bytes(key, sizeof key);
   cb::random_bytes(nonce, sizeof nonce);
@@ -257,7 +252,8 @@ esp_err_t h_pair_start(httpd_req_t *req) {
 
 esp_err_t h_pair_remove(httpd_req_t *req) {
   if (!cb_status_authorize(req)) return ESP_OK;
-  if (cb_mode() == cb::Mode::Normal) return reply(req, "403 Forbidden", false, "nur in der Wartung");
+  cb::Access acc = cb::mode_access(cb::Endpoint::PairRemove, cb_access_input(req));  // RV-45
+  if (!acc.ok) return reply(req, acc.status, false, acc.message);
   char body[64], f[4];
   if (!read_body(req, body, sizeof body) || !cb::form_get(body, "flat", f, sizeof f) || (strcmp(f, "eg") && strcmp(f, "og")))
     return reply(req, "400 Bad Request", false, "Wohnung fehlt");
@@ -273,7 +269,8 @@ esp_err_t h_pair_remove(httpd_req_t *req) {
 
 esp_err_t h_pulse(httpd_req_t *req) {
   if (!cb_status_authorize(req)) return ESP_OK;
-  if (cb_mode() == cb::Mode::Normal) return reply(req, "403 Forbidden", false, "nur in der Wartung");
+  cb::Access acc = cb::mode_access(cb::Endpoint::DoorPulse, cb_access_input(req));  // RV-45
+  if (!acc.ok) return reply(req, acc.status, false, acc.message);
   char body[64], v[8];
   if (!read_body(req, body, sizeof body) || !cb::form_get(body, "ms", v, sizeof v))
     return reply(req, "400 Bad Request", false, "Wert fehlt");

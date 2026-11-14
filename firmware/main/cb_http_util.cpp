@@ -5,7 +5,9 @@
 #include <WiFi.h>
 #include <lwip/sockets.h>
 
+#include "cb_modes.h"
 #include "cb_provisioning.h"
+#include "cb_setup.h"
 
 namespace {
 int recv_fn(void *ctx, char *buf, size_t len) { return httpd_req_recv(static_cast<httpd_req_t *>(ctx), buf, len); }
@@ -38,6 +40,17 @@ uint32_t cb_http_peer_ipv4(httpd_req_t *req) {
   if (getpeername(httpd_req_to_sockfd(req), (struct sockaddr *)&a, &len) != 0) return 0;
   if (a.sin6_family == AF_INET6) return a.sin6_addr.un.u32_addr[3];  // v4-mapped
   return ((struct sockaddr_in *)&a)->sin_addr.s_addr;
+}
+
+cb::AccessInput cb_access_input(httpd_req_t *req) {
+  const CbProvisioning &p = cb_prov();
+  cb::AccessInput in;
+  in.mode = cb_mode();
+  in.from_ap = cb_setup_from_ap(req);
+  in.provisioned = p.valid;
+  in.flat_set = p.role == cb::UnitId::EG || p.role == cb::UnitId::OG;
+  in.indoor_paired = p.has_key[(int)cb::UnitId::Outdoor];
+  return in;
 }
 
 bool cb_http_origin_ok(httpd_req_t *req, bool via_ap) {

@@ -1004,6 +1004,8 @@ Gerätepasswort**:
 fremde Webseiten können mit zwischengespeicherten Anmeldedaten nichts auslösen (CSRF, DNS-Rebinding). Ein
 Anfragekörper muss zügig kommen (zwei 10-s-Pausen in Folge oder Gesamtfrist beenden ihn), damit ein Client den
 einzigen Webserver-Task nicht festhalten kann. Falsche Kopplungsangebote sperren nur ihren Absender, nicht alle.
+Welcher Endpunkt in welchem Modus handeln darf, steht als eine Tabelle in `cb_access` (Berechtigungsmatrix, RV-45)
+und ist per Test über alle Endpunkte und Betriebsarten festgeschrieben; die Handler fragen nur noch diese Tabelle.
 
 Die Touch-Zeile ist der eigentliche Grund für die Seite: Sie macht Drift messbar, *bevor* sie zu Fehlverhalten führt,
 und liefert die Grundlage für die einzige Nachrüstoption, die die Hardware offenhält (Shield/Guard an den

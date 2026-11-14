@@ -990,6 +990,8 @@ action.**
 cannot trigger anything with cached credentials (CSRF, DNS rebinding). A request body must arrive promptly (two
 10-s stalls in a row or a total deadline end it), so a client cannot hold the single web-server task. Wrong pairing
 offers lock out only their sender, not everybody.
+Which endpoint may act in which mode is one table in `cb_access` (access matrix, RV-45), pinned down by a test over
+all endpoints and modes; the handlers only ask this table.
 
 The touch row is the real reason for the page: it makes drift measurable *before* it causes misbehaviour, and it
 provides the basis for the one retrofit option the hardware keeps open (shield/guard on the reserved GPIO6/14).

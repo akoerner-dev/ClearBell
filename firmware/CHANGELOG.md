@@ -18,6 +18,8 @@ Versionen nach SemVer; `version.txt` ist die Quelle. Solange die Portierung läu
 - **VK-08 (Teil 1):** Schlüsselzwischenwerte werden auf allen Pfaden gelöscht (`secure_zero`), Kopplungsbestätigung
   in konstanter Zeit und mit geprüftem Rückgabewert, Labels zentral in `cb_labels.h`; eine nie fehlschlagende
   Testprüfung repariert.
+- **VK-08 (Teil 2):** Berechtigungsmatrix `cb_access` – alle Rechte der 25 Web-Endpunkte in einer Tabelle mit
+  Test über alle Betriebsarten; die Handler fragen nur noch sie (Verhalten unverändert, Texte gleich).
 - Werkzeuge (Phase 0): Testbauten unsigniert, Konsolen-Log ohne Geheimnisse, `tools/geheim.py`.
 
 ### Härtung Stufe B: IN-2 gebrannt (13.11.2026)

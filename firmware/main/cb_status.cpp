@@ -279,8 +279,8 @@ esp_err_t reply_upload(httpd_req_t *req, const char *status, const char *msg) {
 esp_err_t h_upload(httpd_req_t *req) {
   if (!authorize(req)) return ESP_OK;
   security_headers(req);
-  if (cb_mode() != cb::Mode::Maintenance)
-    return reply_upload(req, "403 Forbidden", "nur in der Wartung (Boot-Taster 5 s halten)");
+  cb::Access acc = cb::mode_access(cb::Endpoint::ToneUpload, cb_access_input(req));  // RV-45: rules in cb_access
+  if (!acc.ok) return reply_upload(req, acc.status, acc.message);
   maintenance_activity = true;  // using the page in maintenance keeps maintenance open
   bool known = false;
   cb::Sound s = cb_audio_parse_sound(req->uri + strlen("/ton/"), &known);
@@ -324,8 +324,8 @@ esp_err_t h_upload(httpd_req_t *req) {
 esp_err_t h_update(httpd_req_t *req) {
   if (!authorize(req)) return ESP_OK;
   security_headers(req);
-  if (cb_mode() != cb::Mode::Maintenance)
-    return reply_upload(req, "403 Forbidden", "nur in der Wartung (Boot-Taster 5 s halten)");
+  cb::Access acc = cb::mode_access(cb::Endpoint::Update, cb_access_input(req));  // RV-45: rules in cb_access
+  if (!acc.ok) return reply_upload(req, acc.status, acc.message);
   maintenance_activity = true;
   char msg[160], q[32], v[4];
   bool older = httpd_req_get_url_query_str(req, q, sizeof q) == ESP_OK &&
@@ -385,8 +385,8 @@ esp_err_t h_settings(httpd_req_t *req) {
   char msg[96];
   msg[0] = 0;
   if (cb::form_get(body, "led", v, sizeof v)) {
-    if (cb_mode() != cb::Mode::Maintenance)
-      return reply_settings(req, "403 Forbidden", "LED-Abgleich nur in der Wartung (Boot-Taster 5 s halten)");
+    cb::Access acc = cb::mode_access(cb::Endpoint::SettingsLed, cb_access_input(req));
+    if (!acc.ok) return reply_settings(req, acc.status, acc.message);
     maintenance_activity = true;
     int x = atoi(v);  // range check on the int: a cast to uint8_t would turn 261 into 5
     if (x < 5 || x > 100 || !cb_led_set_green_percent((uint8_t)x)) return reply_settings(req, "400 Bad Request", "LED-Abgleich 5 bis 100 %");
@@ -406,8 +406,8 @@ esp_err_t h_settings(httpd_req_t *req) {
   char key[72];
   bool has_key = cb::form_get(body, "ownerkey", key, sizeof key), has_only = cb::form_get(body, "owneronly", v, sizeof v);
   if (has_key || has_only) {
-    if (cb_mode() != cb::Mode::Maintenance)
-      return reply_settings(req, "403 Forbidden", "Update-Schlüssel nur in der Wartung (Boot-Taster 5 s halten)");
+    cb::Access acc = cb::mode_access(cb::Endpoint::SettingsOwnerKey, cb_access_input(req));
+    if (!acc.ok) return reply_settings(req, acc.status, acc.message);
     maintenance_activity = true;
     if (has_key && !cb_update_set_owner_key(key, msg, sizeof msg)) return reply_settings(req, "400 Bad Request", msg);
     if (has_only && !cb_update_set_owner_only(v[0] == '1', msg, sizeof msg))
@@ -444,8 +444,8 @@ esp_err_t h_pw_nonce(httpd_req_t *req) {
 esp_err_t h_password(httpd_req_t *req) {
   if (!authorize(req)) return ESP_OK;
   security_headers(req);
-  if (cb_mode() != cb::Mode::Maintenance)
-    return reply_settings(req, "403 Forbidden", "Passwort ändern nur in der Wartung (Boot-Taster 5 s halten)");
+  cb::Access acc = cb::mode_access(cb::Endpoint::PasswordChange, cb_access_input(req));
+  if (!acc.ok) return reply_settings(req, acc.status, acc.message);
   maintenance_activity = true;
   if (pw_locked_until && (int32_t)(pw_locked_until - now_s()) > 0)
     return reply_settings(req, "429 Too Many Requests", "zu oft falsches aktuelles Passwort - 1 min warten");

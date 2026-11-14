@@ -75,12 +75,10 @@ bool read_body(httpd_req_t *req, char *buf, size_t cap) { return cb_http_read_bo
 
 uint8_t own_flat() { return (uint8_t)cb_prov().role; }
 
-const char *precondition() {
-  const CbProvisioning &p = cb_prov();
-  if (p.role != cb::UnitId::EG && p.role != cb::UnitId::OG) return "Wohnung nicht eingerichtet";
-  if (!p.has_key[(int)cb::UnitId::Outdoor]) return "erst mit der Außeneinheit koppeln";
-  if (cb_mode() != cb::Mode::Maintenance) return "nur in der Wartung (Boot-Taster 5 s)";
-  return nullptr;
+// RV-45: the rule lives in the access matrix (cb_access); add / remove / link share it.
+const char *precondition(httpd_req_t *req) {
+  cb::Access acc = cb::mode_access(cb::Endpoint::PhoneAdd, cb_access_input(req));
+  return acc.ok ? nullptr : acc.message;
 }
 
 int find_phone(const char *id) {
@@ -120,7 +118,7 @@ bool read_name(httpd_req_t *req, char id[16]) {
 
 esp_err_t h_add(httpd_req_t *req) {
   if (!cb_status_authorize(req)) return ESP_OK;
-  const char *why = precondition();
+  const char *why = precondition(req);
   if (why) return answer(req, "403 Forbidden", false, why);
   char id[16];
   if (!read_name(req, id)) return answer(req, "400 Bad Request", false, "Name: 1–8 Zeichen, Buchstaben, Ziffern, Bindestrich");
@@ -150,7 +148,7 @@ esp_err_t h_add(httpd_req_t *req) {
 
 esp_err_t h_link(httpd_req_t *req) {
   if (!cb_status_authorize(req)) return ESP_OK;
-  const char *why = precondition();
+  const char *why = precondition(req);
   if (why) return answer(req, "403 Forbidden", false, why);
   char id[16];
   int slot = read_name(req, id) ? find_phone(id) : -1;
@@ -171,7 +169,7 @@ esp_err_t h_test(httpd_req_t *req) {
 
 esp_err_t h_remove(httpd_req_t *req) {
   if (!cb_status_authorize(req)) return ESP_OK;
-  const char *why = precondition();
+  const char *why = precondition(req);
   if (why) return answer(req, "403 Forbidden", false, why);
   char id[16];
   if (!read_name(req, id)) return answer(req, "400 Bad Request", false, "Name fehlt");

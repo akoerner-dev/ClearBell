@@ -93,8 +93,8 @@ esp_err_t reply(httpd_req_t *req, const char *status, bool ok, const char *msg) 
 
 // Who may change the setup: a client of the setup access point (knows the device code), or - from the home
 // network - only in setup mode (boot button = physical presence) and after the status-page login (cb_status).
-bool may_change(httpd_req_t *req) {
-  return cb_setup_from_ap(req) || cb_mode() == cb::Mode::Setup;
+bool may_change(httpd_req_t *req) {  // for the page only ("may_change" in /setup/info); the rule: cb_access
+  return cb::mode_access(cb::Endpoint::SetupSave, cb_access_input(req)).ok;
 }
 
 esp_err_t h_info(httpd_req_t *req) {
@@ -160,7 +160,8 @@ bool read_body(httpd_req_t *req, char *buf, size_t cap) { return cb_http_read_bo
 
 esp_err_t h_save(httpd_req_t *req) {
   if (!cb_status_authorize(req)) return ESP_OK;
-  if (!may_change(req)) return reply(req, "403 Forbidden", false, "nur in der Einrichtung (Boot-Taster 2 × 5 s)");
+  cb::Access acc = cb::mode_access(cb::Endpoint::SetupSave, cb_access_input(req));  // RV-45
+  if (!acc.ok) return reply(req, acc.status, false, acc.message);
   char body[640], ssid[40], pass[72], role[8], raw[120], name[cb::kFlatNameMaxBytes + 1];
   if (!read_body(req, body, sizeof body) || !cb::form_get(body, "ssid", ssid, sizeof ssid) ||
       !cb::form_get(body, "pass", pass, sizeof pass))
@@ -192,7 +193,8 @@ esp_err_t h_save(httpd_req_t *req) {
 
 esp_err_t h_reset(httpd_req_t *req) {
   if (!cb_status_authorize(req)) return ESP_OK;
-  if (!may_change(req)) return reply(req, "403 Forbidden", false, "nur in der Einrichtung (Boot-Taster 2 × 5 s)");
+  cb::Access acc = cb::mode_access(cb::Endpoint::SetupReset, cb_access_input(req));  // RV-45
+  if (!acc.ok) return reply(req, acc.status, false, acc.message);
   char body[64], confirm[8];
   if (!read_body(req, body, sizeof body) || !cb::form_get(body, "confirm", confirm, sizeof confirm) ||
       strcmp(confirm, "JA") != 0)

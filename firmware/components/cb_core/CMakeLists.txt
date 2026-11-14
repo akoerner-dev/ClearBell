@@ -21,6 +21,7 @@ idf_component_register(
         "src/cb_setup_logic.cpp"
         "src/cb_pairing_logic.cpp"
         "src/cb_http_guard.cpp"
+        "src/cb_access.cpp"
         "src/esp/cb_crypto_esp.cpp"
     INCLUDE_DIRS "include"
     PRIV_REQUIRES mbedtls esp_hw_support

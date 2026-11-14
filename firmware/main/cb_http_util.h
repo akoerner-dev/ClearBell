@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "cb_access.h"
 #include "cb_http_guard.h"
 
 constexpr uint32_t kHttpFormMs = 15000;  // a small form body must be complete within this
@@ -18,3 +19,5 @@ bool cb_http_read_body(httpd_req_t *req, char *buf, size_t cap, uint32_t total_m
 uint32_t cb_http_peer_ipv4(httpd_req_t *req);
 // RV-39: may this request change something? Reads Origin, Sec-Fetch-Site, X-ClearBell and Host.
 bool cb_http_origin_ok(httpd_req_t *req, bool via_ap);
+// RV-45: mode and state for the access matrix (cb_access.h); target_paired is set by the caller where it matters.
+cb::AccessInput cb_access_input(httpd_req_t *req);
