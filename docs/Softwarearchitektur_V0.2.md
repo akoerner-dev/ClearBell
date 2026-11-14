@@ -1220,6 +1220,7 @@ Betriebsmodi (5.9) · Blinkmuster und Anzeige der Wartung (8.2) · Fern-Öffnen 
 | R26 | *(10.11.2026)* Updates nur signiert, und zwar so, dass sie immer funktionieren: zwei Herstellerschlüssel (Haupt, Ersatz offline) in jeder Firmware, dazu ein eigener Schlüssel des Besitzers (Wartung), wahlweise allein gültig; Versionsschutz mit Bestätigung; USB-Flashen bleibt Stufe C (7.6, Portierungsschritt 10d) |
 | R27 | *(12.11.2026, löst R20 ab; FW-B-16, FW-B-22, FW-B-17)* Fern-Öffnen nur mit der ntfy-App: Push mit Knopf „Tür öffnen“, der das Token direkt zurückschickt. Je Handy ein eigenes, zufälliges und geheimes Topic-Paar (einzeln sperrbar); Token einmalig, an genau ein Klingeln gebunden, 5 min gültig; jede Öffnung per Push bestätigt und protokolliert. Dem Betreiber von ntfy.sh wird vertraut (Restrisiko bewusst angenommen: zwei Apps und Skriptcode wirkten wie Bastelei). Fern-Öffnen für **beide** Wohnungen, Handys je Inneneinheit. Inneneinheiten melden ihren Handys, wenn die Außeneinheit ≈ 2 min nicht erreichbar ist, und wenn sie zurück ist (mit Dauer). Umgesetzt in 4.5 |
 | R28 | *(12.11.2026, FW-B-21)* Wohnungsnamen frei wählbar: Intern bleiben die zwei Wohnungen die zwei Klingeltasten der Außeneinheit (Kennung EG = Taste unten, OG = Taste oben; die Werte 2/3 auf dem Funk ändern sich nicht, mehr Wohnungen erst V0.3). Jede Wohnung bekommt einen freien Namen (höchstens 24 Zeichen bzw. 40 Byte UTF-8, keine Steuerzeichen), eingegeben an der eigenen Inneneinheit (Einrichtung oder Wartung), per *Event* `FlatName` an die Außeneinheit übergeben (nach jedem Start und jeder Änderung) und überall angezeigt, wo der Käufer die Wohnung sieht: Statusseiten, Kopplungsliste, Push „Es klingelt – ‹Name›“, ntfy-Abo. Ohne Namen gilt „Wohnung unten“/„Wohnung oben“. Der Name geht im Klartext über ntfy.sh (7.8); Hostnamen bleiben `clearbell-<Gerätenummer>.local` |
+| R29 | *(14.11.2026, E1_Transport, VK-15)* Die Weboberfläche bekommt **HTTPS auf dem Gerät** mit einem Zertifikat je Einheit (ECDSA P-256, im Werksschritt erzeugt, Fingerabdruck auf dem Etikett, privater Schlüssel im verschlüsselten NVS); HTTP nur noch als Weiterleitung und im Einrichtungs-WLAN. Aktionen mit Dauerwirkung (eigener Update-Schlüssel, ggf. Handy hinzufügen) brauchen zusätzlich einen Tastendruck am Gerät. Die Zertifikatswarnung beim ersten Aufruf je Browser wird bewusst in Kauf genommen. Grundlage: `ClearBell_Vergleich_20261114_E1_Transport.md` (Weg 4) |
 
 ---
 
@@ -1303,7 +1304,8 @@ die V0.2 unbrauchbar oder unsicher machen — die Befunde des Reviews gehören d
 | 3.1 | 10.11.2026 | Signierte Updates (R26, löst R25 ab): zwei Herstellerschlüssel, eigener Schlüssel des Besitzers, Versionsschutz (7.6); Portierungsschritt 10d |
 | 3.2 | 12.11.2026 | Fern-Öffnen nach R27 (löst R20 ab): nur ntfy, geheimes Topic-Paar je Handy, beide Wohnungen, Ausfallmeldung der Inneneinheiten; 4.5 neu geschrieben, Verweise auf die Handy-Signatur angepasst |
 | 3.3 | 12.11.2026 | Wohnungsnamen frei wählbar (R28, FW-B-21): Event `FlatName`, Name in den Käuferdaten (6.2), Hinweis im Datenschutz (7.8) |
+| 3.4 | 14.11.2026 | Sicherheitskatalog Phase 1 (VK-01, VK-06, VK-07, VK-08) in 4.2, 4.4, 4.5, 5.8, 8.3; Entscheidung R29 (HTTPS + Taster) |
 
 ---
 
-*ClearBell V0.2 · Softwarearchitektur · Revision 3.3 · 12.11.2026*
+*ClearBell V0.2 · Softwarearchitektur · Revision 3.4 · 14.11.2026*

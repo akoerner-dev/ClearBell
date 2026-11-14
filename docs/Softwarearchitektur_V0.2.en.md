@@ -1204,6 +1204,7 @@ of the operating modes (5.9) · blink patterns and the maintenance indication (8
 | R26 | *(2026-11-10)* Updates only signed, in a way that always works: two manufacturer keys (main, spare offline) in every firmware, plus an owner's own key (maintenance), optionally the only one accepted; downgrade protection with confirmation; USB flashing stays stage C (7.6, porting step 10d) |
 | R27 | *(2026-11-12, supersedes R20; FW-B-16, FW-B-22, FW-B-17)* Remote opening with the ntfy app only: a push with an "open door" button that sends the token straight back. One random, secret topic pair per phone (revocable individually); token single-use, bound to exactly one ring, valid 5 min; every opening confirmed by push and logged. The ntfy.sh operator is trusted (residual risk accepted on purpose: two apps and visible script code looked like a hack). Remote opening for **both** flats, phones per indoor unit. Indoor units tell their phones when the outdoor unit has been unreachable for ≈ 2 min, and when it is back (with duration). Implemented in 4.5 |
 | R28 | *(2026-11-12, FW-B-21)* Freely chosen flat names: internally the two flats stay the two bell keys of the outdoor unit (id EG = key at the bottom, OG = key at the top; the values 2/3 on the wire do not change, more flats only in V0.3). Each flat gets a free name (at most 24 characters or 40 bytes of UTF-8, no control characters), typed at its own indoor unit (setup or maintenance), handed to the outdoor unit in an *Event* `FlatName` (after every start and every change) and shown wherever the buyer sees the flat: status pages, pairing list, push "Es klingelt – ‹name›", ntfy subscription. Without a name: "Wohnung unten"/"Wohnung oben". The name travels in clear text through ntfy.sh (7.8); host names stay `clearbell-<unit number>.local` |
+| R29 | *(2026-11-14, E1_Transport, VK-15)* The web interface gets **HTTPS on the device** with a certificate per unit (ECDSA P-256, generated in the factory step, fingerprint on the label, private key in the encrypted NVS); HTTP only as a redirect and on the setup WLAN. Actions with lasting effect (own update key, possibly adding a phone) additionally need a button press at the unit. The certificate warning on the first visit per browser is accepted on purpose. Basis: `ClearBell_Vergleich_20261114_E1_Transport.md` (option 4) |
 
 ---
 
@@ -1287,7 +1288,8 @@ defects that would make V0.2 unusable or unsafe — the findings of the review b
 | 3.1 | 2026-11-10 | Signed updates (R26, supersedes R25): two manufacturer keys, owner's own key, downgrade protection (7.6); porting step 10d |
 | 3.2 | 2026-11-12 | Remote opening per R27 (supersedes R20): ntfy only, secret topic pair per phone, both flats, outage notice of the indoor units; 4.5 rewritten, references to the phone signature adjusted |
 | 3.3 | 2026-11-12 | Freely chosen flat names (R28, FW-B-21): event `FlatName`, name in the buyer's data (6.2), privacy note (7.8) |
+| 3.4 | 2026-11-14 | Security catalogue phase 1 (VK-01, VK-06, VK-07, VK-08) in 4.2, 4.4, 4.5, 5.8, 8.3; decision R29 (HTTPS + button) |
 
 ---
 
-*ClearBell V0.2 · Software architecture · Revision 3.3 · 2026-11-12*
+*ClearBell V0.2 · Software architecture · Revision 3.4 · 2026-11-14*
