@@ -124,6 +124,18 @@ bool RemoteAuth::remove_phone(const char *id, uint8_t flat) {
   return false;
 }
 
+int RemoteAuth::remove_flat(uint8_t flat) {
+  int n = 0;
+  for (int i = 0; i < kRemotePhones; i++) {
+    if (!phones_[i].used || phones_[i].flat != flat) continue;
+    phones_[i] = Phone{};
+    for (Token &t : tokens_)
+      if (t.used && t.slot == i) t = Token{};
+    n++;
+  }
+  return n;
+}
+
 int RemoteAuth::phone_count() const {
   int n = 0;
   for (const Phone &p : phones_) n += p.used;

@@ -438,6 +438,7 @@ sequenceDiagram
 | Property | Implementation |
 |---|---|
 | **One key per phone** | 256 bit, generated on the indoor unit when the phone is added, sent encrypted to the outdoor unit in an *Event* (4.2); removable individually, e.g. when a phone is lost |
+| **Phones belong to the pairing** | Removing or replacing a flat's pairing deletes all phones of that flat on both units, with their open tokens; a flat without pairing gets no pushes and opens nothing (VK-01, 2026-11-14 – since R27 the topics depend on the phone key, no longer on the link key) |
 | **One secret topic pair per phone** | push and command topic = "cb" + 128 bit of HMAC-SHA256 over the key; not guessable, known to the phone only through its setup link |
 | **Token** | 128 bit from the hardware RNG, single-use, bound to exactly one ring and exactly one phone, valid 5 min; the last three rings per flat stay usable; after an opening all tokens of the flat are consumed; none survives a reboot |
 | **Message** | "CBR2 ‹token›"; the scheme identifier keeps the door open for a later scheme |

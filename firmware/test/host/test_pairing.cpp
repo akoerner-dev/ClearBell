@@ -82,19 +82,7 @@ TEST(hex_helpers) {
   CHECK(!from_hex(nullptr, back, 3));
 }
 
-TEST(remote_names_are_stable_and_key_bound) {
-  init();
-  char o1[26], i1[26], u1[37], o2[26], i2[26], u2[37];
-  CHECK(remote_names(kKey, o1, i1, u1));
-  CHECK(remote_names(kKey, o2, i2, u2));
-  CHECK(strcmp(o1, o2) == 0 && strcmp(i1, i2) == 0 && strcmp(u1, u2) == 0);  // both units compute the same
-  CHECK(strncmp(o1, "cb-", 3) == 0 && strlen(o1) == 25 && strcmp(o1, i1) != 0);
-  CHECK(strlen(u1) == 36 && u1[8] == '-' && u1[14] == '4');  // UUID v4 layout
-  kKey[0] ^= 1;  // another pairing -> other names
-  CHECK(remote_names(kKey, o2, i2, u2));
-  CHECK(strcmp(o1, o2) != 0 && strcmp(u1, u2) != 0);
-  for (const char *c = o1 + 3; *c; c++) CHECK((*c >= '0' && *c <= '9') || (*c >= 'a' && *c <= 'z'));
-}
+
 
 TEST(crypt32_round_trip) {
   init();

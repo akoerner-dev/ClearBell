@@ -87,36 +87,6 @@ bool crypt32(const uint8_t key[32], const char *label, const uint8_t nonce[kPair
   return true;
 }
 
-namespace {
-bool b32_name(const uint8_t k[32], const char *label, char out[26]) {
-  static const char a[] = "0123456789abcdefghjkmnpqrstvwxyz";
-  uint8_t h[32];
-  Slice p[] = {{u8(label), strlen(label)}};
-  if (!hmac_sha256(k, 32, p, 1, h)) return false;
-  memcpy(out, "cb-", 3);
-  for (int i = 0; i < 22; i++) {  // 22 x 5 bit from the first 14 bytes
-    int bit = i * 5, byte = bit / 8, off = bit % 8;
-    int v = ((h[byte] << 8 | h[byte + 1]) >> (11 - off)) & 31;
-    out[3 + i] = a[v];
-  }
-  out[25] = 0;
-  return true;
-}
-}  // namespace
-
-bool remote_names(const uint8_t k[32], char topic_out[26], char topic_in[26], char uuid[37]) {
-  uint8_t h[32];
-  Slice p[] = {{u8("shortcut-id"), 11}};
-  if (!b32_name(k, "topic-out", topic_out) || !b32_name(k, "topic-in", topic_in) || !hmac_sha256(k, 32, p, 1, h))
-    return false;
-  h[6] = (uint8_t)((h[6] & 0x0F) | 0x40);  // version 4 layout
-  h[8] = (uint8_t)((h[8] & 0x3F) | 0x80);  // variant
-  char hex[33];
-  to_hex_lower(h, 16, hex);
-  snprintf(uuid, 37, "%.8s-%.4s-%.4s-%.4s-%.12s", hex, hex + 8, hex + 12, hex + 16, hex + 20);
-  return true;
-}
-
 void to_hex_lower(const uint8_t *in, size_t n, char *out) {
   static const char h[] = "0123456789abcdef";
   for (size_t i = 0; i < n; i++) {

@@ -159,6 +159,7 @@ struct Cmd {
 };
 
 bool enabled = false;
+std::atomic<uint8_t> drop_flats{0};  // VK-01: bit (1 << flat) = drop that flat's phones (web task -> loop)
 QueueHandle_t cmd_q = nullptr;
 cb::RemoteAuth auth;  // owned by loop()
 uint32_t last_ring_push[4] = {};
@@ -352,9 +353,15 @@ void cb_remote_begin() {
   if (!pv.valid) return;
   start_sender();
 #if CB_IS_OUTDOOR
-  for (int i = 0; i < CbProvisioning::kPhoneSlots; i++)
-    if (pv.phone_id[i][0] && !auth.set_phone(i, pv.phone_id[i], pv.phone_key[i], pv.phone_flat[i]))
+  for (int i = 0; i < CbProvisioning::kPhoneSlots; i++) {
+    if (!pv.phone_id[i][0]) continue;
+    if (!pv.has_key[pv.phone_flat[i] & 3]) {  // VK-01: phones of an unpaired flat are not loaded
+      cb_log("remote: phone %d belongs to an unpaired flat - not loaded", i);
+      continue;
+    }
+    if (!auth.set_phone(i, pv.phone_id[i], pv.phone_key[i], pv.phone_flat[i]))
       cb_log("remote: phone %d has an invalid key - ignored", i);
+  }
   cmd_q = xQueueCreate(4, sizeof(Cmd));
   topics_changed();
   xTaskCreatePinnedToCore(rx_task, "ntfy_rx", 8192, nullptr, 1, nullptr, 0);
@@ -373,6 +380,13 @@ void cb_remote_begin() {
 void cb_remote_poll() {
 #if CB_IS_OUTDOOR
   if (!enabled) return;
+  uint8_t drop = drop_flats.exchange(0);  // VK-01: set by the web task when a pairing went
+  for (uint8_t f : {(uint8_t)cb::UnitId::EG, (uint8_t)cb::UnitId::OG}) {
+    if (!(drop & (1u << f))) continue;
+    int n = auth.remove_flat(f);
+    if (n) topics_changed();
+    cb_log("remote: pairing of %s gone - %d phone(s) and their tokens dropped", flat_name(f), n);
+  }
   Cmd c;
   if (xQueueReceive(cmd_q, &c, 0) != pdTRUE) return;  // one per pass: a flood cannot starve the loop
   int slot = -1;
@@ -385,6 +399,10 @@ void cb_remote_poll() {
   }
   const char *phone = auth.phone_id(slot);
   uint8_t flat = auth.phone_flat(slot);
+  if (!cb_prov().has_key[flat]) {  // VK-01, second line: a flat without pairing opens nothing
+    cb_log("remote: command from %s refused - %s is not paired", phone, flat_name(flat));
+    return;
+  }
   if (cb_mode() == cb::Mode::Setup) {
     queue_push(auth.push_topic(slot), Tag::Warning, 3, "Tür NICHT geöffnet", "Die Außeneinheit ist in der Einrichtung.");
     return;
@@ -438,6 +456,7 @@ void cb_remote_on_ring(cb::UnitId flat) {
 #if CB_IS_OUTDOOR
   int f = (int)flat;
   if (!enabled || (flat != cb::UnitId::EG && flat != cb::UnitId::OG) || auth.phone_count((uint8_t)f) == 0) return;
+  if (!cb_prov().has_key[f]) return;  // VK-01: no tokens for a flat without pairing
   uint32_t now = millis();
   if (any_ring_push[f] && now - last_ring_push[f] < kRingPushGapMs) return;
   any_ring_push[f] = true;
@@ -468,6 +487,14 @@ bool cb_remote_phone_add(const char *id, const char *key_hex, uint8_t flat) {
 #else
   (void)id, (void)key_hex, (void)flat;
   return false;
+#endif
+}
+
+void cb_remote_drop_flat(uint8_t flat) {
+#if CB_IS_OUTDOOR
+  if (flat == (uint8_t)cb::UnitId::EG || flat == (uint8_t)cb::UnitId::OG) drop_flats.fetch_or((uint8_t)(1u << flat));
+#else
+  (void)flat;
 #endif
 }
 

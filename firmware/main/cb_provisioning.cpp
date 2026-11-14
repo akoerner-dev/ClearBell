@@ -366,6 +366,37 @@ int cb_prov_phone_store(const char *id, const char *key_hex, uint8_t flat) {
   return slot;
 }
 
+int cb_prov_phones_forget_flat(uint8_t flat) {
+  struct S {
+    bool slot[CbProvisioning::kPhoneSlots];
+  } s = {};
+  int n = 0;
+  for (int i = 0; i < CbProvisioning::kPhoneSlots; i++)
+    if (prov.phone_id[i][0] && prov.phone_flat[i] == flat) s.slot[i] = true, n++;
+  if (!n) return 0;
+  bool ok = user_write(
+      [](nvs_handle_t h, const void *v) {
+        const S *s = static_cast<const S *>(v);
+        char k[8];
+        for (int i = 0; i < CbProvisioning::kPhoneSlots; i++) {
+          if (!s->slot[i]) continue;
+          for (const char *f : {"pid%d", "pk%d", "pf%d"}) {
+            snprintf(k, sizeof k, f, i);
+            nvs_erase_key(h, k);
+          }
+        }
+      },
+      &s);
+  if (!ok) return -1;
+  for (int i = 0; i < CbProvisioning::kPhoneSlots; i++) {
+    if (!s.slot[i]) continue;
+    prov.phone_id[i][0] = 0;
+    memset(prov.phone_key[i], 0, sizeof prov.phone_key[i]);
+    prov.phones--;
+  }
+  return n;
+}
+
 bool cb_prov_phone_forget(const char *id, uint8_t flat) {
   for (int i = 0; i < CbProvisioning::kPhoneSlots; i++) {
     if (!prov.phone_id[i][0] || prov.phone_flat[i] != flat || strcmp(prov.phone_id[i], id) != 0) continue;

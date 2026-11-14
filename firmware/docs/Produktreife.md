@@ -83,6 +83,8 @@ Etikett drucken: Gerätenummer, Gerätecode, QR-Code. Sonst nichts – kein WLAN
    Verbindungsschlüssel und schickt ihn der Inneneinheit, verschlüsselt und signiert mit einem Schlüssel aus deren
    Gerätecode. Ohne den Code vom Etikett der Inneneinheit – also ohne Zugang zu dieser Wohnung – kann sich niemand
    dazwischenschalten, auch nicht der andere Haushalt im selben WLAN (Angreifer F).
+   **Entfernen oder Ersetzen einer Kopplung löscht die Handys dieser Wohnung** – nach einem Auszug oder Gerätetausch
+   kann kein früheres Handy mehr öffnen; die Handys werden an der Inneneinheit neu hinzugefügt (VK-01, 14.11.2026).
 4. **Handy (optional, EG und OG).** Auf der Seite der **eigenen Inneneinheit** „Handy hinzufügen“: Name eingeben,
    dann ein Link „ntfy: Nachrichten abonnieren“ (`ntfy://…`); „Test“, „Link“ und „Entfernen“ daneben (R27, 12.11.2026;
    vorher zusätzlich ein Kurzbefehl-Import für HTTP Shortcuts).

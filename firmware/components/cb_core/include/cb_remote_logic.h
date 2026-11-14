@@ -15,7 +15,8 @@
 // commands. A token is good for one opening, for one phone, for kRemoteTokenMs and only after a real ring; every
 // opening is confirmed by push and logged. The operator of ntfy.sh sees topics and tokens and could open within
 // 5 min after a ring - that residual risk was accepted on purpose (two apps and visible script code looked like a
-// hack to the household). Removing a phone drops its topics at once.
+// hack to the household). Removing a phone drops its topics at once; removing or replacing the pairing of a flat
+// drops all phones of that flat (VK-01 - the phone keys do NOT depend on the link key since R27).
 //
 // Topics: "cb" + 32 hex characters (128 bit) of HMAC-SHA256(key = phone key as text, "CBT1|push" / "CBT1|cmd").
 #pragma once
@@ -54,6 +55,8 @@ class RemoteAuth {
   bool set_phone(int slot, const char *id, const char *key_hex, uint8_t flat);
   int add_phone(const char *id, const char *key_hex, uint8_t flat);  // -> slot, -1 if invalid or the flat is full
   bool remove_phone(const char *id, uint8_t flat);
+  // Every phone of `flat` with its topics and open tokens (VK-01: unpairing or re-pairing a flat). -> how many.
+  int remove_flat(uint8_t flat);
   int phone_count() const;
   int phone_count(uint8_t flat) const;
   bool used(int slot) const { return slot >= 0 && slot < kRemotePhones && phones_[slot].used; }

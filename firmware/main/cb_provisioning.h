@@ -71,6 +71,8 @@ bool cb_prov_remove_link(cb::UnitId peer);
 // Phones (10c, R27). store: same id in the same flat = replace, else a free slot. -> slot or -1 (full).
 int cb_prov_phone_store(const char *id, const char *key_hex, uint8_t flat);
 bool cb_prov_phone_forget(const char *id, uint8_t flat);
+// VK-01: every phone of `flat` in ONE write (unpairing / re-pairing a flat, indoor accepting a new pairing). -> count.
+int cb_prov_phones_forget_flat(uint8_t flat);
 // Own status-page password (stored in cb_user "web_pass", takes effect at once in cb_prov().dev_pass);
 // "" = back to the device code from the label. The factory reset erases it too.
 bool cb_prov_set_web_pass(const char *pw);

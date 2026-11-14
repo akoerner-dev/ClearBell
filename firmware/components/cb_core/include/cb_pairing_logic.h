@@ -50,11 +50,8 @@ bool unwrap32(const uint8_t key[32], const char *label, const uint8_t nonce[kPai
 bool crypt32(const uint8_t key[32], const char *label, const uint8_t nonce[kPairNonceLen], const uint8_t *in,
              size_t n, uint8_t *out);
 
-// Names both paired units derive from their shared link key, so nothing has to be transferred (10c):
-//   push topic (outdoor -> phones), command topic (phones -> outdoor): "cb-" + 22 Base32 characters (110 bit)
-//   shortcut id of the HTTP Shortcuts import (a UUID; the push button links to http-shortcuts://<id>?token=...)
-// Re-pairing changes them - the phones then have to be added again, which is wanted after a new pairing.
-bool remote_names(const uint8_t link_key[32], char topic_out[26], char topic_in[26], char shortcut_uuid[37]);
+// (remote_names() - topics derived from the LINK key - is gone since R27: phone topics come from each phone's own
+// key, so re-pairing does not invalidate them by itself. VK-01: unpairing/re-pairing deletes the flat's phones.)
 
 // Hex helpers for the HTTP form fields.
 void to_hex_lower(const uint8_t *in, size_t n, char *out);  // out: 2n+1

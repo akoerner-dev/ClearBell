@@ -442,6 +442,7 @@ sequenceDiagram
 | Eigenschaft | Umsetzung |
 |---|---|
 | **Je Handy ein Schlüssel** | 256 bit, erzeugt auf der Inneneinheit beim Hinzufügen, verschlüsselt per *Event* an die Außeneinheit (4.2); einzeln entfernbar, etwa bei Verlust |
+| **Handys hängen an der Kopplung** | Entfernen oder Ersetzen der Kopplung einer Wohnung löscht alle Handys dieser Wohnung auf beiden Einheiten samt offenen Tokens; eine Wohnung ohne Kopplung bekommt keine Pushes und öffnet nichts (VK-01, 14.11.2026 – seit R27 hängen die Topics am Handy-Schlüssel, nicht mehr am Verbindungsschlüssel) |
 | **Je Handy ein geheimes Topic-Paar** | Melde- und Befehls-Topic = „cb“ + 128 bit aus HMAC-SHA256 über den Schlüssel; nicht erratbar, auf dem Handy nur über den Einrichtungs-Link bekannt |
 | **Token** | 128 bit aus dem Hardware-Zufall, einmalig, an genau ein Klingeln und genau ein Handy gebunden, 5 min gültig; die letzten drei Klingeln je Wohnung bleiben nutzbar; nach einer Öffnung sind alle Tokens der Wohnung verbraucht; nach einem Neustart gilt keines mehr |
 | **Nachricht** | „CBR2 ‹Token›“; die Verfahrenskennung hält den Weg für ein späteres Verfahren offen |

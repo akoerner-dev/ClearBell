@@ -32,6 +32,7 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 | ~~10b.10~~ | ✓ 12.11. EG und OG nach Werksreset AU-1 (Ergebnis im Abschnitt IN-2 unten) | – | – |
 | 5.13 | IN-1 | im Gehäuse am Montageort: Klingel mit üblicher Lautstärke | laut genug (10.11.: bei 15 % ohne Gehäuse zu leise) |
 | 5.14 | AU-1 | im Gehäuse: `play error` mit 50 / 75 / 100 % | kein Klirren; sonst Höchstgrenze außen senken (10.11.: ohne Gehäuse klirrt es bei 75 % deutlich) |
+| SK1.1b | IN-2 + AU-1 + Handy, **mit dem Meister** (löscht das OG-Handy) | an AU-1 in der Wartung die OG-Kopplung entfernen → `ring og` → danach neu koppeln (Gerätecode IN-2) → `ring og` | Meldung „… N Handy(s) dieser Wohnung gelöscht“; keine Push am Handy, AU-1 `remote` OG 0, IN-2 listet kein Handy mehr; nach Neukopplung weiter 0 und keine Neustart-Push an das alte Topic; Handy neu hinzufügen → wieder Push |
 
 **Reihenfolge (Meister 10.11.2026):** zuerst diese Handprüfungen; der 72-h-Test läuft ganz zum Schluss mit beiden
 Einheiten im Gehäuse.
@@ -112,6 +113,12 @@ Befunde 10.11.2026 abends (noch nicht behoben):
   AU-1↔EG. Der Meister wollte an IN-2 (OG) ein Handy verbinden. Mit FW-B-21 passt „nur EG“ nicht mehr: soll jede
   Wohnung eigene Handys mit eigenen Topics aus ihrer Kopplung bekommen? **Entschieden 12.11.: ja, beide Wohnungen,
   Handys je Inneneinheit (R27). Umgesetzt 12.11.**
+
+### Sicherheitskatalog Phase 1 (14.11.2026, TOWER; Gerätetests nach dem 24-h-Lauf)
+
+| Zeile | Maßnahme | Prüfung | Ergebnis |
+|---|---|---|---|
+| SK1.1 | VK-01_Handys_beim_Entkoppeln_loeschen (RV-01) | PC-Test `remote_remove_flat_drops_all_phones_of_that_flat` zuerst rot (Funktion fehlte), dann grün; Firmware: Entfernen/Ersetzen der Kopplung löscht die Handys der Wohnung im Speicher (ein Schreibvorgang, vor dem Schlüsselwechsel) und sofort in der laufenden Fern-Öffnen-Logik (über die Hauptschleife); zweite Linie: Handys ungekoppelter Wohnungen werden nicht geladen, bekommen keine Tokens, öffnen nichts; Inneneinheit leert beim Annehmen einer neuen Kopplung ihre Handyliste; Handy-Ereignis speichert nur, was die Logik angenommen hat; toter Code `remote_names()` entfernt | ✓ 133 Tests, 2932 Prüfungen, 0 Fehler; beide Images ohne Warnung. Gerätetest SK1.1b in der Sammelliste (mit dem Meister) |
 
 ### Sicherheitskatalog Phase 0 (14.11.2026, TOWER, nur Werkzeuge – keine Firmware, kein Board)
 

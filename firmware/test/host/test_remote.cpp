@@ -219,3 +219,28 @@ TEST(remote_phones_added_and_removed_at_runtime) {
   CHECK_EQ(a.add_phone("D", kKeyH1, OG), 5);   // ... OG still has room
   CHECK_EQ(a.add_phone("bad id", kKeyH1, OG), -1);
 }
+
+// VK-01_Handys_beim_Entkoppeln_loeschen (RV-01): removing or replacing a flat's pairing drops ALL its phones,
+// their topics and their open tokens - an ex-tenant's phone must not open the door after the new tenant moved in.
+TEST(remote_remove_flat_drops_all_phones_of_that_flat) {
+  RemoteAuth a;
+  a.set_phone(0, "H1", kKeyH1, OG);
+  a.set_phone(1, "H2", kKeyH2, OG);
+  a.set_phone(2, "H3", kKeyH3, EG);
+  int s[kPhonesPerFlat], who;
+  char tok[kPhonesPerFlat][33], msg[64], og_topic[kTopicLen + 1], topics[256];
+  CHECK_EQ(a.issue(OG, 0, s, tok), 2);
+  cmd(tok[0], msg, sizeof msg);
+  snprintf(og_topic, sizeof og_topic, "%s", a.cmd_topic(0));
+  CHECK_EQ(a.remove_flat(OG), 2);
+  CHECK_EQ(a.phone_count(OG), 0);
+  CHECK_EQ(a.phone_count(EG), 1);
+  CHECK(a.check(og_topic, msg, 1, &who) == RemoteResult::UnknownPhone);  // token issued before: worthless
+  CHECK_EQ(a.active(1), 0);
+  CHECK(a.cmd_topics(topics, sizeof topics));
+  CHECK(strstr(topics, og_topic) == nullptr);              // the stream no longer listens on OG topics
+  CHECK(strstr(topics, a.cmd_topic(2)) != nullptr);        // EG keeps its phone
+  CHECK_EQ(a.issue(OG, 2, s, tok), 0);                     // a ring at OG reaches nobody any more
+  CHECK_EQ(a.remove_flat(OG), 0);                          // idempotent
+  CHECK_EQ(a.remove_flat(1), 0);                           // the outdoor id is no flat
+}

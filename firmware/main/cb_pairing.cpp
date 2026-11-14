@@ -16,6 +16,7 @@
 #include "cb_net.h"
 #include "cb_pairing_logic.h"
 #include "cb_provisioning.h"
+#include "cb_remote.h"
 #include "cb_remote_logic.h"
 #include "cb_setup.h"
 #include "cb_setup_logic.h"
@@ -106,6 +107,10 @@ esp_err_t h_pair_accept(httpd_req_t *req) {
   char ch[65];
   cb::pair_confirm(key, o.nonce, (uint8_t)p.role, c);
   cb::to_hex_lower(c, 32, ch);
+  // VK-01: a new pairing means the outdoor unit dropped this flat's phones - drop them here too, so the page lists
+  // nothing that cannot work any more (they have to be added again)
+  int dropped = cb_prov_phones_forget_flat((uint8_t)p.role);
+  if (dropped > 0) cb_log("pairing: %d phone(s) of the old pairing removed - add them again", dropped);
   if (!cb_prov_set_link(cb::UnitId::Outdoor, key, au)) return reply(req, "500 Internal Server Error", false, "Speichern fehlgeschlagen");
   memset(key, 0, sizeof key);
   cb_log("pairing: paired with outdoor unit %s as %s - restarting", au, cb::unit_name(p.role));
@@ -226,7 +231,7 @@ esp_err_t h_pair_start(httpd_req_t *req) {
   cb::to_hex_lower(o.tag, 32, t);
   snprintf(form, sizeof form, "au=%s&in=%s&n=%s&e=%s&t=%s", p.serial, id, n, e, t);
   int status = post_offer(ip, form, answer, sizeof answer);
-  char msg[160], got_flat[8], ch[72];
+  char msg[240], got_flat[8], ch[72];
   if (status != 200) {
     if (!cb::json_get_string(answer, "message", msg, sizeof msg))
       snprintf(msg, sizeof msg, "Inneneinheit antwortet nicht (HTTP %d)", status);
@@ -242,12 +247,21 @@ esp_err_t h_pair_start(httpd_req_t *req) {
     memset(key, 0, sizeof key);
     return reply(req, "502 Bad Gateway", false, "Bestätigung der Inneneinheit ungültig - nicht gekoppelt");
   }
-  bool saved = cb_prov_set_link(flat, key, id);
+  // VK-01: the phones of the old pairing go FIRST (safe direction if the power fails in between), also from the
+  // running RemoteAuth - the restart is 3 s away, no old token may work meanwhile.
+  int dropped = cb_prov_phones_forget_flat((uint8_t)flat);
+  cb_remote_drop_flat((uint8_t)flat);
+  bool saved = dropped >= 0 && cb_prov_set_link(flat, key, id);
   memset(key, 0, sizeof key);
   if (!saved) return reply(req, "500 Internal Server Error", false, "Speichern fehlgeschlagen");
   cb_log("pairing: %s paired with indoor unit %s - restarting", cb::unit_name(flat), id);
-  snprintf(msg, sizeof msg, "%s gekoppelt (Inneneinheit %s). Beide Einheiten starten neu.",
-           cb::flat_key_label((uint8_t)flat), id);
+  if (dropped > 0)
+    snprintf(msg, sizeof msg, "%s gekoppelt (Inneneinheit %s). %d bisherige(s) Handy(s) dieser Wohnung gelöscht – "
+             "an der Inneneinheit neu hinzufügen. Beide Einheiten starten neu.", cb::flat_key_label((uint8_t)flat), id,
+             dropped);
+  else
+    snprintf(msg, sizeof msg, "%s gekoppelt (Inneneinheit %s). Beide Einheiten starten neu.",
+             cb::flat_key_label((uint8_t)flat), id);
   cb_setup_reboot_in(3000);
   return reply(req, "200 OK", true, msg);
 }
@@ -258,9 +272,14 @@ esp_err_t h_pair_remove(httpd_req_t *req) {
   char body[64], f[4];
   if (!read_body(req, body, sizeof body) || !cb::form_get(body, "flat", f, sizeof f) || (strcmp(f, "eg") && strcmp(f, "og")))
     return reply(req, "400 Bad Request", false, "Wohnung fehlt");
-  cb_prov_remove_link(!strcmp(f, "eg") ? cb::UnitId::EG : cb::UnitId::OG);
+  cb::UnitId flat = !strcmp(f, "eg") ? cb::UnitId::EG : cb::UnitId::OG;
+  int dropped = cb_prov_phones_forget_flat((uint8_t)flat);  // VK-01: the flat's phones go with its pairing
+  cb_remote_drop_flat((uint8_t)flat);
+  cb_prov_remove_link(flat);
   cb_setup_reboot_in(2000);
-  return reply(req, "200 OK", true, "Kopplung entfernt - Neustart");
+  char msg[120];
+  snprintf(msg, sizeof msg, "Kopplung entfernt – %d Handy(s) dieser Wohnung gelöscht – Neustart", dropped < 0 ? 0 : dropped);
+  return reply(req, "200 OK", true, msg);
 }
 
 esp_err_t h_pulse(httpd_req_t *req) {

@@ -33,5 +33,8 @@ void cb_remote_json(cb::Json &j);          // status page: "remote": {...}
 // Phones at runtime (from loop): an indoor unit added / removed a phone of its flat (outdoor).
 bool cb_remote_phone_add(const char *id, const char *key_hex, uint8_t flat);
 bool cb_remote_phone_remove(const char *id, uint8_t flat);
+// VK-01: the pairing of `flat` was removed or replaced - drop all its phones and tokens at once. Any task; the loop
+// does the work (the RemoteAuth belongs to it). Outdoor only.
+void cb_remote_drop_flat(uint8_t flat);
 // Indoor: tell a phone that it was set up (first push = proof the subscription works).
 void cb_remote_welcome(const char *key_hex);

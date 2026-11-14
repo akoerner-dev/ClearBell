@@ -250,8 +250,10 @@ void cb_phones_on_event(cb::UnitId from, cb::EventCode code, const uint8_t *data
   if (!cb::crypt32(cb_prov().key[(int)from], kLabel, nonce, data + kIdLen + kNonceUsed, 32, key)) return;
   cb::to_hex_lower(key, 32, key_hex);
   memset(key, 0, sizeof key);
-  int slot = cb_prov_phone_store(id, key_hex, flat);
-  bool live = slot >= 0 && cb_remote_phone_add(id, key_hex, flat);
+  // first the running RemoteAuth (it knows whether the flat has room), then storage - never a stored phone that
+  // does not work (the indoor unit already got its event ack; the count shows on the outdoor status page)
+  bool live = cb_remote_phone_add(id, key_hex, flat);
+  int slot = live ? cb_prov_phone_store(id, key_hex, flat) : -1;
   memset(key_hex, 0, sizeof key_hex);
   cb_log("phones: phone '%s' added by the %s unit (slot %d, %s)", id, cb::unit_name(from), slot,
          live ? "active" : "NOT active");
