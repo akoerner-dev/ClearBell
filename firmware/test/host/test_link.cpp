@@ -135,6 +135,13 @@ int last_of(const Net &n, UnitId to, MsgType t) {
   return -1;
 }
 
+// Index of the first recorded frame of a given type sent to `to` (or -1).
+int first_of(const Net &n, UnitId to, MsgType t) {
+  for (int i = 0; i < (int)n.recorded.size(); i++)
+    if (n.recorded[i].to == to && n.recorded[i].bytes[3] == (uint8_t)t) return i;
+  return -1;
+}
+
 }  // namespace
 
 TEST(link_replay_window) {
@@ -561,4 +568,88 @@ TEST(event_rules) {
   n.run(50);
   CHECK_EQ(EG(n).door_results, 1);
   CHECK_EQ(AU(n).events, 1);
+}
+
+// ---- VK-07_Gegenstellen_Adresse_haerten (security catalogue 13.11.2026) ---------------------------------------
+
+// RV-34: the challenge arrives only after EG already repeated its request (modem sleep, > 300 ms). The repeated
+// request must get the SAME challenge again - not a new one that kills the one EG is about to confirm.
+TEST(door_late_challenge_still_opens) {
+  Net n;
+  n.run(50);
+  n.drop_next_from[1] = 2;  // the challenge and the answer to the repeated request are both "still in the air"
+  EG(n).link.send_door_request(n.now);
+  n.run(kAckTimeoutMs + 10);  // EG has repeated its request by now
+  int first = first_of(n, UnitId::EG, MsgType::DoorChallenge);
+  CHECK(first >= 0);
+  n.inject(UnitId::EG, n.recorded[first].bytes);  // the FIRST challenge finally arrives
+  n.run(50);
+  CHECK_EQ(AU(n).opened[2], 1);
+  CHECK(EG(n).last_door == DoorResult::Opened);
+  CHECK_EQ(AU(n).link.stats().door_bad_nonce, 0u);
+}
+
+// RV-34: a recorded DOOR_REQUEST played in during a running transaction must not revoke the valid challenge.
+TEST(door_replayed_request_during_transaction_does_not_break_it) {
+  Net n;
+  n.run(50);
+  EG(n).link.send_door_request(n.now);
+  n.run(1);  // request delivered, the challenge is queued
+  std::vector<uint8_t> req = n.recorded[last_of(n, UnitId::Outdoor, MsgType::DoorRequest)].bytes;
+  n.inject(UnitId::Outdoor, req);
+  n.inject(UnitId::Outdoor, req);
+  n.run(50);
+  CHECK_EQ(AU(n).opened[2], 1);
+  CHECK(EG(n).last_door == DoorResult::Opened);
+  CHECK_EQ(AU(n).link.stats().door_bad_nonce, 0u);
+}
+
+// RV-34: after the transaction, replaying its request starts nothing (no new challenge goes out).
+TEST(door_replayed_request_after_transaction_issues_no_challenge) {
+  Net n;
+  n.run(50);
+  EG(n).link.send_door_request(n.now);
+  n.run(50);
+  CHECK_EQ(AU(n).opened[2], 1);
+  uint32_t challenges = AU(n).link.stats().door_challenges;
+  std::vector<uint8_t> req = n.recorded[last_of(n, UnitId::Outdoor, MsgType::DoorRequest)].bytes;
+  n.inject(UnitId::Outdoor, req);
+  n.run(3000);
+  n.inject(UnitId::Outdoor, req);
+  n.run(50);
+  CHECK_EQ(AU(n).link.stats().door_challenges, challenges);
+  CHECK_EQ(AU(n).opened[2], 1);
+}
+
+// RV-10: only fresh authentic frames may teach the device glue a peer address. Duplicates, too-old frames and a
+// replayed PONG are authentic (valid tag) but NOT fresh.
+TEST(link_only_fresh_frames_count_as_fresh) {
+  Net n;
+  n.run(50);
+  uint32_t f0 = EG(n).link.stats().rx_fresh;
+  CHECK(f0 > 0);  // the session setup (PONG on our own nonce) was fresh
+  CHECK(AU(n).link.send_ring(UnitId::EG, n.now));
+  n.run(10);
+  CHECK_EQ(EG(n).rings, 1);
+  uint32_t f1 = EG(n).link.stats().rx_fresh;
+  CHECK(f1 > f0);  // a new ring in a confirmed session is fresh
+  std::vector<uint8_t> ring = n.recorded[last_of(n, UnitId::EG, MsgType::Ring)].bytes;
+  n.inject(UnitId::EG, ring);  // duplicate: authentic, acknowledged again, but not fresh
+  CHECK(!EG(n).link.last_rx_fresh());
+  CHECK_EQ(EG(n).link.stats().rx_fresh, f1);
+  int pong = last_of(n, UnitId::EG, MsgType::Pong);
+  CHECK(pong >= 0);
+  uint32_t a0 = AU(n).link.stats().rx_fresh;
+  n.inject(UnitId::Outdoor, n.recorded[last_of(n, UnitId::Outdoor, MsgType::Pong)].bytes);  // nonce used up
+  CHECK(!AU(n).link.last_rx_fresh());
+  CHECK_EQ(AU(n).link.stats().rx_fresh, a0);
+  n.run(2 * kHeartbeatMs);  // many rings later the old ring is far outside the window: still not fresh
+  for (int i = 0; i < 70; i++) {
+    AU(n).link.send_ring(UnitId::EG, n.now);
+    n.run(5);
+  }
+  uint32_t f2 = EG(n).link.stats().rx_fresh;
+  n.inject(UnitId::EG, ring);
+  CHECK(!EG(n).link.last_rx_fresh());
+  CHECK_EQ(EG(n).link.stats().rx_fresh, f2);
 }

@@ -156,7 +156,15 @@ void Link::send_ping(UnitId peer, uint32_t now_ms) {
   send_simple(peer, MsgType::Ping, nonce, kNonceLen);
 }
 
+void Link::mark_fresh() {
+  if (last_rx_fresh_) return;
+  last_rx_fresh_ = true;
+  stats_.rx_fresh++;
+}
+
+// Called exactly where an answer matched something THIS boot issued (nonce, session + seq) - so it is fresh too.
 void Link::heard_from(UnitId peer) {
+  mark_fresh();
   Peer &p = peers_[(int)peer];
   p.missed = 0;
   p.ping_outstanding = false;
@@ -168,6 +176,7 @@ void Link::heard_from(UnitId peer) {
 }
 
 RxError Link::receive(const uint8_t *buf, size_t len, uint32_t now_ms) {
+  last_rx_fresh_ = false;
   UnitId sender, receiver;
   RxError e = precheck_frame(buf, len, &sender, &receiver);
   // Only frames for me, from a unit I share a key with (EG and OG share none, so they cannot talk).
@@ -231,6 +240,7 @@ void Link::on_frame(const Frame &f, uint32_t now_ms) {
         stats_.rx_duplicate++;  // ... a duplicate is acknowledged again but not rung again
         return;
       }
+      mark_fresh();
       p.window.commit(f.seq);
       if (h_) h_->link_ring(f.sender);  // ... then the action
       return;
@@ -277,6 +287,7 @@ void Link::on_frame(const Frame &f, uint32_t now_ms) {
         stats_.rx_duplicate++;
         return;
       }
+      mark_fresh();
       p.window.commit(f.seq);
       stats_.events_rx++;
       if (h_) h_->link_event(f.sender, (EventCode)f.payload[0], f.payload + 1, f.payload_len - 1);
@@ -342,14 +353,26 @@ void Link::on_door_frame(const Frame &f, bool session_ok, uint32_t now_ms) {
         stats_.rx_unexpected++;
         return;
       }
-      if (v == ReplayWindow::Verdict::New) p.window.commit(f.seq);
-      else stats_.rx_duplicate++;
-      // New or repeated request (our challenge got lost): issue a FRESH challenge; older ones die with it.
       uint8_t payload[8 + kNonceLen];
       put_u32le(payload, f.session);
       put_u32le(payload + 4, f.seq);
-      nonces_.revoke(f.sender, NoncePurpose::Door);
-      nonces_.issue(f.sender, NoncePurpose::Door, now_ms, payload + 8);
+      if (v == ReplayWindow::Verdict::New) {
+        // New request: a FRESH challenge; every older one of this flat dies with it.
+        mark_fresh();
+        p.window.commit(f.seq);
+        nonces_.revoke(f.sender, NoncePurpose::Door);
+        nonces_.issue(f.sender, NoncePurpose::Door, now_ms, payload + 8);
+        memcpy(p.door_nonce, payload + 8, kNonceLen);
+        p.door_req_seq = f.seq;
+        p.has_door_challenge = true;
+      } else {
+        // Repeated request (our challenge got lost or is late, or someone replays it): the SAME challenge again
+        // while it is valid - its 2 s keep running from the first issue. Anything else starts nothing.
+        stats_.rx_duplicate++;
+        if (!p.has_door_challenge || f.seq != p.door_req_seq || !nonces_.pending(f.sender, NoncePurpose::Door, now_ms))
+          return;
+        memcpy(payload + 8, p.door_nonce, kNonceLen);
+      }
       send_simple(f.sender, MsgType::DoorChallenge, payload, sizeof(payload));
       stats_.door_challenges++;
       return;
@@ -366,10 +389,13 @@ void Link::on_door_frame(const Frame &f, bool session_ok, uint32_t now_ms) {
       if (p.has_last_confirm && p.last_confirm_seq == f.seq) send_door_ack(f.sender, f.seq, p.last_confirm_result);
       return;
     }
+    mark_fresh();
     p.window.commit(f.seq);
     DoorResult r;
     if (nonces_.consume(f.sender, NoncePurpose::Door, f.payload, now_ms)) {
       nonces_.revoke(f.sender, NoncePurpose::Door);
+      p.has_door_challenge = false;  // used up: a repeated request of this transaction starts nothing any more
+      memset(p.door_nonce, 0, kNonceLen);
       r = h_ ? h_->link_door_decide(f.sender) : DoorResult::NotAllowed;
     } else {
       r = DoorResult::BadNonce;  // unknown, expired, already used, or for the other flat

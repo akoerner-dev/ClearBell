@@ -32,6 +32,8 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 | ~~10b.10~~ | ✓ 12.11. EG und OG nach Werksreset AU-1 (Ergebnis im Abschnitt IN-2 unten) | – | – |
 | 5.13 | IN-1 | im Gehäuse am Montageort: Klingel mit üblicher Lautstärke | laut genug (10.11.: bei 15 % ohne Gehäuse zu leise) |
 | 5.14 | AU-1 | im Gehäuse: `play error` mit 50 / 75 / 100 % | kein Klirren; sonst Höchstgrenze außen senken (10.11.: ohne Gehäuse klirrt es bei 75 % deutlich) |
+| SK1.2b | AU-1, IN-1, IN-2 (selbst, nach dem 24-h-Lauf) | neue Firmware flashen; `ring eg`/`ring og`; IN-1 neu starten → Sitzung steht wieder; Türbefehl per `touch-sim` an IN-1; `net` zeigt die Adressquelle | Klingeln quittiert, Sitzungen nach Neustart in Sekunden, Tür öffnet einmal, keine „unreachable“ |
+| SK1.2c | Router, **mit dem Meister** | DHCP-Bereich am Router umstellen (WLAN-Name gleich) bzw. Router neu starten, so dass beide Einheiten neue Adressen bekommen | beide ohne Neustart nach etwa 10–20 s wieder „reachable“; `net` zeigt erst „mdns“, dann „learned“ (RV-11) |
 | SK1.1b | IN-2 + AU-1 + Handy, **mit dem Meister** (löscht das OG-Handy) | an AU-1 in der Wartung die OG-Kopplung entfernen → `ring og` → danach neu koppeln (Gerätecode IN-2) → `ring og` | Meldung „… N Handy(s) dieser Wohnung gelöscht“; keine Push am Handy, AU-1 `remote` OG 0, IN-2 listet kein Handy mehr; nach Neukopplung weiter 0 und keine Neustart-Push an das alte Topic; Handy neu hinzufügen → wieder Push |
 
 **Reihenfolge (Meister 10.11.2026):** zuerst diese Handprüfungen; der 72-h-Test läuft ganz zum Schluss mit beiden
@@ -118,6 +120,7 @@ Befunde 10.11.2026 abends (noch nicht behoben):
 
 | Zeile | Maßnahme | Prüfung | Ergebnis |
 |---|---|---|---|
+| SK1.2 | VK-07_Gegenstellen_Adresse_haerten (RV-10, RV-11, RV-34, RV-37) | PC: drei Tür-Tests (verspätete Challenge, eingespielter Request während/nach der Öffnung) mit alter Logik rot (BadNonce, 7 Prüfungen), danach grün; Frische-Test grün, **Gegenprobe** (jeder echte Rahmen gilt als frisch) → rot, zurückgesetzt → grün; Ratenbegrenzer erstmals getestet (3 Tests, vorher rot: nicht einstellbar). Gerät (`cb_net`): Lernen nur bei frischem Rahmen, Antwort an die Absenderadresse, Learned → Mdns bei Unerreichbarkeit und WLAN-Verlust, Sofort-Ping bei geänderter Adresse, Peer-Topf 40/50 pro s + eigene Warteschlange, Deckel 20/s für alle Unbekannten | ✓ 140 Tests, 2962 Prüfungen, 0 Fehler; beide Images ohne Warnung. **Gerätetest SK1.2b nach dem 24-h-Lauf** |
 | SK1.1 | VK-01_Handys_beim_Entkoppeln_loeschen (RV-01) | PC-Test `remote_remove_flat_drops_all_phones_of_that_flat` zuerst rot (Funktion fehlte), dann grün; Firmware: Entfernen/Ersetzen der Kopplung löscht die Handys der Wohnung im Speicher (ein Schreibvorgang, vor dem Schlüsselwechsel) und sofort in der laufenden Fern-Öffnen-Logik (über die Hauptschleife); zweite Linie: Handys ungekoppelter Wohnungen werden nicht geladen, bekommen keine Tokens, öffnen nichts; Inneneinheit leert beim Annehmen einer neuen Kopplung ihre Handyliste; Handy-Ereignis speichert nur, was die Logik angenommen hat; toter Code `remote_names()` entfernt | ✓ 133 Tests, 2932 Prüfungen, 0 Fehler; beide Images ohne Warnung. Gerätetest SK1.1b in der Sammelliste (mit dem Meister) |
 
 ### Sicherheitskatalog Phase 0 (14.11.2026, TOWER, nur Werkzeuge – keine Firmware, kein Board)

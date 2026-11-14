@@ -5,6 +5,15 @@ Versionen nach SemVer; `version.txt` ist die Quelle. Solange die Portierung läu
 
 ## 0.2.0-dev (in Arbeit)
 
+### Sicherheitskatalog Phase 1 (14.11.2026, Review vom 13.11.)
+
+- **VK-01:** Entfernen oder Ersetzen der Kopplung einer Wohnung löscht deren Handys auf beiden Einheiten; eine
+  Wohnung ohne Kopplung bekommt keine Pushes und öffnet nichts. Nach einer Neukopplung Handys neu hinzufügen.
+- **VK-07:** Gegenstellen-Adresse nur aus frischen echten Rahmen gelernt, Antworten an die Absenderadresse, bei
+  Unerreichbarkeit/WLAN-Verlust wieder per mDNS gesucht (Router-Reset); wiederholter Door-Request bekommt dieselbe
+  Challenge; eigener Ratentopf und eigene Warteschlange für bekannte Gegenstellen, Deckel für alle Unbekannten.
+- Werkzeuge (Phase 0): Testbauten unsigniert, Konsolen-Log ohne Geheimnisse, `tools/geheim.py`.
+
 ### Härtung Stufe B: IN-2 gebrannt (13.11.2026)
 
 - Erstes Board mit NVS-Schlüssel im eFuse (IN-2, Freigabe des Meisters); Speicher übernommen und verschlüsselt, keine

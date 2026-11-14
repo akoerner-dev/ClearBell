@@ -19,15 +19,15 @@ bool RateLimiter::allow(uint32_t source, uint32_t now_ms) {
     }
     e->used = true;
     e->source = source;
-    e->tokens_milli = kBurst * 1000;
+    e->tokens_milli = burst_ * 1000;
     e->last_ms = now_ms;
   }
   uint32_t elapsed = now_ms - e->last_ms;
   e->last_ms = now_ms;
-  // Refill: kPerSecond tokens per 1000 ms = kPerSecond milli-tokens per ms. Cap elapsed to avoid overflow.
+  // Refill: per_second_ tokens per 1000 ms = per_second_ milli-tokens per ms. Cap elapsed to avoid overflow.
   if (elapsed > 10000) elapsed = 10000;
-  e->tokens_milli += elapsed * kPerSecond;
-  if (e->tokens_milli > kBurst * 1000) e->tokens_milli = kBurst * 1000;
+  e->tokens_milli += elapsed * per_second_;
+  if (e->tokens_milli > burst_ * 1000) e->tokens_milli = burst_ * 1000;
   if (e->tokens_milli < 1000) return false;
   e->tokens_milli -= 1000;
   return true;

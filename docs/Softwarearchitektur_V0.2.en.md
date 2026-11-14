@@ -404,6 +404,7 @@ sequenceDiagram
 | **Authenticity** | the tag on every message (section 4.2), a separate key per apartment |
 | **Freshness** | random number from the hardware RNG — truly random while the radio is active —, valid 2 s, single use |
 | **Replay** | impossible: a recorded confirmation matches no new random number |
+| **Repeated request** | gets the same challenge again while it is valid – never a new one that would void the valid one (late challenge, replayed request); a replay after the transaction starts nothing (VK-07, 2026-11-14) |
 | **No persistent state** | no counter in NVS — nothing can drift apart after reflashing |
 | **Acknowledge before acting** | `DOOR_ACK` goes out, then the door task takes over |
 
@@ -657,7 +658,8 @@ When the microphone may be active at all is [open] — section 12.
 | WLAN returns | re-establish sessions via heartbeat, increment the drop counter |
 | Send attempt without WLAN | treated as failure **immediately** — no waiting for a timeout |
 | Foreign packet on the UDP port | discarded without being read |
-| Packet flood | rate limit per sender before the HMAC check, counted on the status page |
+| Packet flood | rate limit per sender before the HMAC check, counted on the status page; known peers with their own, larger bucket and own queue, all unknown senders capped together (VK-07). **Limit:** protects against load, not against targeted lock-out by a device in the same WLAN with a forged sender address – the result is the error tone, not a silent loss; the remedy is a separate network segment |
+| Peer address | learned only from **fresh** authentic frames (answer to an own nonce/sequence or a new message in a confirmed session), never from a replayed one; answers go to the sender address; when unreachable or after WLAN loss, mDNS searches again (VK-07) |
 | Command stream to the push service drops | reconnect with growing intervals and a random component — never every second |
 | Peer unreachable at its static IP | fall back to the unit's mDNS name |
 | **Modem sleep** | enabled; its effect on the 300 ms acknowledgement window is **measured**, not assumed |

@@ -35,7 +35,9 @@ struct Rx {
   uint8_t len;
   uint8_t data[cb::kMaxFrame];
 };
-QueueHandle_t rx_queue = nullptr;
+QueueHandle_t rx_queue = nullptr;       // frames from unknown sources
+QueueHandle_t rx_peer_queue = nullptr;  // frames from a known peer address - emptied first (RV-37)
+constexpr int kRxPeerQueueLen = 8;
 uint32_t rx_queue_full = 0, rx_oversize = 0;
 
 // ---- WiFi events -> loop ------------------------------------------------------------------------------
@@ -131,12 +133,26 @@ void series_report() {
   series.flat = UnitId::None;
 }
 
+// While loop() hands one datagram to the engine: where it came from. An answer to that peer goes back to this
+// source (PONG, challenge) - a peer with a new address gets its session back without the table having to learn
+// anything first, and a replayed packet earns one answer but changes no state (VK-07, RV-10).
+UnitId reply_peer = UnitId::None;
+uint32_t reply_ip = 0;
+
+// Learned -> Mdns: keep the IP (a short outage heals as before) but let the resolver look again (RV-11).
+void downgrade_learned(int i) {
+  taskENTER_CRITICAL(&addr_lock);
+  if (addr[i].src == AddrSource::Learned) addr[i].src = AddrSource::Mdns;
+  taskEXIT_CRITICAL(&addr_lock);
+}
+
 struct Handler : cb::LinkHandler {
   void link_send(UnitId peer, const uint8_t *frame, size_t len) override {
     uint32_t ip;
     taskENTER_CRITICAL(&addr_lock);
     ip = addr[(int)peer].ip;
     taskEXIT_CRITICAL(&addr_lock);
+    if (peer == reply_peer && reply_ip) ip = reply_ip;
     if (!ip) return;  // address not known yet: the retransmission / next heartbeat tries again
     udp.writeTo(frame, len, IPAddress(ip), kPort);
   }
@@ -154,6 +170,7 @@ struct Handler : cb::LinkHandler {
   }
   void link_peer_state(UnitId peer, bool reachable) override {
     cb_log("net: %s %s", cb::unit_name(peer), reachable ? "reachable" : "UNREACHABLE");
+    if (!reachable) downgrade_learned((int)peer);  // RV-11: both units may have new addresses (router reset)
   }
   cb::DoorResult link_door_decide(UnitId from) override { return cb_on_door_decide(from); }
   void link_door_execute(UnitId from) override { cb_on_door_open(from); }
@@ -173,8 +190,21 @@ struct Handler : cb::LinkHandler {
 
 // ---- Callbacks from other tasks: copy and queue, nothing else ------------------------------------------
 
-cb::RateLimiter limiter;  // used only in the UDP task (on_packet), so it needs no lock
+// Used only in the UDP task (on_packet), so they need no lock. RV-37: the source address can be forged in the WiFi -
+// a forger with a peer's address must not empty that peer's bucket with the ordinary limit, and rotating forged
+// addresses must not get a fresh bucket each.
+cb::RateLimiter limiter;                // unknown sources, per address (default 20 / 10 per s)
+cb::RateLimiter unknown_total(20, 20);  // unknown sources all together
+cb::RateLimiter peer_limiter(40, 50);   // known peer addresses, per address
 uint32_t rx_rate_limited = 0;
+
+bool is_peer_address(uint32_t ip) {
+  bool known = false;
+  taskENTER_CRITICAL(&addr_lock);
+  for (int i = 1; i < 4; i++) known = known || (addr[i].src != AddrSource::None && addr[i].ip == ip);
+  taskEXIT_CRITICAL(&addr_lock);
+  return known;
+}
 
 void on_packet(AsyncUDPPacket &p) {
   if (p.length() > cb::kMaxFrame || p.length() < cb::kMinFrame) {
@@ -187,15 +217,17 @@ void on_packet(AsyncUDPPacket &p) {
     return;
   }
   // Rate limit per source BEFORE the queue and the HMAC (Softwarearchitektur 4.2 order).
-  if (!limiter.allow((uint32_t)p.remoteIP(), millis())) {
+  uint32_t src = (uint32_t)p.remoteIP(), now = millis();
+  bool peer = is_peer_address(src);
+  if (peer ? !peer_limiter.allow(src, now) : !(limiter.allow(src, now) && unknown_total.allow(0, now))) {
     rx_rate_limited++;
     return;
   }
   Rx rx;
-  rx.ip = (uint32_t)p.remoteIP();
+  rx.ip = src;
   rx.len = (uint8_t)p.length();
   memcpy(rx.data, p.data(), rx.len);
-  if (xQueueSend(rx_queue, &rx, 0) != pdTRUE) rx_queue_full++;
+  if (xQueueSend(peer ? rx_peer_queue : rx_queue, &rx, 0) != pdTRUE) rx_queue_full++;
 }
 
 void on_wifi(arduino_event_id_t e, arduino_event_info_t info) {
@@ -289,6 +321,7 @@ void handle_wifi(uint32_t now) {
       if (wifi_state == WifiState::Up) disconnects++;
       last_reason = m.reason;
       engine.set_network(false, now);
+      for (int i = 1; i < 4; i++) downgrade_learned(i);  // RV-11: after a router reset all addresses may change
       // The attempt (or the connection) has ended: wait, then try again with a longer pause each time.
       wifi_state = WifiState::Waiting;
       next_attempt = now + backoff;
@@ -396,6 +429,7 @@ void cmd_sleep(const char *args) {
 void cb_net_begin() {
   const CbProvisioning &p = cb_prov();
   rx_queue = xQueueCreate(kRxQueueLen, sizeof(Rx));
+  rx_peer_queue = xQueueCreate(kRxPeerQueueLen, sizeof(Rx));
   wifi_queue = xQueueCreate(8, sizeof(WifiMsg));
 
   snprintf(hostname, sizeof(hostname), "clearbell-%s", p.serial);  // unique per unit: two installations coexist
@@ -437,12 +471,19 @@ void cb_net_poll() {
   uint32_t now = millis();
   handle_wifi(now);
   Rx rx;
-  // Bounded per pass, so a flood cannot starve the rest of loop().
-  for (int n = 0; n < 4 && xQueueReceive(rx_queue, &rx, 0) == pdTRUE; n++) {
+  // Bounded per pass, so a flood cannot starve the rest of loop(); frames from known peers first (RV-37).
+  for (int n = 0; n < 4 && (xQueueReceive(rx_peer_queue, &rx, 0) == pdTRUE || xQueueReceive(rx_queue, &rx, 0) == pdTRUE);
+       n++) {
     UnitId sender, receiver;
-    if (engine.receive(rx.data, rx.len, now) == cb::RxError::Ok &&
-        cb::precheck_frame(rx.data, rx.len, &sender, &receiver) == cb::RxError::Ok) {
-      // Authenticated frame: remember where this peer is (unless an address is fixed by provisioning).
+    if (cb::precheck_frame(rx.data, rx.len, &sender, &receiver) != cb::RxError::Ok) sender = UnitId::None;
+    reply_peer = sender;
+    reply_ip = rx.ip;
+    bool ok = engine.receive(rx.data, rx.len, now) == cb::RxError::Ok;
+    reply_peer = UnitId::None;
+    reply_ip = 0;
+    // Remember where this peer is - only from an authentic AND fresh frame (RV-10: a replayed frame from
+    // yesterday has a valid tag too), and never over an address fixed by provisioning.
+    if (ok && sender != UnitId::None && engine.last_rx_fresh()) {
       taskENTER_CRITICAL(&addr_lock);
       if (addr[(int)sender].src != AddrSource::Fixed) addr[(int)sender] = {rx.ip, AddrSource::Learned};
       taskEXIT_CRITICAL(&addr_lock);
@@ -455,7 +496,7 @@ void cb_net_poll() {
     taskENTER_CRITICAL(&addr_lock);
     ip = addr[i].ip;
     taskEXIT_CRITICAL(&addr_lock);
-    if (ip && !known_ip[i]) engine.ping_soon((UnitId)i, now);
+    if (ip && ip != known_ip[i]) engine.ping_soon((UnitId)i, now);  // new OR changed address (RV-11)
     known_ip[i] = ip;
   }
   if (series.remaining > 0 && (int32_t)(now - series.next_at) >= 0) {

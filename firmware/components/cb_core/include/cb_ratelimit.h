@@ -18,6 +18,10 @@ class RateLimiter {
   static constexpr uint32_t kBurst = 20;
   static constexpr uint32_t kPerSecond = 10;
 
+  // Defaults as above; cb_net gives known peers a larger bucket and all unknown sources one shared bucket (RV-37).
+  explicit RateLimiter(uint32_t burst = kBurst, uint32_t per_second = kPerSecond)
+      : burst_(burst), per_second_(per_second) {}
+
   // True = let the frame through; false = drop it (counted by the caller).
   bool allow(uint32_t source, uint32_t now_ms);
 
@@ -29,6 +33,7 @@ class RateLimiter {
     bool used = false;
   };
   Entry e_[kSources];
+  uint32_t burst_, per_second_;
 };
 
 }  // namespace cb

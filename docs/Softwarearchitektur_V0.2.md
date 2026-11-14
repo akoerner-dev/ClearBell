@@ -407,6 +407,7 @@ sequenceDiagram
 | **Echtheit** | das Tag jeder Nachricht (Kapitel 4.2), eigener Schlüssel je Wohnung |
 | **Frische** | Zufallszahl aus dem Hardware-Zufallsgenerator — echt zufällig, solange der Funk aktiv ist —, 2 s gültig, einmalig |
 | **Replay** | ausgeschlossen: eine aufgezeichnete Bestätigung passt zu keiner neuen Zufallszahl |
+| **Wiederholter Request** | bekommt dieselbe Challenge noch einmal, solange sie gilt – keine neue, die die gültige entwerten würde (verspätete Challenge, eingespielter Request); ein Replay nach Abschluss löst nichts aus (VK-07, 14.11.2026) |
 | **Kein dauerhafter Zustand** | kein Zähler im NVS — nach einem Neuflashen kann nichts auseinanderlaufen |
 | **Quittung vor Aktion** | `DOOR_ACK` geht hinaus, dann übernimmt der Tür-Task |
 
@@ -665,7 +666,8 @@ Wann das Mikrofon aktiv sein darf, ist [offen] — Kapitel 12.
 | WLAN kehrt zurück | Sitzungen per Herzschlag neu aufbauen, Abrisszähler erhöhen |
 | Sendeversuch ohne WLAN | **sofort** als Fehler gewertet — kein Warten auf ein Timeout |
 | Fremdpaket auf dem UDP-Port | verworfen, ohne gelesen zu werden |
-| Paketflut | Ratenbegrenzung je Absender vor der HMAC-Prüfung, gezählt auf der Statusseite |
+| Paketflut | Ratenbegrenzung je Absender vor der HMAC-Prüfung, gezählt auf der Statusseite; bekannte Gegenstellen mit eigenem, größerem Topf und eigener Warteschlange, alle unbekannten Absender zusammen gedeckelt (VK-07). **Grenze:** schützt vor Last, nicht vor gezielter Aussperrung durch ein Gerät im selben WLAN mit gefälschter Absenderadresse – Folge ist der Fehlerton, kein stiller Verlust; Gegenmittel ist ein eigenes Netzsegment |
+| Gegenstellen-Adresse | gelernt nur aus **frischen** echten Rahmen (Antwort auf eine eigene Nonce/Sequenz oder neue Nachricht in bestätigter Sitzung), nie aus einem eingespielten; Antworten gehen an die Absenderadresse; bei Unerreichbarkeit oder WLAN-Verlust sucht mDNS wieder (VK-07) |
 | Kommando-Stream zum Push-Dienst reißt ab | Neuaufbau mit wachsendem Abstand und Zufallsanteil — nie im Sekundentakt |
 | Gegenstelle unter fester IP nicht erreichbar | Rückfall auf den mDNS-Namen der Einheit |
 | **Modem-Sleep** | aktiv; die Wirkung auf das 300-ms-Quittungsfenster wird **gemessen**, nicht angenommen |

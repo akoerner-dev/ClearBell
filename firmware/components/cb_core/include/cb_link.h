@@ -23,7 +23,8 @@
 //   nonce, 2 s, single use, only the newest per flat is valid) -> DOOR_CONFIRM (the nonce, tagged with the
 //   flat's key) -> DOOR_ACK (Opened / Locked / BadNonce / NotAllowed). The outdoor unit decides, sends the
 //   ack, THEN hands over to the door task. A repeated CONFIRM gets the stored answer again, never a second
-//   opening. Each phase is retransmitted like a ring.
+//   opening; a repeated REQUEST gets the SAME challenge again while it is valid, never a new one (RV-34).
+//   Each phase is retransmitted like a ring.
 //
 // Messages are only processed after verify_frame() succeeded (right key, tag ok). Everything that fails
 // is dropped silently and counted.
@@ -124,6 +125,7 @@ struct LinkStats {
   uint32_t sessions_accepted;
   uint32_t door_challenges, door_opened, door_refused, door_bad_nonce, door_failed;
   uint32_t events_ok, events_failed, events_rx;
+  uint32_t rx_fresh;  // authentic AND fresh frames (VK-07): only these may teach the device glue an address
 };
 
 // ---- The engine -----------------------------------------------------------------------------------------
@@ -139,6 +141,11 @@ class Link {
 
   // One received datagram. Returns why it was dropped, or Ok.
   RxError receive(const uint8_t *buf, size_t len, uint32_t now_ms);
+  // Was the frame just received not only authentic but FRESH (VK-07, RV-10)? Fresh = the answer to a nonce or
+  // a sequence number this unit issued in this boot (PONG, acks, challenge), or a NEW message inside a confirmed
+  // session. A recording (old session, duplicate, too old, replayed PONG) is authentic but not fresh - learning
+  // the peer's address from it would let anyone in the WiFi redirect the link with one replayed packet.
+  bool last_rx_fresh() const { return last_rx_fresh_; }
   // Starts ringing at `peer`. Returns false if it failed immediately (no WiFi, no key, no free slot);
   // otherwise link_ring_result() follows within ~1.2 s.
   bool send_ring(UnitId peer, uint32_t now_ms);
@@ -184,6 +191,12 @@ class Link {
     bool has_last_confirm = false;
     uint32_t last_confirm_seq = 0;
     DoorResult last_confirm_result = DoorResult::NotAllowed;
+    // Outdoor: the challenge issued for the flat's newest DOOR_REQUEST (RV-34). A repeated request with the SAME
+    // seq gets this challenge again while it is valid - a new one would revoke the nonce the indoor unit is
+    // about to confirm (challenge late > 300 ms, or a replayed request).
+    bool has_door_challenge = false;
+    uint32_t door_req_seq = 0;
+    uint8_t door_nonce[kNonceLen] = {};
   };
   enum class SlotKind : uint8_t { Ring, DoorRequest, DoorConfirm, Event };
   struct Slot {
@@ -204,12 +217,14 @@ class Link {
   void on_frame(const Frame &f, uint32_t now_ms);
   void on_door_frame(const Frame &f, bool session_ok, uint32_t now_ms);
   void heard_from(UnitId peer);
+  void mark_fresh();
   void send_door_ack(UnitId peer, uint32_t confirm_seq, DoorResult r);
 
   UnitId self_ = UnitId::None;
   uint32_t session_ = 0;
   uint32_t next_seq_ = 1;
   bool network_ = false;
+  bool last_rx_fresh_ = false;
   LinkHandler *h_ = nullptr;
   Peer peers_[4];
   Slot slots_[kSendSlots];
