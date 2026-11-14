@@ -4,17 +4,18 @@
 // Buyer's view, on the OUTDOOR unit's page (card "Kopplung"):
 //   "Inneneinheiten suchen" lists the ClearBell indoor units in the network (mDNS "_clearbell._udp"), each with its
 //   unit number and flat. Type the device code from that unit's label, "Koppeln". Both units restart (5 s) and
-//   are paired. Pairing a flat for the FIRST time needs only the outdoor login and the indoor code; REPLACING an
-//   existing pairing needs the outdoor unit in maintenance (otherwise someone with the outdoor login and a second
-//   indoor unit could take over the other flat's rings).
+//   are paired. Every pairing - also the FIRST one of a free flat - and removing one needs the outdoor unit in
+//   maintenance opened by ITS button, or in setup (R31, RV-08/RV-33: otherwise a device with the outdoor login, or
+//   the other household with a second indoor unit, could pair itself and open the door). Rules: cb_access.h.
 //   The indoor unit accepts a pairing while it is not paired, or in maintenance/setup (button in the flat).
 //
 // On the INDOOR unit's page in maintenance: "Wartung der Außeneinheit öffnen" - the outdoor unit enters maintenance
-// for 10 min (tone upload, update, pulse length) without opening the outdoor housing. Sent as an authenticated
-// Event (cb_link); the button press at the indoor unit is the physical presence.
+// for 10 min without opening the outdoor housing. Sent as an authenticated Event (cb_link); the button press at the
+// indoor unit is the physical presence. This maintenance "from inside" opens only tone upload, update and pulse
+// length (R31) - no pairing, no update key, no password.
 //
-// Outdoor, maintenance: door pulse length 100..5000 ms (the buyer's opener differs from ours, F-3) and removing a
-// pairing.
+// Outdoor, maintenance: door pulse length 100..5000 ms (the buyer's opener differs from ours, F-3) and - with the
+// button - removing a pairing.
 #pragma once
 
 #include <esp_http_server.h>

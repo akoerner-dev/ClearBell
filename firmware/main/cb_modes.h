@@ -17,3 +17,5 @@ void cb_modes_set_normal_led(CbLed pattern);
 void cb_modes_activity();
 // Outdoor: a paired indoor unit asked for maintenance (port step 10b). Call from loop. false in setup mode.
 bool cb_modes_request_maintenance();
+// R31: the open maintenance came from an indoor unit, not from this unit's button (cb_access: tones, update, pulse).
+bool cb_modes_maintenance_by_event();

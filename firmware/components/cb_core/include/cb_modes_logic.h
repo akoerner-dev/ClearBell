@@ -66,9 +66,14 @@ class ModeMachine {
   // Normal; never leaves Setup. Returns true if maintenance was entered (or is already open, window restarted).
   bool request_maintenance(uint32_t now_ms);
   Mode mode() const { return mode_; }
+  // R31: the open maintenance came from such a request (indoor unit), not from the button at this unit. The access
+  // matrix (cb_access.h) then allows only tones, update and pulse length - no pairing, no keys, no password. A later
+  // request never downgrades the button's maintenance; the button in this state goes on to setup as always.
+  bool maintenance_by_event() const { return mode_ == Mode::Maintenance && by_event_; }
 
  private:
   Mode mode_ = Mode::Setup;
+  bool by_event_ = false;
   bool provisioned_ = false;
   uint32_t last_activity_ = 0;
 };

@@ -708,7 +708,9 @@ WLAN and the flat are chosen. Pairing happens on the outdoor unit's page with th
 7.3). Without WLAN for 5 min — e.g. after a router replacement — the access point reopens by itself, without a button and
 without opening the outdoor housing, for at most 30 min per WLAN loss; there **only the WLAN** can be changed, and an own
 password is asked for (R30). Factory reset, role, name and pairing need setup mode (button). "Over the access point"
-counts only if the peer is in the access point's net as well. The outdoor unit's maintenance can also be opened from a paired indoor unit. Factory
+counts only if the peer is in the access point's net as well. The outdoor unit's maintenance can also be opened from a paired indoor unit;
+this "maintenance from inside" allows only tones, update and pulse length. Pairing and removing a pairing – also the
+first pairing – need the button at the outdoor unit (R31). Factory
 reset: in setup hold the button 15 s; it erases only the buyer's data, the device code stays. Findings and reasoning:
 `firmware/docs/Produktreife.md`. Press durations and time windows are design values.
 

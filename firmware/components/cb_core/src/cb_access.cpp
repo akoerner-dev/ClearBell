@@ -10,6 +10,10 @@ constexpr const char *k409 = "409 Conflict";
 
 Access deny(const char *status, const char *msg) { return Access{false, status, msg}; }
 bool maint(const AccessInput &in) { return in.mode == Mode::Maintenance; }
+// R31: maintenance opened by the button at THIS unit (outdoor: not by an indoor unit's event)
+bool maint_button(const AccessInput &in) { return maint(in) && !in.maint_by_event; }
+constexpr const char *kNeedButton = "nur in der Wartung per Boot-Taster an dieser Einheit (5 s) - die Wartung von "
+                                    "innen öffnet nur Töne, Update und Pulslänge";
 // Setup mode (boot button 2 x 5 s) or not set up yet (first setup) - the only states that change role, name, reset.
 bool setup(const AccessInput &in) { return in.mode == Mode::Setup || !in.provisioned; }
 }  // namespace
@@ -67,10 +71,13 @@ Access mode_access(Endpoint e, const AccessInput &in) {
     case Endpoint::Update:
       return maint(in) ? kOk : deny(k403, "nur in der Wartung (Boot-Taster 5 s halten)");
     case Endpoint::SettingsLed:
+      if (in.maint_by_event && maint(in)) return deny(k403, kNeedButton);  // R31
       return maint(in) ? kOk : deny(k403, "LED-Abgleich nur in der Wartung (Boot-Taster 5 s halten)");
     case Endpoint::SettingsOwnerKey:
+      if (in.maint_by_event && maint(in)) return deny(k403, kNeedButton);  // R31
       return maint(in) ? kOk : deny(k403, "Update-Schlüssel nur in der Wartung (Boot-Taster 5 s halten)");
     case Endpoint::PasswordChange:
+      if (in.maint_by_event && maint(in)) return deny(k403, kNeedButton);  // R31
       return maint(in) ? kOk : deny(k403, "Passwort ändern nur in der Wartung (Boot-Taster 5 s halten)");
     case Endpoint::SetupSave:
       // R30 (RV-04/RV-09): the access point that opened by itself (WiFi lost) may change the WiFi - nothing else
@@ -81,12 +88,13 @@ Access mode_access(Endpoint e, const AccessInput &in) {
     case Endpoint::SetupReset:
       return setup(in) ? kOk : deny(k403, "Werkszustand nur in der Einrichtung (Boot-Taster 2 × 5 s)");
     case Endpoint::PairStart:
-      // RV-08: a free flat pairs in normal mode too - security plan Phase 2 (E3) changes it
-      if (in.target_paired && in.mode == Mode::Normal)
-        return deny(k403, "Diese Wohnung ist schon gekoppelt - zum Ersetzen erst die Wartung der Außeneinheit öffnen");
-      return kOk;
     case Endpoint::PairRemove:
-    case Endpoint::DoorPulse:
+      // R31 (RV-08, RV-33): pairing - also the first pairing of a free flat - only with the button of the outdoor unit
+      if (in.mode == Mode::Setup || maint_button(in)) return kOk;
+      if (in.maint_by_event) return deny(k403, kNeedButton);
+      return deny(k403, "Koppeln nur in der Wartung der Außeneinheit (Boot-Taster dort 5 s halten) oder in der "
+                        "Einrichtung");
+    case Endpoint::DoorPulse:  // pulse length: also in maintenance from inside (R31)
       return in.mode != Mode::Normal ? kOk : deny(k403, "nur in der Wartung");
     case Endpoint::PairAccept:
       if (in.indoor_paired && in.mode == Mode::Normal)

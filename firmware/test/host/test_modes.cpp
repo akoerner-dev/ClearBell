@@ -155,3 +155,28 @@ TEST(modes_maintenance_requested_by_indoor_unit) {
   CHECK(!m.request_maintenance(30));  // never pulls a unit out of setup
   CHECK(m.mode() == Mode::Setup);
 }
+
+TEST(modes_remember_who_opened_maintenance) {
+  // R31 (E3, VK-03, RV-08/RV-33): maintenance opened from inside (event) is weaker than the button at the unit -
+  // the access matrix allows it only tones, update and pulse length.
+  ModeMachine m;
+  m.begin(true, 0);
+  CHECK(!m.maintenance_by_event());
+  CHECK(m.request_maintenance(10));
+  CHECK(m.maintenance_by_event());
+  CHECK(m.request_maintenance(20));  // a second request only restarts the window
+  CHECK(m.maintenance_by_event());
+  CHECK(m.update(ButtonEvent::Short, 30) == ModeAction::Left);
+  CHECK(!m.maintenance_by_event());
+  CHECK(m.update(ButtonEvent::Long, 40) == ModeAction::Entered);  // button: full maintenance
+  CHECK(m.mode() == Mode::Maintenance && !m.maintenance_by_event());
+  CHECK(m.request_maintenance(50));  // a later event never downgrades the button's maintenance
+  CHECK(!m.maintenance_by_event());
+  m.update(ButtonEvent::Short, 60);
+  m.request_maintenance(70);
+  CHECK(m.update(ButtonEvent::None, 70 + kMaintenanceTimeoutMs) == ModeAction::Left);  // timeout clears it too
+  CHECK(!m.maintenance_by_event());
+  m.request_maintenance(80);
+  m.update(ButtonEvent::Long, 90);  // button in event maintenance: on to setup as before
+  CHECK(m.mode() == Mode::Setup && !m.maintenance_by_event());
+}

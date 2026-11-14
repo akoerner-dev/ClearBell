@@ -11,6 +11,9 @@ Versionen nach SemVer; `version.txt` ist die Quelle. Solange die Portierung läu
   und bleibt höchstens 30 min je WLAN-Verlust offen; Werksreset, Klingeltaste, Name und Kopplung nur in der
   Einrichtung (Taster). Ist ein eigenes Passwort gesetzt, fragt er danach. „Über den Zugangspunkt“ verlangt auch eine
   Gegenstelle im AP-Netz (RV-16). PMF „required“, wo der Router es kann (einmal gelernt je WLAN).
+- **VK-03 (R31):** Koppeln und Entfernen – auch die erste Kopplung einer freien Wohnung – nur noch in der Wartung per
+  Boot-Taster an der Außeneinheit oder in der Einrichtung. Die Wartung, die eine Inneneinheit öffnet, erlaubt nur
+  Töne, Update und Pulslänge; die Statusseite zeigt das an.
 
 ### Sicherheitskatalog Phase 1 (14.11.2026, Review vom 13.11.)
 

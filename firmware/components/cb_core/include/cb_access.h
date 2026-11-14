@@ -38,8 +38,8 @@ struct AccessInput {
   bool provisioned = false;    // WiFi set up and the role fits the image
   bool flat_set = false;       // indoor: key/flat chosen (EG or OG)
   bool indoor_paired = false;  // indoor: has the link key of the outdoor unit
-  bool target_paired = false;  // outdoor, PairStart: the flat to be paired is paired already (= replacing)
-  bool ap_auto = false;        // the access point is open only because the WiFi is lost (set-up unit, R30)
+  bool maint_by_event = false; // outdoor: maintenance was opened from an indoor unit, not by the button (R31)
+  bool ap_auto = false;       // the access point is open only because the WiFi is lost (set-up unit, R30)
   bool own_pass = false;       // the buyer set an own status-page password
 };
 

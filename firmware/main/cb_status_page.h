@@ -148,7 +148,7 @@ function render(d){
   const mc=byId('mode');mc.textContent=md[0];mc.className='chip '+md[1];
   const bn=byId('banner');bn.replaceChildren();
   if(maint){const b=$('div','banner c-warn');b.append(ic('tool'));const t=$('div');t.append($('b','','Wartung ist aktiv'),
-    $('span','','Einstellungen, Töne und Update sind freigeschaltet – bis 10 min oder bis zu einem kurzen Druck auf den Boot-Taster. Die Seite lädt sich dabei nicht selbst neu.'));
+    $('span','',sy.maint_by_event?'Von einer Inneneinheit geöffnet: nur Töne, Update und Pulslänge – Kopplung, Schlüssel und Passwort brauchen den Boot-Taster an dieser Einheit. Bis 10 min oder bis zu einem kurzen Druck auf den Boot-Taster.':'Einstellungen, Töne und Update sind freigeschaltet – bis 10 min oder bis zu einem kurzen Druck auf den Boot-Taster. Die Seite lädt sich dabei nicht selbst neu.'));
     b.append(t);const r=btn('Neu laden','',"sec");r.onclick=()=>load(true);r.id='upd';b.append(r);bn.append(b)}
   // ---- overview tiles
   const T=byId('tiles');T.replaceChildren();
@@ -164,7 +164,7 @@ function render(d){
   T.append(tile('shield','Gerät',healthy?'in Ordnung':'prüfen','läuft seit '+dur(sy.uptime_s),healthy?'ok':'warn'));
   // ---- cards
   if(d.settings)m.append(settings(d,maint));
-  if(d.pairing)m.append(pairing(d.pairing,maint,sy.role));
+  if(d.pairing)m.append(pairing(d.pairing,maint,sy.role,maint&&!sy.maint_by_event));
   if(d.phones&&d.phones.available)m.append(phones(d.phones,maint));
   if(d.remote&&d.remote.enabled)m.append(remote(d.remote));
   m.append(doorlog(d.doorlog));
@@ -182,7 +182,7 @@ function settings(d,maint){
     b.onclick=async()=>{toast(await post('/settings',{vol:v}));load(true)};seg.append(b)}
   const tb=btn('Probeton','play','sec');tb.onclick=async()=>toast(await post('/settings',{tone:'1'}));c.append(seg,tb);
   return c}
-function pairing(p,maint,R){
+function pairing(p,maint,R,full){
   const c=card('link','Kopplung'),l=$('div','list');
   const item=(av,title,sub,state,txt)=>{const it=$('div','item');it.append($('span','av',av));const g=$('div','grow');g.append($('b','',title),$('span','',sub));
     it.append(g,$('span','pill '+state,txt));l.append(it);return it};
@@ -193,14 +193,16 @@ function pairing(p,maint,R){
       n.placeholder='z. B. Familie Müller';n.autocomplete='off';const s=btn('Speichern','');row.append(n,s);
       s.onclick=async()=>{s.disabled=true;const r=await post('/flat/name',{name:n.value});toast(r);s.disabled=false;if(r.ok)load(true)};
       c.append(row,$('p','mute','Höchstens 24 Zeichen, leer = „'+(R==='OG'?'Wohnung oben':'Wohnung unten')+'“. Erscheint in den Klingel-Nachrichten (unverschlüsselt über ntfy.sh) und auf beiden Statusseiten. Bei schon eingetragenen Handys zeigt die ntfy-App den alten Namen, bis sie neu abonniert werden.'));paused=true}
-    if(!p.paired)c.append($('p','mute','Koppeln an der Außeneinheit: dort „Inneneinheiten suchen“ und den Gerätecode vom Etikett dieser Einheit eingeben.'));
+    if(!p.paired)c.append($('p','mute','Koppeln an der Außeneinheit: dort den Boot-Taster 5 s halten (Wartung), dann auf ihrer Seite „Inneneinheiten suchen“ und den Gerätecode vom Etikett dieser Einheit eingeben.'));
     if(maint&&p.paired){const b=btn('Wartung der Außeneinheit öffnen','tool','sec');b.onclick=async()=>toast(await post('/outdoor-maint',{go:'1'}));
       c.append(b,$('p','mute','Für 10 min – Töne, Update, Pulslänge der Außeneinheit, ohne ihr Gehäuse zu öffnen.'))}
     return c}
   for(const f of ['og','eg']){const ok=p[f+'_paired'],F=f.toUpperCase();
     const it=item(f==='og'?'↑':'↓',ok?flat(F):KEY[F],ok?KEY[F]+(p[f]?' · Nr. '+p[f]:''):'',ok?'c-ok':'c-mute',ok?'gekoppelt':'frei');
-    if(maint&&ok){const b=btn('Entfernen','','danger sm');b.onclick=async()=>{if(confirm('Kopplung „'+flat(F)+'“ ('+KEY[F]+') wirklich entfernen?')){toast(await post('/pair/remove',{flat:f}));load(true)}};it.append(b)}}
+    if(full&&ok){const b=btn('Entfernen','','danger sm');b.onclick=async()=>{if(confirm('Kopplung „'+flat(F)+'“ ('+KEY[F]+') wirklich entfernen?')){toast(await post('/pair/remove',{flat:f}));load(true)}};it.append(b)}}
   c.append(l);
+  // R31: pairing - also the first one - only in maintenance opened by the button of the outdoor unit, or in setup
+  if(!full){c.append($('p','mute',maint?'Koppeln geht nicht in der Wartung von innen: Boot-Taster an der Außeneinheit 5 s halten.':'Koppeln und Entfernen nur in der Wartung der Außeneinheit (Boot-Taster dort 5 s halten) – auch die erste Kopplung einer Wohnung.'));return c}
   const b=btn('Inneneinheiten suchen','search');const list=$('div','list');
   b.onclick=async()=>{paused=true;b.disabled=true;list.replaceChildren($('p','mute','suche … (einige Sekunden)'));
     try{const r=await (await fetch('/pair/list',{cache:'no-store'})).json();list.replaceChildren();
@@ -211,7 +213,7 @@ function pairing(p,maint,R){
         const k=btn('Koppeln','link');k.onclick=async()=>{k.disabled=true;const r=await post('/pair/start',{ip:u.ip,id:u.id,flat:u.flat,code:code.value});toast(r);k.disabled=false};
         row.append(code,k);it.append(row);list.append(it)}}
     catch(e){list.replaceChildren($('p','bad','Suche fehlgeschlagen.'))}b.disabled=false};
-  c.append(b,list,$('p','mute','Erste Kopplung einer Wohnung: Gerätecode der Inneneinheit genügt. Eine bestehende Kopplung ersetzen: nur in der Wartung.'));
+  c.append(b,list,$('p','mute','Gerätecode vom Etikett der Inneneinheit eingeben. Eine bestehende Kopplung wird dabei ersetzt; die Handys dieser Wohnung werden gelöscht.'));
   return c}
 // R27: a phone needs only the ntfy app and one link; the ring push carries the "Tür öffnen" button.
 // FW-B-23: the link of the phone just added (or asked for) survives the refresh of the list, with "Test" right below -

@@ -32,6 +32,7 @@ ButtonEvent ButtonGesture::update(bool pressed, uint32_t now_ms) {
 
 bool ModeMachine::request_maintenance(uint32_t now_ms) {
   if (mode_ == Mode::Setup) return false;
+  if (mode_ == Mode::Normal) by_event_ = true;  // an open maintenance keeps its origin (R31: never downgraded)
   mode_ = Mode::Maintenance;
   last_activity_ = now_ms;
   return true;
@@ -58,6 +59,7 @@ ModeAction ModeMachine::update(ButtonEvent ev, uint32_t now_ms) {
       if (ev == ButtonEvent::Short) return ModeAction::VolumeStep;
       if (ev == ButtonEvent::Long) {
         mode_ = Mode::Maintenance;
+        by_event_ = false;  // the button at this unit: full maintenance
         last_activity_ = now_ms;
         return ModeAction::Entered;
       }
@@ -65,10 +67,12 @@ ModeAction ModeMachine::update(ButtonEvent ev, uint32_t now_ms) {
     case Mode::Maintenance:
       if (ev == ButtonEvent::Short || now_ms - last_activity_ >= kMaintenanceTimeoutMs) {
         mode_ = Mode::Normal;
+        by_event_ = false;
         return ModeAction::Left;
       }
       if (ev == ButtonEvent::Long) {
         mode_ = Mode::Setup;
+        by_event_ = false;
         last_activity_ = now_ms;
         return ModeAction::Entered;
       }

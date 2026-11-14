@@ -16,7 +16,6 @@ AccessInput in(Mode m, bool ap = false) {
   i.provisioned = true;
   i.flat_set = true;
   i.indoor_paired = true;
-  i.target_paired = false;
   return i;
 }
 
@@ -63,6 +62,13 @@ TEST(access_maintenance_only_endpoints) {
 AccessInput auto_ap(Mode m) {
   AccessInput i = in(m, true);
   i.ap_auto = true;
+  return i;
+}
+
+// Maintenance of the outdoor unit opened from a paired indoor unit (event MaintenanceRequest), not by its button.
+AccessInput event_maint() {
+  AccessInput i = in(Mode::Maintenance);
+  i.maint_by_event = true;
   return i;
 }
 
@@ -123,17 +129,32 @@ TEST(access_flat_name_and_outdoor_maintenance_rules) {
   CHECK(a.status[0] == '4' && a.status[1] == '0' && a.status[2] == '9');
 }
 
-TEST(access_pairing_rules_on_the_outdoor_unit) {
-  for (Mode m : kModes) CHECK(ok(Endpoint::PairStart, in(m)));  // RV-08: a FREE flat pairs even in normal mode
-  AccessInput i = in(Mode::Normal);
-  i.target_paired = true;
-  CHECK(!ok(Endpoint::PairStart, i));  // replacing needs maintenance or setup
-  i.mode = Mode::Maintenance;
-  CHECK(ok(Endpoint::PairStart, i));
-  for (Endpoint e : {Endpoint::PairRemove, Endpoint::DoorPulse}) {
+TEST(access_pairing_only_with_the_button_of_the_outdoor_unit) {
+  // R31 (E3, VK-03, RV-08/RV-33): pairing - new, first pairing of a free flat, replacing, removing - only in
+  // maintenance opened by the button of the outdoor unit, or in setup. Never in normal mode, never in maintenance
+  // opened from inside (event), never over the automatic access point.
+  for (Endpoint e : {Endpoint::PairStart, Endpoint::PairRemove}) {
     CHECK(!ok(e, in(Mode::Normal)));
     CHECK(ok(e, in(Mode::Maintenance)));
     CHECK(ok(e, in(Mode::Setup)));
+    CHECK(!ok(e, event_maint()));
+    CHECK(!ok(e, auto_ap(Mode::Normal)));
+  }
+  CHECK(!ok(Endpoint::DoorPulse, in(Mode::Normal)));
+  CHECK(ok(Endpoint::DoorPulse, in(Mode::Maintenance)));
+  CHECK(ok(Endpoint::DoorPulse, in(Mode::Setup)));
+}
+
+TEST(access_maintenance_from_inside_opens_only_tones_update_and_pulse) {
+  // R31: what a paired indoor unit may open at the outdoor unit
+  for (Endpoint e : {Endpoint::ToneUpload, Endpoint::Update, Endpoint::DoorPulse, Endpoint::SettingsVolume,
+                     Endpoint::SettingsTone, Endpoint::Page, Endpoint::StatusJson, Endpoint::PairList})
+    CHECK(ok(e, event_maint()));
+  for (Endpoint e : {Endpoint::PairStart, Endpoint::PairRemove, Endpoint::SettingsOwnerKey, Endpoint::SettingsLed,
+                     Endpoint::PasswordChange}) {
+    Access a = mode_access(e, event_maint());
+    CHECK(!a.ok);
+    CHECK(a.status[0] == '4' && a.status[2] == '3');
   }
 }
 

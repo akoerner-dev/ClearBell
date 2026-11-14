@@ -717,7 +717,8 @@ Inneneinheit (Kapitel 7.3). Ohne WLAN seit 5 min — etwa nach einem Routertausc
 wieder auf, ohne Taster und ohne das Außengehäuse zu öffnen, höchstens 30 min je WLAN-Verlust; dort lässt sich **nur
 das WLAN** ändern, und ein eigenes Passwort wird abgefragt (R30). Werksreset, Rolle, Name und Kopplung brauchen die
 Einrichtung (Taster). „Über den Zugangspunkt“ gilt nur, wenn auch die Gegenstelle im Netz des Zugangspunkts liegt. Die Wartung der Außeneinheit lässt sich zusätzlich von einer
-gekoppelten Inneneinheit aus öffnen. Werksreset: in der Einrichtung Taster 15 s; er löscht nur die Käuferdaten, der
+gekoppelten Inneneinheit aus öffnen; diese „Wartung von innen“ erlaubt nur Töne, Update und Pulslänge. Koppeln und
+Entfernen – auch die erste Kopplung – brauchen den Taster an der Außeneinheit (R31). Werksreset: in der Einrichtung Taster 15 s; er löscht nur die Käuferdaten, der
 Gerätecode bleibt. Befunde und Begründung: `firmware/docs/Produktreife.md`. Tastdauern und Zeitfenster sind
 Entwurfswerte.
 

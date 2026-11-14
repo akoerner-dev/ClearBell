@@ -202,9 +202,7 @@ esp_err_t h_pair_start(httpd_req_t *req) {
     return reply(req, "400 Bad Request", false, "Gerätecode: 16 Zeichen vom Etikett der Inneneinheit");
   cb::UnitId flat = !strcmp(flat_req, "eg") ? cb::UnitId::EG : !strcmp(flat_req, "og") ? cb::UnitId::OG : cb::UnitId::None;
   if (flat == cb::UnitId::None) return reply(req, "400 Bad Request", false, "Wohnung unbekannt");
-  cb::AccessInput ai = cb_access_input(req);
-  ai.target_paired = p.has_key[(int)flat];
-  cb::Access acc = cb::mode_access(cb::Endpoint::PairStart, ai);  // RV-45
+  cb::Access acc = cb::mode_access(cb::Endpoint::PairStart, cb_access_input(req));  // RV-45, R31
   if (!acc.ok) return reply(req, acc.status, false, acc.message);
   uint8_t key[32], nonce[cb::kPairNonceLen];
   cb::random_bytes(key, sizeof key);
@@ -365,7 +363,10 @@ void cb_pairing_on_event(cb::UnitId from, cb::EventCode code, const uint8_t *dat
 #if CB_IS_OUTDOOR
   if (code == cb::EventCode::MaintenanceRequest) {
     bool ok = cb_modes_request_maintenance();
-    cb_log("pairing: %s asked for maintenance - %s", cb::unit_name(from), ok ? "maintenance open for 10 min" : "refused (setup mode)");
+    cb_log("pairing: %s asked for maintenance - %s", cb::unit_name(from),
+           ok ? (cb_modes_maintenance_by_event() ? "open for 10 min, from inside: tones, update, pulse only (R31)"
+                                                 : "already open by the button, window restarted")
+              : "refused (setup mode)");
   }
   if (code == cb::EventCode::FlatName && (from == cb::UnitId::EG || from == cb::UnitId::OG)) {
     // FW-B-21: the sender's link decides the flat; the text is checked like a typed one

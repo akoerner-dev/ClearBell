@@ -116,3 +116,7 @@ bool cb_modes_request_maintenance() {
   if (ok) show_mode_led();
   return ok;
 }
+
+bool cb_modes_maintenance_by_event() {
+  return machine.maintenance_by_event();
+}
