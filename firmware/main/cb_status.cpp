@@ -24,6 +24,7 @@
 #include "cb_setup_logic.h"
 #include "cb_modes.h"
 #include "cb_net.h"
+#include "cb_http_util.h"
 #include "cb_provisioning.h"
 #include "cb_remote.h"
 #include "cb_status_page.h"
@@ -183,6 +184,17 @@ void peer_ip(httpd_req_t *req, char *out, size_t n) {
 
 bool authorize(httpd_req_t *req) {
   req_count++;
+  // RV-39: a writing request from a foreign page is refused BEFORE any login shortcut (also over the access point).
+  if (!cb_http_origin_ok(req, cb_setup_from_ap(req))) {
+    char ip[16];
+    peer_ip(req, ip, sizeof ip);
+    cb_log("web: %s %s from %s refused - not from this unit's own page (cross-site / missing X-ClearBell)",
+           http_method_str((enum http_method)req->method), req->uri, ip);
+    httpd_resp_set_status(req, "403 Forbidden");
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"ok\":false,\"message\":\"Anfrage von fremder Seite abgelehnt\"}");
+    return false;
+  }
   // Over the setup access point the WPA2 password (= device code) already proved possession (cb_setup.h).
   if (cb_setup_from_ap(req)) return true;
   char hdr[512];
@@ -284,9 +296,9 @@ esp_err_t h_upload(httpd_req_t *req) {
   static uint8_t chunk[1024];
   size_t got = 0;
   bool ok = true;
+  cb::BodyReader rd = cb_http_reader(req, 30000 + len / 10);  // RV-17: 30 s + 10 kB/s, two 10-s stalls end it
   while (got < len) {
-    int n = httpd_req_recv(req, (char *)chunk, len - got > sizeof chunk ? sizeof chunk : len - got);
-    if (n == HTTPD_SOCK_ERR_TIMEOUT) continue;  // slow sender: keep waiting (the socket timeout ends it)
+    int n = rd.read((char *)chunk, len - got > sizeof chunk ? sizeof chunk : len - got);
     if (n <= 0 || f.write(chunk, n) != (size_t)n) {
       ok = false;
       break;
@@ -323,9 +335,9 @@ esp_err_t h_update(httpd_req_t *req) {
   size_t got = 0, len = req->content_len;
   bool ok = true;
   msg[0] = 0;
+  cb::BodyReader rd = cb_http_reader(req, 30000 + len / 10);  // RV-17
   while (got < len) {
-    int n = httpd_req_recv(req, (char *)chunk, len - got > sizeof chunk ? sizeof chunk : len - got);
-    if (n == HTTPD_SOCK_ERR_TIMEOUT) continue;
+    int n = rd.read((char *)chunk, len - got > sizeof chunk ? sizeof chunk : len - got);
     if (n <= 0) {
       snprintf(msg, sizeof msg, "Upload abgebrochen - alte Firmware bleibt");
       ok = false;
@@ -368,15 +380,8 @@ esp_err_t h_settings(httpd_req_t *req) {
   if (!authorize(req)) return ESP_OK;
   security_headers(req);
   char body[192], v[8];
-  size_t len = req->content_len, got = 0;
-  if (len == 0 || len >= sizeof body) return reply_settings(req, "400 Bad Request", "Wert fehlt");
-  while (got < len) {
-    int n = httpd_req_recv(req, body + got, len - got);
-    if (n == HTTPD_SOCK_ERR_TIMEOUT) continue;
-    if (n <= 0) return reply_settings(req, "400 Bad Request", "Anfrage abgebrochen");
-    got += n;
-  }
-  body[got] = 0;
+  if (req->content_len == 0 || req->content_len >= sizeof body) return reply_settings(req, "400 Bad Request", "Wert fehlt");
+  if (!cb_http_read_body(req, body, sizeof body)) return reply_settings(req, "400 Bad Request", "Anfrage abgebrochen");
   char msg[96];
   msg[0] = 0;
   if (cb::form_get(body, "led", v, sizeof v)) {
@@ -445,15 +450,9 @@ esp_err_t h_password(httpd_req_t *req) {
   if (pw_locked_until && (int32_t)(pw_locked_until - now_s()) > 0)
     return reply_settings(req, "429 Too Many Requests", "zu oft falsches aktuelles Passwort - 1 min warten");
   char body[160], enc[70], mac[40];
-  size_t len = req->content_len, got = 0;
-  if (len == 0 || len >= sizeof body) return reply_settings(req, "400 Bad Request", "Anfrage unvollständig");
-  while (got < len) {
-    int n = httpd_req_recv(req, body + got, len - got);
-    if (n == HTTPD_SOCK_ERR_TIMEOUT) continue;
-    if (n <= 0) return reply_settings(req, "400 Bad Request", "Anfrage abgebrochen");
-    got += n;
-  }
-  body[got] = 0;
+  if (req->content_len == 0 || req->content_len >= sizeof body)
+    return reply_settings(req, "400 Bad Request", "Anfrage unvollständig");
+  if (!cb_http_read_body(req, body, sizeof body)) return reply_settings(req, "400 Bad Request", "Anfrage abgebrochen");
   if (!cb::form_get(body, "enc", enc, sizeof enc) || !cb::form_get(body, "mac", mac, sizeof mac))
     return reply_settings(req, "400 Bad Request", "Anfrage unvollständig");
   char nonce[33];

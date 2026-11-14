@@ -981,6 +981,12 @@ password**:
 **Write actions** — upload a sound, update, settings — exist **only in maintenance**. **There is no “open door”
 action.**
 
+**Protection of the web layer (VK-06, 2026-11-14):** writing requests (POST/PUT/DELETE) count only with the header
+`X-ClearBell: 1`, same origin (Origin/Sec-Fetch-Site) and the unit's own host name or address – foreign web pages
+cannot trigger anything with cached credentials (CSRF, DNS rebinding). A request body must arrive promptly (two
+10-s stalls in a row or a total deadline end it), so a client cannot hold the single web-server task. Wrong pairing
+offers lock out only their sender, not everybody.
+
 The touch row is the real reason for the page: it makes drift measurable *before* it causes misbehaviour, and it
 provides the basis for the one retrofit option the hardware keeps open (shield/guard on the reserved GPIO6/14).
 

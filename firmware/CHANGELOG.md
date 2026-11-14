@@ -12,6 +12,9 @@ Versionen nach SemVer; `version.txt` ist die Quelle. Solange die Portierung läu
 - **VK-07:** Gegenstellen-Adresse nur aus frischen echten Rahmen gelernt, Antworten an die Absenderadresse, bei
   Unerreichbarkeit/WLAN-Verlust wieder per mDNS gesucht (Router-Reset); wiederholter Door-Request bekommt dieselbe
   Challenge; eigener Ratentopf und eigene Warteschlange für bekannte Gegenstellen, Deckel für alle Unbekannten.
+- **VK-06:** Schreibende Web-Anfragen nur mit `X-ClearBell: 1` von der eigenen Seite (CSRF/DNS-Rebinding);
+  Anfragekörper mit Frist (kein Festhalten des Webserver-Tasks); falsche Kopplungsangebote sperren nur ihren
+  Absender. Die PC-Werkzeuge senden die Kopfzeile mit.
 - Werkzeuge (Phase 0): Testbauten unsigniert, Konsolen-Log ohne Geheimnisse, `tools/geheim.py`.
 
 ### Härtung Stufe B: IN-2 gebrannt (13.11.2026)

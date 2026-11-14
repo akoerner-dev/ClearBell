@@ -47,7 +47,9 @@ class _DigestOnce(urllib.request.HTTPDigestAuthHandler):
 def _opener(base: str, password: str) -> urllib.request.OpenerDirector:
     mgr = urllib.request.HTTPPasswordMgrWithDefaultRealm()
     mgr.add_password(None, base, USER, password)
-    return urllib.request.build_opener(_DigestOnce(mgr))
+    op = urllib.request.build_opener(_DigestOnce(mgr))
+    op.addheaders.append(("X-ClearBell", "1"))  # writing requests need it (cross-site protection, RV-39)
+    return op
 
 
 def _refused(e: urllib.error.HTTPError) -> str:

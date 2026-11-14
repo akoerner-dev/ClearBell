@@ -12,6 +12,7 @@
 #include "cb_audio.h"
 #include "cb_config.h"
 #include "cb_console.h"
+#include "cb_http_util.h"
 #include "cb_json.h"
 #include "cb_log.h"
 #include "cb_modes.h"
@@ -154,19 +155,8 @@ esp_err_t h_scan(httpd_req_t *req) {
   return send_json(req, "200 OK", j);
 }
 
-bool read_body(httpd_req_t *req, char *buf, size_t cap) {
-  size_t len = req->content_len;
-  if (len == 0 || len >= cap) return false;
-  size_t got = 0;
-  while (got < len) {
-    int n = httpd_req_recv(req, buf + got, len - got);
-    if (n == HTTPD_SOCK_ERR_TIMEOUT) continue;
-    if (n <= 0) return false;
-    got += n;
-  }
-  buf[got] = 0;
-  return true;
-}
+// RV-17: bounded - a client that announces a body and sends nothing no longer holds the web server task.
+bool read_body(httpd_req_t *req, char *buf, size_t cap) { return cb_http_read_body(req, buf, cap); }
 
 esp_err_t h_save(httpd_req_t *req) {
   if (!cb_status_authorize(req)) return ESP_OK;

@@ -995,6 +995,12 @@ Gerätepasswort**:
 **Schreibende Aktionen** — Ton hochladen, Update, Einstellungen — gibt es **nur in der Wartung**. **Eine Aktion
 „Tür öffnen“ gibt es nicht.**
 
+**Schutz der Webschicht (VK-06, 14.11.2026):** Schreibende Anfragen (POST/PUT/DELETE) gelten nur mit der Kopfzeile
+`X-ClearBell: 1`, gleicher Herkunft (Origin/Sec-Fetch-Site) und dem eigenen Hostnamen bzw. der eigenen Adresse –
+fremde Webseiten können mit zwischengespeicherten Anmeldedaten nichts auslösen (CSRF, DNS-Rebinding). Ein
+Anfragekörper muss zügig kommen (zwei 10-s-Pausen in Folge oder Gesamtfrist beenden ihn), damit ein Client den
+einzigen Webserver-Task nicht festhalten kann. Falsche Kopplungsangebote sperren nur ihren Absender, nicht alle.
+
 Die Touch-Zeile ist der eigentliche Grund für die Seite: Sie macht Drift messbar, *bevor* sie zu Fehlverhalten führt,
 und liefert die Grundlage für die einzige Nachrüstoption, die die Hardware offenhält (Shield/Guard an den
 freigehaltenen GPIO6/14).

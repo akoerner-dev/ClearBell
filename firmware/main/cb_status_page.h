@@ -174,7 +174,7 @@ function render(d){
   m.append(diagnosis(d));
   if(!maint&&sy.mode==='normal'){const c=card('info','Mehr einstellen');c.append($('p','mute',
     'Töne tauschen, LED-Abgleich'+(d.door?', Pulslänge':'')+', Passwort, Handys und Firmware-Update: Wartung einschalten – Boot-Taster der Einheit 5 s halten, dann diese Seite neu laden.'));m.append(c)}}
-async function post(url,data){try{const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(data)});
+async function post(url,data){try{const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-ClearBell':'1'},body:new URLSearchParams(data)});
   try{return await r.json()}catch(e){return {ok:false,message:'HTTP '+r.status}}}catch(e){return {ok:false,message:'Keine Verbindung zur Einheit'}}}
 function settings(d,maint){
   const st=d.settings,c=card('bell','Klingel');c.append($('div','mute','Lautstärke'));const seg=$('div','seg');seg.style.marginTop='6px';
@@ -266,7 +266,7 @@ function tones(a,maint){
   const fp=picker('.wav,audio/wav');const b=btn('Hochladen','up');
   b.onclick=async()=>{const file=fp.file();if(!file){toast({ok:false,message:'Bitte zuerst eine WAV-Datei wählen.'});return}
     b.disabled=true;toast({ok:true,message:'lädt hoch …'});
-    try{const r=await fetch('/ton/'+sel.value,{method:'PUT',body:file});toast(await r.json());load(true)}catch(e){toast({ok:false,message:'Fehler: '+e})}b.disabled=false};
+    try{const r=await fetch('/ton/'+sel.value,{method:'PUT',headers:{'X-ClearBell':'1'},body:file});toast(await r.json());load(true)}catch(e){toast({ok:false,message:'Fehler: '+e})}b.disabled=false};
   c.append(sel,fp.el,b,$('p','mute','16-Bit-PCM-WAV, höchstens 1 MB.'));paused=true;return c}
 // FW-B-10: own file picker - a button and a name line that shortens long names at the front, so the end stays readable
 function picker(accept){const inp=$('input');inp.type='file';inp.accept=accept;inp.hidden=true;const w=$('div','file');const name=$('span','','keine Datei gewählt');
@@ -335,7 +335,7 @@ function fwform(s,img){
   const b=btn('Installieren','up');
   b.onclick=async()=>{const file=fp.file();if(!file){toast({ok:false,message:'Bitte zuerst eine Datei wählen.'});return}
     b.disabled=true;toast({ok:true,message:'wird übertragen und geprüft … (bis zu 1 min, Seite offen lassen)'});
-    try{const r=await fetch('/update'+(older.checked?'?older=1':''),{method:'PUT',body:file});const j=await r.json();toast(j);
+    try{const r=await fetch('/update'+(older.checked?'?older=1':''),{method:'PUT',headers:{'X-ClearBell':'1'},body:file});const j=await r.json();toast(j);
       if(j.ok)setTimeout(()=>location.reload(),25000)}catch(e){toast({ok:false,message:'Fehler: '+e})}b.disabled=false};
   s.append(fp.el,lb,b,$('p','mute','Nur signierte Dateien „clearbell-…-'+img+'.bin“ von der Release-Seite. Bei Problemen kehrt die Einheit von selbst zur alten Firmware zurück.'))}
 function diagnosis(d){

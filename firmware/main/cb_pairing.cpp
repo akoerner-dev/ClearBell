@@ -11,6 +11,7 @@
 #include "cb_config.h"
 #include "cb_crypto.h"
 #include "cb_door.h"
+#include "cb_http_util.h"
 #include "cb_log.h"
 #include "cb_modes.h"
 #include "cb_net.h"
@@ -24,10 +25,9 @@
 
 namespace {
 
-constexpr int kMaxFailures = 5;
-constexpr uint32_t kLockMs = 10UL * 60 * 1000;
-std::atomic<int> failures{0};
-std::atomic<uint32_t> locked_until{0};
+// Wrong pairing offers count per source address (RV-41): one device in the WiFi can no longer lock pairing for
+// everybody. Only the web server task uses it, so it needs no lock.
+cb::FailGuard pair_guard;
 std::atomic<bool> maint_request{false};  // web task -> loop (indoor: send the event)
 #if !CB_IS_OUTDOOR
 // Indoor: the flat name still has to reach the outdoor unit (FW-B-21) - after every start and every change.
@@ -53,19 +53,8 @@ esp_err_t reply(httpd_req_t *req, const char *status, bool ok, const char *msg, 
   return httpd_resp_send(req, j.c_str(), j.len());
 }
 
-bool read_body(httpd_req_t *req, char *buf, size_t cap) {
-  size_t len = req->content_len;
-  if (len == 0 || len >= cap) return false;
-  size_t got = 0;
-  while (got < len) {
-    int n = httpd_req_recv(req, buf + got, len - got);
-    if (n == HTTPD_SOCK_ERR_TIMEOUT) continue;
-    if (n <= 0) return false;
-    got += n;
-  }
-  buf[got] = 0;
-  return true;
-}
+// RV-17: bounded - a client that announces a body and sends nothing no longer holds the web server task.
+bool read_body(httpd_req_t *req, char *buf, size_t cap) { return cb_http_read_body(req, buf, cap); }
 
 // ---- Indoor: accept a pairing offer (no login: the offer itself proves knowledge of THIS unit's code) -----------
 
@@ -76,9 +65,8 @@ const char *flat_txt(cb::UnitId u) {
 
 esp_err_t h_pair_accept(httpd_req_t *req) {
   const CbProvisioning &p = cb_prov();
-  uint32_t now = millis();
-  uint32_t lu = locked_until.load();
-  if (lu && (int32_t)(lu - now) > 0) return reply(req, "429 Too Many Requests", false, "gesperrt - später erneut");
+  uint32_t now = millis(), src = cb_http_peer_ipv4(req);
+  if (pair_guard.locked(src, now)) return reply(req, "429 Too Many Requests", false, "gesperrt - später erneut");
   bool ready = !p.has_key[(int)cb::UnitId::Outdoor] || cb_mode() != cb::Mode::Normal;
   if (!ready)
     return reply(req, "409 Conflict", false,
@@ -93,16 +81,17 @@ esp_err_t h_pair_accept(httpd_req_t *req) {
       strlen(au) != 6)
     return reply(req, "400 Bad Request", false, "Kopplungsanfrage unvollständig");
   uint8_t key[32];
-  if (strcmp(in, p.serial) != 0 || !cb::pair_open(p.dev_code, au, p.serial, o, key)) {
-    if (++failures >= kMaxFailures) {
-      failures = 0;
-      locked_until = now + kLockMs;
-      cb_log("pairing: %d wrong attempts - locked for 10 min", kMaxFailures);
-    }
-    cb_log("pairing: offer from outdoor unit %s REFUSED (wrong code or other unit)", au);
+  // Another unit number proves no guessing of the code: refused, but not counted (RV-41).
+  if (strcmp(in, p.serial) != 0) return reply(req, "403 Forbidden", false, "Angebot für eine andere Inneneinheit");
+  if (!cb::pair_open(p.dev_code, au, p.serial, o, key)) {
+    pair_guard.fail(src, now);
+    if (pair_guard.locked(src, now))
+      cb_log("pairing: %d wrong offers from one source - that source waits %lu min", cb::FailGuard::kMaxFails,
+             (unsigned long)(cb::FailGuard::kLockMs / 60000));
+    cb_log("pairing: offer from outdoor unit %s REFUSED (wrong code)", au);
     return reply(req, "403 Forbidden", false, "Gerätecode passt nicht");
   }
-  failures = 0;
+  pair_guard.success(src);
   uint8_t c[32];
   char ch[65];
   cb::pair_confirm(key, o.nonce, (uint8_t)p.role, c);

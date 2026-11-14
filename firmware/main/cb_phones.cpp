@@ -8,6 +8,7 @@
 
 #include "cb_config.h"
 #include "cb_crypto.h"
+#include "cb_http_util.h"
 #include "cb_log.h"
 #include "cb_modes.h"
 #include "cb_net.h"
@@ -67,19 +68,8 @@ esp_err_t answer(httpd_req_t *req, const char *status, bool ok, const char *msg)
   return reply(req, status, j);
 }
 
-bool read_body(httpd_req_t *req, char *buf, size_t cap) {
-  size_t len = req->content_len;
-  if (len == 0 || len >= cap) return false;
-  size_t got = 0;
-  while (got < len) {
-    int n = httpd_req_recv(req, buf + got, len - got);
-    if (n == HTTPD_SOCK_ERR_TIMEOUT) continue;
-    if (n <= 0) return false;
-    got += n;
-  }
-  buf[got] = 0;
-  return true;
-}
+// RV-17: bounded - a client that announces a body and sends nothing no longer holds the web server task.
+bool read_body(httpd_req_t *req, char *buf, size_t cap) { return cb_http_read_body(req, buf, cap); }
 
 uint8_t own_flat() { return (uint8_t)cb_prov().role; }
 

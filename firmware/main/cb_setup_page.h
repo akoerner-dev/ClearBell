@@ -54,7 +54,7 @@ const I={bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10
  search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>'};
 const ic=n=>{const s=document.createElementNS('http://www.w3.org/2000/svg','svg');s.setAttribute('viewBox','0 0 24 24');s.innerHTML=I[n];return s};
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e};
-async function post(url,data){try{const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(data)});return await r.json()}
+async function post(url,data){try{const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-ClearBell':'1'},body:new URLSearchParams(data)});return await r.json()}
   catch(e){return {ok:false,message:'Keine Verbindung zur Einheit.'}}}
 async function info(){const i=await (await fetch('/setup/info',{cache:'no-store'})).json();
   $('who').textContent=(i.image==='aussen'?'Außeneinheit':'Inneneinheit')+' · Gerätenummer '+i.serial;
