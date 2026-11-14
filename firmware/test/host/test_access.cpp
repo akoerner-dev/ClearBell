@@ -1,6 +1,5 @@
-// test_access.cpp - VK-08 part 2 / RV-45: who may use which web endpoint in which mode (cb_access.h). The table
-// describes the behaviour as of 14.11.2026 UNCHANGED; Phase 2 of the security plan (decisions E2/E3) changes it here
-// first, so every rule change shows up as a test change.
+// test_access.cpp - VK-08 part 2 / RV-45: who may use which web endpoint in which mode (cb_access.h). Every rule
+// change of Phase 2 of the security plan (R30-R33) is made here first, so it shows up as a test change.
 #include <initializer_list>
 
 #include "cb_access.h"
@@ -60,20 +59,60 @@ TEST(access_maintenance_only_endpoints) {
   CHECK(mode_access(Endpoint::Update, in(Mode::Normal)).status[0] == '4');
 }
 
-TEST(access_setup_page_changes_only_in_setup_or_over_the_access_point) {
-  for (Endpoint e : {Endpoint::SetupSave, Endpoint::SetupReset}) {
+// The access point that opened BY ITSELF because the WiFi was lost (set-up unit, not in setup mode).
+AccessInput auto_ap(Mode m) {
+  AccessInput i = in(m, true);
+  i.ap_auto = true;
+  return i;
+}
+
+TEST(access_setup_page_changes_only_in_setup) {
+  // R30 (E2, VK-02, RV-04/RV-09): factory reset, role and flat name only in setup mode (button) or before the first
+  // setup - never over the access point that opened by itself.
+  for (Endpoint e : {Endpoint::SetupSave, Endpoint::SetupRole, Endpoint::SetupReset}) {
     CHECK(!ok(e, in(Mode::Normal)));
     CHECK(!ok(e, in(Mode::Maintenance)));
     CHECK(ok(e, in(Mode::Setup)));
-    CHECK(ok(e, in(Mode::Normal, true)));  // RV-04: today the access point allows it in ANY mode (Phase 2, E2)
+    CHECK(ok(e, in(Mode::Setup, true)));
+    CHECK(!ok(e, in(Mode::Normal, true)));  // access point forced by the console (test): no rights of its own
+    AccessInput first = in(Mode::Setup, true);
+    first.provisioned = false;
+    CHECK(ok(e, first));  // first setup
   }
+}
+
+TEST(access_automatic_access_point_only_changes_the_wifi) {
+  for (Mode m : {Mode::Normal, Mode::Maintenance}) {
+    CHECK(ok(Endpoint::SetupSave, auto_ap(m)));     // new WiFi: yes
+    CHECK(!ok(Endpoint::SetupRole, auto_ap(m)));    // role / flat name: no
+    CHECK(!ok(Endpoint::SetupReset, auto_ap(m)));   // factory reset: no
+  }
+  CHECK(!ok(Endpoint::FlatName, auto_ap(Mode::Normal)));      // flat name only with the button of the indoor unit
+  CHECK(ok(Endpoint::FlatName, auto_ap(Mode::Maintenance)));
+  AccessInput lan = in(Mode::Normal);
+  lan.ap_auto = true;  // the access point is open, but this request came over the home network
+  CHECK(!ok(Endpoint::SetupSave, lan));
+}
+
+TEST(access_point_replaces_the_login_only_without_own_password) {
+  // Over the access point the WPA2 password (= device code) proves possession - unless the buyer set an own
+  // password and the access point opened by itself: then the device code from the label alone is not enough (R30).
+  CHECK(ap_counts_as_login(in(Mode::Setup, true)));
+  CHECK(ap_counts_as_login(auto_ap(Mode::Normal)));
+  AccessInput i = auto_ap(Mode::Normal);
+  i.own_pass = true;
+  CHECK(!ap_counts_as_login(i));
+  i = in(Mode::Setup, true);
+  i.own_pass = true;
+  CHECK(ap_counts_as_login(i));  // setup mode: the button was pressed, the label code suffices
+  CHECK(!ap_counts_as_login(in(Mode::Setup)));  // home network: always the login
 }
 
 TEST(access_flat_name_and_outdoor_maintenance_rules) {
   CHECK(!ok(Endpoint::FlatName, in(Mode::Normal)));
   CHECK(ok(Endpoint::FlatName, in(Mode::Maintenance)));
   CHECK(ok(Endpoint::FlatName, in(Mode::Setup)));
-  CHECK(ok(Endpoint::FlatName, in(Mode::Normal, true)));
+  CHECK(!ok(Endpoint::FlatName, in(Mode::Normal, true)));  // R30: no longer over the access point in normal mode
   AccessInput i = in(Mode::Maintenance);
   i.flat_set = false;
   CHECK(!ok(Endpoint::FlatName, i));

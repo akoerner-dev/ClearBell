@@ -10,7 +10,13 @@ constexpr const char *k409 = "409 Conflict";
 
 Access deny(const char *status, const char *msg) { return Access{false, status, msg}; }
 bool maint(const AccessInput &in) { return in.mode == Mode::Maintenance; }
+// Setup mode (boot button 2 x 5 s) or not set up yet (first setup) - the only states that change role, name, reset.
+bool setup(const AccessInput &in) { return in.mode == Mode::Setup || !in.provisioned; }
 }  // namespace
+
+bool ap_counts_as_login(const AccessInput &in) {
+  return in.from_ap && !(in.ap_auto && in.own_pass);
+}
 
 EndpointInfo endpoint_info(Endpoint e) {
   switch (e) {
@@ -27,6 +33,7 @@ EndpointInfo endpoint_info(Endpoint e) {
     case Endpoint::SetupInfo: return {"/setup/info", false, true, true};
     case Endpoint::SetupScan: return {"/setup/scan", false, true, true};
     case Endpoint::SetupSave: return {"/setup/save", true, true, true};
+    case Endpoint::SetupRole: return {"/setup/save role|name", true, true, true};
     case Endpoint::SetupReset: return {"/setup/reset", true, true, true};
     case Endpoint::PairList: return {"/pair/list", false, true, true};
     case Endpoint::PairStart: return {"/pair/start", true, true, true};
@@ -66,9 +73,13 @@ Access mode_access(Endpoint e, const AccessInput &in) {
     case Endpoint::PasswordChange:
       return maint(in) ? kOk : deny(k403, "Passwort ändern nur in der Wartung (Boot-Taster 5 s halten)");
     case Endpoint::SetupSave:
+      // R30 (RV-04/RV-09): the access point that opened by itself (WiFi lost) may change the WiFi - nothing else
+      if (in.from_ap && in.ap_auto) return kOk;
+      return setup(in) ? kOk : deny(k403, "nur in der Einrichtung (Boot-Taster 2 × 5 s)");
+    case Endpoint::SetupRole:
+      return setup(in) ? kOk : deny(k403, "Klingeltaste und Name nur in der Einrichtung (Boot-Taster 2 × 5 s)");
     case Endpoint::SetupReset:
-      // RV-04: a client of the access point counts as present in ANY mode - security plan Phase 2 (E2) changes it
-      return in.from_ap || in.mode == Mode::Setup ? kOk : deny(k403, "nur in der Einrichtung (Boot-Taster 2 × 5 s)");
+      return setup(in) ? kOk : deny(k403, "Werkszustand nur in der Einrichtung (Boot-Taster 2 × 5 s)");
     case Endpoint::PairStart:
       // RV-08: a free flat pairs in normal mode too - security plan Phase 2 (E3) changes it
       if (in.target_paired && in.mode == Mode::Normal)
@@ -87,7 +98,7 @@ Access mode_access(Endpoint e, const AccessInput &in) {
       if (!in.indoor_paired) return deny(k409, "nicht gekoppelt");
       return kOk;
     case Endpoint::FlatName:
-      if (in.mode == Mode::Normal && !in.from_ap)
+      if (in.mode == Mode::Normal && in.provisioned)  // R30: no longer over the access point in normal mode
         return deny(k403, "nur in der Wartung dieser Inneneinheit (Boot-Taster 5 s)");
       if (!in.flat_set) return deny(k409, "erst die Klingeltaste wählen (Einrichtung)");
       return kOk;

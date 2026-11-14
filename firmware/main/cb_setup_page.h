@@ -64,7 +64,10 @@ async function info(){const i=await (await fetch('/setup/info',{cache:'no-store'
     ico.style.background=i.wifi_up?'var(--ok-soft)':'var(--bad-soft)';ico.style.color=i.wifi_up?'var(--ok)':'var(--bad)';ico.append(ic(i.wifi_up?'ok':'warn'));
     const t=el('div');t.append(el('b','','Eingerichtet'),el('div','mute','WLAN „'+i.ssid+'“'+(i.key_label?' · '+(i.flat_name||i.key_label)+' ('+i.key_label+')':'')+(i.wifi_up?' · verbunden, erreichbar unter http://'+i.hostname:' · zurzeit NICHT verbunden')));
     w.append(ico,t);s.append(w);$('ssid').value=i.ssid}
-  if(!i.may_change){$('save').disabled=true;$('reset').disabled=true;$('out').textContent='Ändern nur in der Einrichtung: Boot-Taster zweimal 5 s halten.'}}
+  if(!i.may_role){for(const r of document.querySelectorAll('input[name=role]'))r.disabled=true;$('fname').disabled=true}
+  if(!i.may_reset)$('reset').disabled=true;
+  if(i.may_change&&!i.may_role)$('out').textContent='Die Einheit hat ihr WLAN verloren: hier nur ein neues WLAN eintragen. Klingeltaste, Name und Werkszustand nur in der Einrichtung (Boot-Taster zweimal 5 s halten).';
+  if(!i.may_change){$('save').disabled=true;$('out').textContent='Ändern nur in der Einrichtung: Boot-Taster zweimal 5 s halten.'}}
 function bars(rssi){const b=el('span','bars');const lv=rssi>-60?4:rssi>-70?3:rssi>-80?2:1;for(let k=1;k<=4;k++){const i=el('i',k<=lv?'on':'');i.style.height=(k*4)+'px';b.append(i)}return b}
 $('scanb').prepend(ic('search'));
 $('scanb').onclick=async()=>{const sb=$('scanb');sb.disabled=true;sb.lastChild.textContent='suche … (einige Sekunden)';const n=$('nets');n.replaceChildren();

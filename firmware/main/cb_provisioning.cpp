@@ -6,7 +6,8 @@
 //   name      string  optional label for logs (development boards: "AU-1", "IN-1")
 //
 // USER namespace "cb_user" in the nvs partition (setup page, pairing):
-//   role u8 (2 = EG, 3 = OG; outdoor needs none) · wifi_ssid / wifi_pass · key_au / key_eg / key_og blob32 ·
+//   role u8 (2 = EG, 3 = OG; outdoor needs none) · wifi_ssid / wifi_pass · wifi_pmf u8 (R30: 1 router can PMF,
+//   2 cannot, missing = not learned) · key_au / key_eg / key_og blob32 ·
 //   name_eg / name_og (free flat name, FW-B-21: indoor its own, outdoor as sent by the indoor units) ·
 //   ser_au / ser_eg / ser_og (peer unit numbers) · ip_au / ip_eg / ip_og (optional, development) ·
 //   pid0..7 / pk0..7 / pf0..7 (phones of the remote opening: id, key, flat - R27; until then 0..3 and EG only)
@@ -117,6 +118,9 @@ const char *load_user() {
   const char *problem = nullptr;
   if (!read_str(h, "wifi_ssid", prov.wifi_ssid, sizeof prov.wifi_ssid)) problem = "no WiFi configured";
   read_str(h, "wifi_pass", prov.wifi_pass, sizeof prov.wifi_pass);  // an open network has none
+  uint8_t pmf = 0;
+  nvs_get_u8(h, "wifi_pmf", &pmf);  // R30; missing = not learned yet
+  prov.wifi_pmf = pmf <= 2 ? (cb::PmfLearned)pmf : cb::PmfLearned::Unknown;
 #if CB_IS_OUTDOOR
   prov.role = cb::UnitId::Outdoor;
 #else
@@ -214,8 +218,18 @@ bool cb_prov_set_wifi(const char *ssid, const char *pass) {
         const W *w = static_cast<const W *>(a);
         nvs_set_str(h, "wifi_ssid", w->s);
         nvs_set_str(h, "wifi_pass", w->p);
+        nvs_erase_key(h, "wifi_pmf");  // a new WiFi (or router): learn PMF again (R30)
       },
       &w);
+}
+
+bool cb_prov_set_wifi_pmf(cb::PmfLearned l) {
+  if (prov.wifi_pmf == l) return true;
+  uint8_t v = (uint8_t)l;
+  bool ok = user_write([](nvs_handle_t h, const void *a) { nvs_set_u8(h, "wifi_pmf", *static_cast<const uint8_t *>(a)); },
+                       &v);
+  if (ok) prov.wifi_pmf = l;
+  return ok;
 }
 
 bool cb_prov_set_role(cb::UnitId role) {

@@ -28,6 +28,37 @@ bool form_get(const char *body, const char *key, char *out, size_t cap);
 // The text of a WiFi-join QR code for the setup access point.
 bool wifi_qr_text(const char *ssid, const char *password, char *out, size_t cap);
 
+// ---- Automatic access point (R30, E2_Zugangspunkt, VK-02) ---------------------------------------------------------
+// A set-up unit that has lost its WiFi opens the setup access point by itself after kAutoApAfterMs, so the buyer can
+// enter a new WiFi without the button. It stays open for at most kAutoApForMs per WiFi loss (a jammer must not keep
+// it open for ever); afterwards only the WiFi coming back once, a reboot or the button (setup mode) opens it again.
+// Over this access point only the WiFi may be changed (cb_access: SetupSave yes, SetupRole/SetupReset no).
+constexpr uint32_t kAutoApAfterMs = 5UL * 60 * 1000;
+constexpr uint32_t kAutoApForMs = 30UL * 60 * 1000;
+// lost_ms: how long the WiFi has been missing without a break.
+bool auto_ap_due(uint32_t lost_ms);
+
+// RV-16: did a request really come over the setup access point? All addresses as lwIP stores them (s_addr, network
+// byte order - only compared under masks, so the byte order does not matter). True only if the local address is the
+// access point's, the peer lies in the access point's net (a home-network device cannot fake such a source: the
+// handshake would be answered over the access point), and the home network (sta_ip/sta_mask, 0 = not connected) does
+// not overlap the access point's net - then the source would be ambiguous.
+bool ap_request(uint32_t local, uint32_t peer, uint32_t ap_ip, uint32_t ap_mask, uint32_t sta_ip, uint32_t sta_mask);
+
+// ---- PMF (R30, RV-09): protected management frames "required" where the router can do it ------------------------
+// ESP-IDF always uses PMF when the router offers it (pmf_cfg.capable is obsolete) - forged disconnect frames are then
+// ignored. "required" additionally refuses a router WITHOUT PMF, i.e. a fake router of the same name that offers
+// none. Whether the home router can do PMF is learned once per WiFi (trust on first use) and stored; entering a WiFi
+// on the setup page forgets it.
+//   Unknown  try with "required"; reason 210 (no AP with compatible security) -> No, connected -> Yes
+//   Yes      always "required" - a later 210 is a downgrade (or a new router: then enter the WiFi again)
+//   No       PMF optional (old router); the status page says "PMF nicht aktiv"
+enum class PmfLearned : uint8_t { Unknown = 0, Yes = 1, No = 2 };
+constexpr uint8_t kReasonNoCompatibleSecurity = 210;  // WIFI_REASON_NO_AP_FOUND_W_COMPATIBLE_SECURITY
+inline bool pmf_required(PmfLearned l) { return l != PmfLearned::No; }
+// State after one connection attempt that was made with pmf_required(l).
+PmfLearned pmf_after_attempt(PmfLearned l, bool connected, uint8_t reason);
+
 // ---- Flat names (FW-B-21) --------------------------------------------------------------------------------------
 // Internally the two flats stay the two bell keys of the outdoor unit: UnitId EG (2) = key at the BOTTOM, OG (3) =
 // key at the TOP (the usual order on a door panel: upper flat, upper key; mounting decides, the wire numbers stay).

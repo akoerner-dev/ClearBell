@@ -50,6 +50,8 @@ cb::AccessInput cb_access_input(httpd_req_t *req) {
   in.provisioned = p.valid;
   in.flat_set = p.role == cb::UnitId::EG || p.role == cb::UnitId::OG;
   in.indoor_paired = p.has_key[(int)cb::UnitId::Outdoor];
+  in.ap_auto = cb_setup_ap_auto();
+  in.own_pass = cb_prov_has_own_web_pass();
   return in;
 }
 

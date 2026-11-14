@@ -156,6 +156,25 @@ bool flat_name_normalize(const char *in, char out[kFlatNameMaxBytes + 1]) {
   return true;
 }
 
+bool auto_ap_due(uint32_t lost_ms) {
+  return lost_ms >= kAutoApAfterMs && lost_ms - kAutoApAfterMs < kAutoApForMs;
+}
+
+bool ap_request(uint32_t local, uint32_t peer, uint32_t ap_ip, uint32_t ap_mask, uint32_t sta_ip, uint32_t sta_mask) {
+  if (local != ap_ip || peer == ap_ip || (peer & ap_mask) != (ap_ip & ap_mask)) return false;
+  if (sta_ip) {
+    uint32_t m = ap_mask & sta_mask;  // two nets overlap if they agree under the shorter of the two masks
+    if ((sta_ip & m) == (ap_ip & m)) return false;
+  }
+  return true;
+}
+
+PmfLearned pmf_after_attempt(PmfLearned l, bool connected, uint8_t reason) {
+  if (l != PmfLearned::Unknown) return l;  // learned once per WiFi; a later 210 must not downgrade
+  if (connected) return PmfLearned::Yes;
+  return reason == kReasonNoCompatibleSecurity ? PmfLearned::No : PmfLearned::Unknown;
+}
+
 const char *flat_key_label(uint8_t flat) {
   return flat == 2 ? "Taste unten" : flat == 3 ? "Taste oben" : "";
 }

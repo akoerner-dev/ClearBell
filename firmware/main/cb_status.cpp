@@ -195,8 +195,9 @@ bool authorize(httpd_req_t *req) {
     httpd_resp_sendstr(req, "{\"ok\":false,\"message\":\"Anfrage von fremder Seite abgelehnt\"}");
     return false;
   }
-  // Over the setup access point the WPA2 password (= device code) already proved possession (cb_setup.h).
-  if (cb_setup_from_ap(req)) return true;
+  // Over the setup access point the WPA2 password (= device code) already proved possession (cb_setup.h) - except
+  // on the automatic access point while an own password is set: then the normal login (R30, cb_access.h).
+  if (cb::ap_counts_as_login(cb_access_input(req))) return true;
   char hdr[512];
   const char *h = nullptr;
   size_t l = httpd_req_get_hdr_value_len(req, "Authorization");

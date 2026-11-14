@@ -24,11 +24,12 @@
 
 namespace {
 
-constexpr uint32_t kNoWifiApMs = 5UL * 60 * 1000;  // set-up unit without WiFi this long -> access point
 const IPAddress kApIp(192, 168, 4, 1);
+const IPAddress kApMask(255, 255, 255, 0);
 
 DNSServer dns;
 bool ap_on = false;
+std::atomic<bool> ap_auto{false};  // open only because the WiFi is lost (R30) - read by the web task
 bool ap_forced = false;          // console setup-ap on
 uint32_t wifi_lost_since = 0;    // 0 = WiFi up
 std::atomic<uint32_t> reboot_at{0};
@@ -43,7 +44,7 @@ void start_ap() {
     return;
   }
   WiFi.mode(p.valid ? WIFI_AP_STA : WIFI_AP);
-  WiFi.softAPConfig(kApIp, kApIp, IPAddress(255, 255, 255, 0));
+  WiFi.softAPConfig(kApIp, kApIp, kApMask);
   // WPA2 with the device code: only who holds the label can join (proof of possession). Max. 2 clients.
   if (!WiFi.softAP(ap_ssid, p.dev_code, 1, 0, 2)) {
     cb_log("setup: access point FAILED to start");
@@ -62,14 +63,31 @@ void stop_ap() {
   cb_log("setup: access point off");
 }
 
-bool local_is_ap(int sock) {
-  struct sockaddr_storage a = {};
-  socklen_t len = sizeof a;
-  if (getsockname(sock, (struct sockaddr *)&a, &len) != 0) return false;
-  uint32_t ip = 0;
-  if (a.ss_family == AF_INET) ip = ((struct sockaddr_in *)&a)->sin_addr.s_addr;
-  else if (a.ss_family == AF_INET6) ip = ((struct sockaddr_in6 *)&a)->sin6_addr.un.u32_addr[3];  // v4-mapped
-  return ip == (uint32_t)kApIp;
+uint32_t ipv4_of(const struct sockaddr_storage &a) {
+  if (a.ss_family == AF_INET) return ((const struct sockaddr_in *)&a)->sin_addr.s_addr;
+  if (a.ss_family == AF_INET6) return ((const struct sockaddr_in6 *)&a)->sin6_addr.un.u32_addr[3];  // v4-mapped
+  return 0;
+}
+
+// RV-16: local address = access point AND peer in the access point's net (not only the local address - lwIP accepts
+// 192.168.4.1 on the STA interface too, weak host model).
+bool request_is_ap(int sock) {
+  struct sockaddr_storage local = {}, peer = {};
+  socklen_t ll = sizeof local, pl = sizeof peer;
+  if (getsockname(sock, (struct sockaddr *)&local, &ll) != 0 || getpeername(sock, (struct sockaddr *)&peer, &pl) != 0)
+    return false;
+  bool sta = cb_net_wifi_up();
+  bool ok = cb::ap_request(ipv4_of(local), ipv4_of(peer), (uint32_t)kApIp, (uint32_t)kApMask,
+                           sta ? (uint32_t)WiFi.localIP() : 0, sta ? (uint32_t)WiFi.subnetMask() : 0);
+  if (!ok && ipv4_of(local) == (uint32_t)kApIp) {
+    static uint32_t told = 0;
+    if (!told || millis() - told > 60000) {
+      told = millis() ? millis() : 1;
+      cb_log("setup: request to 192.168.4.1 NOT from the access point net (routed in, or home net overlaps) - "
+             "treated as home network");
+    }
+  }
+  return ok;
 }
 
 // ---- HTTP handlers --------------------------------------------------------------------------------------------
@@ -121,7 +139,11 @@ esp_err_t h_info(httpd_req_t *req) {
   snprintf(host, sizeof host, "clearbell-%s.local", p.serial);
   j.kv("hostname", host);
   j.kv("mode", cb::mode_name(cb_mode()));
+  cb::AccessInput ai = cb_access_input(req);
   j.kv("may_change", may_change(req));
+  j.kv("may_role", cb::mode_access(cb::Endpoint::SetupRole, ai).ok);    // R30: not on the automatic access point
+  j.kv("may_reset", cb::mode_access(cb::Endpoint::SetupReset, ai).ok);
+  j.kv("ap_auto", ai.from_ap && ai.ap_auto);
   j.end_obj();
   return send_json(req, "200 OK", j);
 }
@@ -170,15 +192,21 @@ esp_err_t h_save(httpd_req_t *req) {
   if (pass[0] && (strlen(pass) < 8 || strlen(pass) > 63))
     return reply(req, "400 Bad Request", false, "WLAN-Passwort: 8 bis 63 Zeichen (oder leer bei offenem WLAN)");
 #if !CB_IS_OUTDOOR
-  if (!cb::form_get(body, "role", role, sizeof role) || (strcmp(role, "eg") && strcmp(role, "og")))
-    return reply(req, "400 Bad Request", false, "Bitte die Klingeltaste wählen (oben oder unten)");
-  // FW-B-21: free name of the flat, optional (empty = "Wohnung oben" / "Wohnung unten")
-  if (!cb::form_get(body, "name", raw, sizeof raw)) raw[0] = 0;
-  if (!cb::flat_name_normalize(raw, name))
-    return reply(req, "400 Bad Request", false, "Name der Wohnung: höchstens 24 Zeichen, keine Steuerzeichen");
-  cb::UnitId r = strcmp(role, "eg") == 0 ? cb::UnitId::EG : cb::UnitId::OG;
-  if (!cb_prov_set_role(r) || !cb_prov_set_flat_name(r, name))
-    return reply(req, "500 Internal Server Error", false, "Speichern fehlgeschlagen");
+  // R30: over the automatic access point only the WiFi is taken; role and flat name stay as they are
+  bool may_role = cb::mode_access(cb::Endpoint::SetupRole, cb_access_input(req)).ok;
+  if (may_role) {
+    if (!cb::form_get(body, "role", role, sizeof role) || (strcmp(role, "eg") && strcmp(role, "og")))
+      return reply(req, "400 Bad Request", false, "Bitte die Klingeltaste wählen (oben oder unten)");
+    // FW-B-21: free name of the flat, optional (empty = "Wohnung oben" / "Wohnung unten")
+    if (!cb::form_get(body, "name", raw, sizeof raw)) raw[0] = 0;
+    if (!cb::flat_name_normalize(raw, name))
+      return reply(req, "400 Bad Request", false, "Name der Wohnung: höchstens 24 Zeichen, keine Steuerzeichen");
+    cb::UnitId r = strcmp(role, "eg") == 0 ? cb::UnitId::EG : cb::UnitId::OG;
+    if (!cb_prov_set_role(r) || !cb_prov_set_flat_name(r, name))
+      return reply(req, "500 Internal Server Error", false, "Speichern fehlgeschlagen");
+  } else {
+    cb_log("setup: automatic access point - only the WiFi is changed (role/name need setup mode, R30)");
+  }
 #else
   (void)role, (void)raw, (void)name;
 #endif
@@ -292,10 +320,16 @@ void cb_setup_poll() {
   bool up = cb_prov().valid && cb_net_wifi_up();
   if (up) wifi_lost_since = 0;
   else if (!wifi_lost_since) wifi_lost_since = now ? now : 1;
-  bool want = !cb_prov().valid || cb_mode() == cb::Mode::Setup || ap_forced ||
-              (wifi_lost_since && now - wifi_lost_since >= kNoWifiApMs);
+  bool want_setup = !cb_prov().valid || cb_mode() == cb::Mode::Setup || ap_forced;
+  bool want_auto = wifi_lost_since && cb::auto_ap_due(now - wifi_lost_since);  // R30: 5 min lost, then max. 30 min
+  bool want = want_setup || want_auto;
+  bool was_auto = ap_auto.load();
+  ap_auto = want && !want_setup;
   if (want && !ap_on) start_ap();
-  else if (!want && ap_on) stop_ap();
+  else if (!want && ap_on) {
+    if (was_auto && wifi_lost_since) cb_log("setup: automatic access point closed after 30 min (R30) - button for more");
+    stop_ap();
+  }
 }
 
 void cb_setup_register(httpd_handle_t s) {
@@ -315,11 +349,15 @@ void cb_setup_register_catchall(httpd_handle_t s) {
 }
 
 bool cb_setup_from_ap(httpd_req_t *req) {
-  return ap_on && local_is_ap(httpd_req_to_sockfd(req));
+  return ap_on && request_is_ap(httpd_req_to_sockfd(req));
 }
 
 bool cb_setup_ap_on() {
   return ap_on;
+}
+
+bool cb_setup_ap_auto() {
+  return ap_on && ap_auto.load();
 }
 
 void cb_setup_factory_reset() {

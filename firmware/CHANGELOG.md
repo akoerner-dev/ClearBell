@@ -5,6 +5,13 @@ Versionen nach SemVer; `version.txt` ist die Quelle. Solange die Portierung läu
 
 ## 0.2.0-dev (in Arbeit)
 
+### Sicherheitskatalog Phase 2 (14.11.2026, Entscheidungen R30–R33)
+
+- **VK-02 (R30):** Der Zugangspunkt, der nach 5 min ohne WLAN von selbst aufgeht, erlaubt nur noch den WLAN-Wechsel
+  und bleibt höchstens 30 min je WLAN-Verlust offen; Werksreset, Klingeltaste, Name und Kopplung nur in der
+  Einrichtung (Taster). Ist ein eigenes Passwort gesetzt, fragt er danach. „Über den Zugangspunkt“ verlangt auch eine
+  Gegenstelle im AP-Netz (RV-16). PMF „required“, wo der Router es kann (einmal gelernt je WLAN).
+
 ### Sicherheitskatalog Phase 1 (14.11.2026, Review vom 13.11.)
 
 - **VK-01:** Entfernen oder Ersetzen der Kopplung einer Wohnung löscht deren Handys auf beiden Einheiten; eine

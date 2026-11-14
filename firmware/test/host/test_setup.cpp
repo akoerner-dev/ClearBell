@@ -134,3 +134,50 @@ TEST(flat_labels_and_url_encode) {
   CHECK(url_encode("abcde", small, sizeof small));
   CHECK(!url_encode("abcdef", small, sizeof small));
 }
+
+TEST(automatic_access_point_window) {
+  // R30 (E2, VK-02): a set-up unit opens its access point after 5 min without WiFi and keeps it open for at most
+  // 30 min per WiFi loss; then it stays closed until the WiFi was back once, a reboot or the button (setup mode).
+  CHECK(!auto_ap_due(0));
+  CHECK(!auto_ap_due(kAutoApAfterMs - 1));
+  CHECK(auto_ap_due(kAutoApAfterMs));
+  CHECK(auto_ap_due(kAutoApAfterMs + kAutoApForMs - 1));
+  CHECK(!auto_ap_due(kAutoApAfterMs + kAutoApForMs));
+  CHECK(!auto_ap_due(0xFFFFFFFFu));
+  CHECK(kAutoApAfterMs == 5UL * 60 * 1000 && kAutoApForMs == 30UL * 60 * 1000);
+}
+
+namespace {
+// IPv4 as lwIP stores it (network byte order in memory) - built from bytes so the test runs on any host.
+uint32_t ip4(uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
+  uint32_t v;
+  uint8_t bytes[4] = {a, b, c, d};
+  memcpy(&v, bytes, 4);
+  return v;
+}
+}  // namespace
+
+TEST(access_point_request_needs_a_peer_in_the_access_point_net) {
+  // RV-16: "came over the access point" must not hang on the local address alone (lwIP weak host model: a device in
+  // the home network can route 192.168.4.1 via the unit's STA address).
+  const uint32_t ap = ip4(192, 168, 4, 1), m24 = ip4(255, 255, 255, 0);
+  const uint32_t sta = ip4(10, 77, 0, 40);
+  CHECK(ap_request(ap, ip4(192, 168, 4, 2), ap, m24, sta, m24));             // phone on the access point
+  CHECK(ap_request(ap, ip4(192, 168, 4, 2), ap, m24, 0, 0));                 // first setup, no home network
+  CHECK(!ap_request(ap, ip4(10, 77, 0, 23), ap, m24, sta, m24));         // routed in from the home network
+  CHECK(!ap_request(sta, ip4(10, 77, 0, 23), ap, m24, sta, m24));        // ordinary home-network request
+  CHECK(!ap_request(ap, ap, ap, m24, sta, m24));                             // own address as peer: no
+  CHECK(!ap_request(ap, ip4(192, 168, 4, 2), ap, m24, ip4(192, 168, 4, 77), m24));  // home net = AP net: unsure
+  CHECK(!ap_request(ap, ip4(192, 168, 4, 2), ap, m24, ip4(192, 168, 0, 9), ip4(255, 255, 0, 0)));  // overlaps
+}
+
+TEST(pmf_is_learned_once_per_wifi) {
+  // R30 / RV-09: "required" where the router can do PMF; learned on the first connection, never downgraded later.
+  CHECK(pmf_required(PmfLearned::Unknown) && pmf_required(PmfLearned::Yes) && !pmf_required(PmfLearned::No));
+  CHECK(pmf_after_attempt(PmfLearned::Unknown, true, 0) == PmfLearned::Yes);
+  CHECK(pmf_after_attempt(PmfLearned::Unknown, false, 210) == PmfLearned::No);   // old router without PMF
+  CHECK(pmf_after_attempt(PmfLearned::Unknown, false, 202) == PmfLearned::Unknown);  // wrong password: no lesson
+  CHECK(pmf_after_attempt(PmfLearned::Unknown, false, 201) == PmfLearned::Unknown);  // router off
+  CHECK(pmf_after_attempt(PmfLearned::Yes, false, 210) == PmfLearned::Yes);      // fake router without PMF: stay
+  CHECK(pmf_after_attempt(PmfLearned::No, true, 0) == PmfLearned::No);
+}

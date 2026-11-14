@@ -675,7 +675,9 @@ association was still in progress. With a weak signal, where WPA2 and DHCP take 
 they can reach one another, separated from the rest of the home network — a guest network usually also isolates the
 devices from each other and thereby breaks the UDP traffic. In addition WPA3 or protected management frames (PMF),
 which prevent deauthentication attacks: the chip supports both, but PMF defaults to “optional” — the firmware sets
-“required” when the router supports it.
+“required” when the router supports it (R30): it tries so on the first connection to a WLAN, remembers the result and
+never downgrades afterwards; an old router without PMF is recognised (disconnect reason 210) and stays “optional”
+(status page `radio.pmf`).
 
 ### 5.9 Operating modes [V0.2 — design]
 
@@ -704,7 +706,9 @@ and a random **device code** (16 characters, label with QR). The buyer sets ever
 is not set up opens the access point `ClearBell-<unit number>` (WPA2 password = device code, captive portal), where the
 WLAN and the flat are chosen. Pairing happens on the outdoor unit's page with the indoor unit's device code (section
 7.3). Without WLAN for 5 min — e.g. after a router replacement — the access point reopens by itself, without a button and
-without opening the outdoor housing. The outdoor unit's maintenance can also be opened from a paired indoor unit. Factory
+without opening the outdoor housing, for at most 30 min per WLAN loss; there **only the WLAN** can be changed, and an own
+password is asked for (R30). Factory reset, role, name and pairing need setup mode (button). "Over the access point"
+counts only if the peer is in the access point's net as well. The outdoor unit's maintenance can also be opened from a paired indoor unit. Factory
 reset: in setup hold the button 15 s; it erases only the buyer's data, the device code stays. Findings and reasoning:
 `firmware/docs/Produktreife.md`. Press durations and time windows are design values.
 

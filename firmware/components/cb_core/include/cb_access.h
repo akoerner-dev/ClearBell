@@ -7,8 +7,8 @@
 // now. endpoint_info() documents per endpoint whether it writes, needs a login and is cross-site checked - the test
 // holds the invariant "every writing endpoint is checked" (only the indoor /pair proves the device code itself).
 //
-// The table describes the behaviour of 14.11.2026 unchanged. Changes of the rules (security plan Phase 2, decisions
-// E2/E3: automatic access point, pairing only with the button) are made HERE, with the test changed first.
+// Changes of the rules (security plan Phase 2: R30 automatic access point, R31 pairing only with the button, ...) are
+// made HERE, with the test changed first.
 #pragma once
 
 #include <cstdint>
@@ -19,7 +19,7 @@ namespace cb {
 
 enum class Endpoint : uint8_t {
   Page, StatusJson, ToneUpload, Update, SettingsVolume, SettingsTone, SettingsLed, SettingsOwnerKey, PasswordNonce,
-  PasswordChange, SetupInfo, SetupScan, SetupSave, SetupReset, PairList, PairStart, PairRemove, DoorPulse,
+  PasswordChange, SetupInfo, SetupScan, SetupSave, SetupRole, SetupReset, PairList, PairStart, PairRemove, DoorPulse,
   PairAccept, OutdoorMaint, FlatName, PhoneAdd, PhoneRemove, PhoneLink, PhoneTest,
   Count
 };
@@ -39,7 +39,13 @@ struct AccessInput {
   bool flat_set = false;       // indoor: key/flat chosen (EG or OG)
   bool indoor_paired = false;  // indoor: has the link key of the outdoor unit
   bool target_paired = false;  // outdoor, PairStart: the flat to be paired is paired already (= replacing)
+  bool ap_auto = false;        // the access point is open only because the WiFi is lost (set-up unit, R30)
+  bool own_pass = false;       // the buyer set an own status-page password
 };
+
+// Does a client of the setup access point count as logged in? The WPA2 password (= device code) proves possession -
+// except on the access point that opened by itself while an own password is set: then the login is asked (R30).
+bool ap_counts_as_login(const AccessInput &in);
 
 struct Access {
   bool ok;

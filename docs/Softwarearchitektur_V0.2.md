@@ -683,7 +683,9 @@ jeden Versuch selbst ab.
 **Empfehlungen für das Netz**, außerhalb der Firmware: ein eigenes Netzsegment nur für die drei Einheiten, in dem sie
 einander erreichen, getrennt vom übrigen Heimnetz — ein Gastnetz isoliert die Geräte meist auch voneinander und
 bricht damit den UDP-Verkehr. Dazu WPA3 bzw. geschützte Management-Frames (PMF), die Abmelde-Angriffe verhindern: Der
-Chip beherrscht beides, PMF ist ab Werk aber nur „optional“ — die Firmware setzt „required“, wenn der Router es kann.
+Chip beherrscht beides, PMF ist ab Werk aber nur „optional“ — die Firmware setzt „required“, wenn der Router es kann
+(R30): Sie versucht es bei der ersten Verbindung mit einem WLAN, merkt sich das Ergebnis und stuft danach nie herab;
+ein alter Router ohne PMF wird erkannt (Trennungsgrund 210) und bleibt „optional“ (Statusseite `radio.pmf`).
 
 ### 5.9 Betriebsmodi [V0.2 — Entwurf]
 
@@ -712,7 +714,9 @@ Werkstöne und ein zufälliger **Gerätecode** (16 Zeichen, Etikett mit QR). Der
 Eine nicht eingerichtete Einheit öffnet den Zugangspunkt `ClearBell-<Gerätenummer>` (WPA2-Passwort = Gerätecode,
 Captive Portal), dort WLAN und Wohnung wählen. Gekoppelt wird auf der Seite der Außeneinheit mit dem Gerätecode der
 Inneneinheit (Kapitel 7.3). Ohne WLAN seit 5 min — etwa nach einem Routertausch — geht der Zugangspunkt von selbst
-wieder auf, ohne Taster und ohne das Außengehäuse zu öffnen. Die Wartung der Außeneinheit lässt sich zusätzlich von einer
+wieder auf, ohne Taster und ohne das Außengehäuse zu öffnen, höchstens 30 min je WLAN-Verlust; dort lässt sich **nur
+das WLAN** ändern, und ein eigenes Passwort wird abgefragt (R30). Werksreset, Rolle, Name und Kopplung brauchen die
+Einrichtung (Taster). „Über den Zugangspunkt“ gilt nur, wenn auch die Gegenstelle im Netz des Zugangspunkts liegt. Die Wartung der Außeneinheit lässt sich zusätzlich von einer
 gekoppelten Inneneinheit aus öffnen. Werksreset: in der Einrichtung Taster 15 s; er löscht nur die Käuferdaten, der
 Gerätecode bleibt. Befunde und Begründung: `firmware/docs/Produktreife.md`. Tastdauern und Zeitfenster sind
 Entwurfswerte.

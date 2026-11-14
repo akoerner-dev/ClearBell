@@ -34,6 +34,7 @@ struct CbProvisioning {
   char dev_code[17];      // label code (factory)
   char wifi_ssid[33];
   char wifi_pass[65];
+  cb::PmfLearned wifi_pmf;  // R30: can the home router do PMF? (learned on the first connection, cb_setup_logic.h)
   char dev_pass[33];      // effective status-page password: own one, else the device code
   // Link keys, indexed by the PEER's UnitId. Outdoor: [EG] and [OG]; indoor: [Outdoor] only.
   uint8_t key[4][cb::kKeyLen];
@@ -58,7 +59,8 @@ void cb_provisioning_begin();
 const CbProvisioning &cb_prov();
 
 // ---- Writing (setup page, console). Takes effect after the reboot that follows a save. ----
-bool cb_prov_set_wifi(const char *ssid, const char *pass);
+bool cb_prov_set_wifi(const char *ssid, const char *pass);  // also forgets what was learned about PMF
+bool cb_prov_set_wifi_pmf(cb::PmfLearned l);                 // R30: takes effect at once (cb_net)
 bool cb_prov_set_role(cb::UnitId role);  // indoor: EG or OG
 // Name of a flat (FW-B-21): already normalized (cb::flat_name_normalize), "" = back to the default. Takes effect
 // at once. Indoor: its own flat; outdoor: what an indoor unit sent. Unchanged names are not written again.

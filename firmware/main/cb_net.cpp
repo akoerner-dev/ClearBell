@@ -279,7 +279,26 @@ void start_attempt(uint32_t now) {
   }
   wifi_state = WifiState::Connecting;
   attempt_started = now;
-  WiFi.begin(cb_prov().wifi_ssid, cb_prov().wifi_pass);
+  // R30 / RV-09: PMF "required" unless this router is known to lack it (cb_setup_logic.h). Arduino only sets
+  // "capable", so the configuration is completed here before connecting.
+  bool pmf = cb::pmf_required(cb_prov().wifi_pmf);
+  WiFi.begin(cb_prov().wifi_ssid, cb_prov().wifi_pass, 0, nullptr, false);
+  wifi_config_t c;
+  if (esp_wifi_get_config(WIFI_IF_STA, &c) == ESP_OK) {
+    c.sta.pmf_cfg.required = pmf;
+    esp_wifi_set_config(WIFI_IF_STA, &c);
+  }
+  esp_wifi_connect();
+}
+
+// R30: what one attempt taught about PMF (only while connecting - a drop of a running connection says nothing).
+void learn_pmf(bool connected, uint8_t reason) {
+  cb::PmfLearned before = cb_prov().wifi_pmf;
+  cb::PmfLearned after = cb::pmf_after_attempt(before, connected, reason);
+  if (after == before) return;
+  cb_prov_set_wifi_pmf(after);
+  cb_log("net: router %s PMF - %s", after == cb::PmfLearned::Yes ? "supports" : "does NOT support",
+         after == cb::PmfLearned::Yes ? "required from now on" : "PMF stays optional (old router)");
 }
 
 void apply_sleep() {
@@ -296,6 +315,7 @@ void handle_wifi(uint32_t now) {
   WifiMsg m;
   while (xQueueReceive(wifi_queue, &m, 0) == pdTRUE) {
     if (m.ev == WifiEv::GotIp) {
+      learn_pmf(true, 0);
       wifi_state = WifiState::Up;
       backoff = kBackoffMinMs;
       if (!mdns_started) {
@@ -319,6 +339,7 @@ void handle_wifi(uint32_t now) {
              (int)WiFi.channel());
     } else {
       if (wifi_state == WifiState::Up) disconnects++;
+      else if (wifi_state == WifiState::Connecting) learn_pmf(false, m.reason);
       last_reason = m.reason;
       engine.set_network(false, now);
       for (int i = 1; i < 4; i++) downgrade_learned(i);  // RV-11: after a router reset all addresses may change
@@ -343,9 +364,11 @@ void handle_wifi(uint32_t now) {
 
 void cmd_net(const char *) {
   const char *st = wifi_state == WifiState::Up ? "up" : wifi_state == WifiState::Connecting ? "connecting" : "waiting";
-  cb_log("net: WiFi %s, IP %s, RSSI %d dBm, channel %d, disconnects %lu, last reason %u, modem sleep %s%s", st,
-         WiFi.localIP().toString().c_str(), (int)WiFi.RSSI(), (int)WiFi.channel(), (unsigned long)disconnects,
-         last_reason, sleep_now ? "on" : "off", sleep_override >= 0 ? " (forced)" : "");
+  cb_log("net: WiFi %s, IP %s, RSSI %d dBm, channel %d, disconnects %lu, last reason %u, modem sleep %s%s, PMF %s",
+         st, WiFi.localIP().toString().c_str(), (int)WiFi.RSSI(), (int)WiFi.channel(), (unsigned long)disconnects,
+         last_reason, sleep_now ? "on" : "off", sleep_override >= 0 ? " (forced)" : "",
+         cb_prov().wifi_pmf == cb::PmfLearned::Yes ? "required" : cb_prov().wifi_pmf == cb::PmfLearned::No ? "optional"
+                                                                                                         : "unknown");
   for (int i = 1; i < 4; i++) {
     UnitId u = (UnitId)i;
     if (!engine.has_key(u)) continue;
@@ -524,6 +547,9 @@ void cb_net_json(cb::Json &j) {
   j.kv("bssid", up ? WiFi.BSSIDstr().c_str() : "");
   j.kv("disconnects", (unsigned long)disconnects);
   j.kv("last_reason", (unsigned)last_reason);
+  // R30: "required" (router can PMF), "optional" (old router without PMF), "unknown" (not learned yet)
+  j.kv("pmf", cb_prov().wifi_pmf == cb::PmfLearned::Yes ? "required"
+              : cb_prov().wifi_pmf == cb::PmfLearned::No ? "optional" : "unknown");
   j.kv("modem_sleep", sleep_now);
   j.kv("hostname", hostname);
   j.end_obj();

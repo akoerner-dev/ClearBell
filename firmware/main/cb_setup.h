@@ -10,9 +10,13 @@
 // The access point is also opened
 //   - in setup mode (boot button 5 s twice) - e.g. to change the WiFi; closes after 30 min or a short press,
 //   - automatically when a set-up unit has had no WiFi for 5 min (router replaced, password changed): no button,
-//     no opening of the outdoor housing. It closes again as soon as the home WiFi is back.
+//     no opening of the outdoor housing. It closes again as soon as the home WiFi is back, at the latest after
+//     30 min per WiFi loss (R30, cb_setup_logic.h). Over this automatic access point ONLY the WiFi can be changed:
+//     role, flat name, factory reset and pairing need setup mode (button) - cb_access.h.
 // Clients of the access point need no further login - knowing the device code (WPA2) is the proof of possession,
-// like Espressif's provisioning. From the home network the setup page asks for the status-page password.
+// like Espressif's provisioning. Exception (R30): on the automatic access point an own status-page password is asked
+// for, if one is set. From the home network the setup page always asks for the status-page password. "Came over the
+// access point" needs the local AP address AND a peer in the AP net (RV-16, ap_request()).
 //
 // Factory reset: in setup mode hold the boot button 15 s, or the button on the setup page (setup mode only).
 //
@@ -27,5 +31,6 @@ void cb_setup_register(httpd_handle_t server);  // setup handlers; cb_status cal
 void cb_setup_register_catchall(httpd_handle_t server);
 bool cb_setup_from_ap(httpd_req_t *req);         // request came in over the setup access point
 bool cb_setup_ap_on();
+bool cb_setup_ap_auto();  // the access point is open ONLY because the WiFi is lost (R30: WiFi change only)
 void cb_setup_factory_reset();                   // erase buyer data, restore factory tones, reboot
 void cb_setup_reboot_in(uint32_t ms);
