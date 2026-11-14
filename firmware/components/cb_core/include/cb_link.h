@@ -128,6 +128,12 @@ struct LinkStats {
   uint32_t rx_fresh;  // authentic AND fresh frames (VK-07): only these may teach the device glue an address
 };
 
+// The rule for learning a peer's address (cb_net, RV-10/RV-38): only from an authentic AND fresh frame, and never
+// over an address that provisioning fixed.
+inline bool should_learn_address(RxError result, bool fresh, bool address_fixed) {
+  return result == RxError::Ok && fresh && !address_fixed;
+}
+
 // ---- The engine -----------------------------------------------------------------------------------------
 class Link {
  public:

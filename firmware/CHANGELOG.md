@@ -15,6 +15,9 @@ Versionen nach SemVer; `version.txt` ist die Quelle. Solange die Portierung läu
 - **VK-06:** Schreibende Web-Anfragen nur mit `X-ClearBell: 1` von der eigenen Seite (CSRF/DNS-Rebinding);
   Anfragekörper mit Frist (kein Festhalten des Webserver-Tasks); falsche Kopplungsangebote sperren nur ihren
   Absender. Die PC-Werkzeuge senden die Kopfzeile mit.
+- **VK-08 (Teil 1):** Schlüsselzwischenwerte werden auf allen Pfaden gelöscht (`secure_zero`), Kopplungsbestätigung
+  in konstanter Zeit und mit geprüftem Rückgabewert, Labels zentral in `cb_labels.h`; eine nie fehlschlagende
+  Testprüfung repariert.
 - Werkzeuge (Phase 0): Testbauten unsigniert, Konsolen-Log ohne Geheimnisse, `tools/geheim.py`.
 
 ### Härtung Stufe B: IN-2 gebrannt (13.11.2026)

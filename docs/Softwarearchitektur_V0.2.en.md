@@ -329,6 +329,10 @@ message, detects restarts of the sender and allows later changes.
 * **Versions:** every unit understands its own version and the previous one.
 * **Why 128 bits:** NIST allows truncation down to 32 bits; the forgery probability is (1/2)^(λ − t) with 2^t allowed
   failed attempts. 64 bits would suffice with rate limiting — 128 bits take the question off the table for 8 bytes.
+* **One key, several purposes (deliberate, RV-59):** the link key serves frame tags, the key stream of the phone
+  hand-over and the pairing confirmation. The purposes are separated by labels kept in `cb_labels.h` and held
+  prefix-free by a test. Proper sub-key derivation (HKDF) and a longer nonce for the phone hand-over come only with
+  protocol v3, because any change breaks paired units.
 
 **Message types:**
 

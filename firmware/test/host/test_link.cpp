@@ -356,7 +356,9 @@ TEST(door_opens_once_and_reports_back) {
   CHECK_EQ(AU(n).opened[3], 0);
   CHECK_EQ(EG(n).door_results, 1);
   CHECK(EG(n).last_door == DoorResult::Opened);
-  CHECK(!EG(n).link.send_door_request(n.now) || true);  // a new request is possible again afterwards
+  CHECK(EG(n).link.send_door_request(n.now));  // a new request is possible again afterwards (RV-38: was "|| true")
+  n.run(20);
+  CHECK_EQ(AU(n).opened[2], 2);  // ... and the second transaction runs through completely
 }
 
 TEST(door_one_transaction_at_a_time) {
@@ -652,4 +654,24 @@ TEST(link_only_fresh_frames_count_as_fresh) {
   n.inject(UnitId::EG, ring);
   CHECK(!EG(n).link.last_rx_fresh());
   CHECK_EQ(EG(n).link.stats().rx_fresh, f2);
+}
+
+// RV-38 c): two lost challenges in a row - the third try still opens exactly once, within the nonce lifetime.
+TEST(door_two_lost_challenges_still_open_once) {
+  Net n;
+  n.run(50);
+  n.drop_next_from[1] = 2;
+  EG(n).link.send_door_request(n.now);
+  n.run(kNonceLifetimeMs);
+  CHECK_EQ(AU(n).opened[2], 1);
+  CHECK(EG(n).last_door == DoorResult::Opened);
+  CHECK_EQ(AU(n).link.stats().door_bad_nonce, 0u);
+}
+
+// RV-38 d): the rule cb_net uses for learning a peer address, written down where it can be tested.
+TEST(link_address_learning_rule) {
+  CHECK(should_learn_address(RxError::Ok, true, false));
+  CHECK(!should_learn_address(RxError::Ok, false, false));    // authentic but replayed / duplicate
+  CHECK(!should_learn_address(RxError::BadTag, true, false));  // not authentic
+  CHECK(!should_learn_address(RxError::Ok, true, true));       // an address fixed by provisioning is never replaced
 }

@@ -1,6 +1,8 @@
 // test_pairing.cpp - port step 10b: pairing by device code, key wrap (cb_pairing_logic.h).
 #include <cstring>
 
+#include "cb_bytes.h"
+#include "cb_labels.h"
 #include "cb_pairing_logic.h"
 #include "mini_test.h"
 
@@ -92,4 +94,30 @@ TEST(crypt32_round_trip) {
   CHECK(memcmp(p, e, 32) != 0);
   CHECK(crypt32(kKey, "phone", kNonce, e, 32, b));
   CHECK(memcmp(p, b, 32) == 0);
+}
+
+// RV-60: secrets on the stack are wiped with a write the compiler may not drop.
+TEST(secure_zero_wipes) {
+  uint8_t buf[32];
+  memset(buf, 0xA5, sizeof buf);
+  secure_zero(buf, sizeof buf);
+  uint8_t zero[32] = {};
+  CHECK(memcmp(buf, zero, sizeof buf) == 0);
+  secure_zero(nullptr, 0);  // harmless
+}
+
+// RV-59: the same link key feeds several HMAC purposes. The labels keep them apart only if no label is a prefix of
+// another and none starts like the frame domain - checked on the very list the code uses (cb_labels.h).
+TEST(key_labels_are_prefix_free) {
+  for (size_t i = 0; i < kLinkKeyLabelCount; i++) {
+    CHECK(strlen(kLinkKeyLabels[i]) > 0);
+    if (i > 0) CHECK(strncmp(kLinkKeyLabels[i], kLabelFrame, strlen(kLabelFrame)) != 0);
+    for (size_t j = 0; j < kLinkKeyLabelCount; j++) {
+      if (i == j) continue;
+      CHECK(strncmp(kLinkKeyLabels[i], kLinkKeyLabels[j], strlen(kLinkKeyLabels[i])) != 0);
+    }
+  }
+  for (size_t i = 0; i < kCodeKeyLabelCount; i++)
+    for (size_t j = 0; j < kCodeKeyLabelCount; j++)
+      if (i != j) CHECK(strncmp(kCodeKeyLabels[i], kCodeKeyLabels[j], strlen(kCodeKeyLabels[i])) != 0);
 }

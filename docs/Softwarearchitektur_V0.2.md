@@ -331,6 +331,10 @@ Nachricht, erkennt Neustarts des Senders und lässt spätere Änderungen zu.
 * **Versionen:** Jede Einheit versteht ihre eigene und die vorige Version.
 * **Warum 128 bit:** NIST lässt Kürzungen bis 32 bit zu; die Fälschungswahrscheinlichkeit ist (1/2)^(λ − t) bei 2^t
   erlaubten Fehlversuchen. 64 bit würden mit Ratenbegrenzung reichen — 128 bit nehmen die Frage für 8 Byte vom Tisch.
+* **Ein Schlüssel, mehrere Zwecke (bewusst, RV-59):** Der Verbindungsschlüssel dient für Rahmen-Tags, den Schlüsselstrom
+  der Handy-Übergabe und die Kopplungsbestätigung. Getrennt sind die Zwecke durch Labels, die zentral in
+  `cb_labels.h` stehen und per Test präfixfrei gehalten werden. Eine saubere Ableitung von Teilschlüsseln (HKDF) und
+  eine längere Nonce der Handy-Übergabe kommen erst mit Protokoll v3, weil jede Änderung gekoppelte Geräte bricht.
 
 **Nachrichtentypen:**
 

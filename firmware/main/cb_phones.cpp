@@ -7,7 +7,9 @@
 #include <cstring>
 
 #include "cb_config.h"
+#include "cb_bytes.h"
 #include "cb_crypto.h"
+#include "cb_labels.h"
 #include "cb_http_util.h"
 #include "cb_log.h"
 #include "cb_modes.h"
@@ -21,7 +23,7 @@
 
 namespace {
 
-constexpr const char *kLabel = "phone";
+constexpr const char *kLabel = cb::kLabelPhone;  // list of all labels: cb_labels.h (RV-59)
 constexpr size_t kIdLen = 8, kNonceUsed = 7;  // event payload: id 8 + nonce 7 + key 32 = 47 = kMaxPayload - 1
 
 #if !CB_IS_OUTDOOR
@@ -136,13 +138,13 @@ esp_err_t h_add(httpd_req_t *req) {
   cb::to_hex_lower(key, 32, key_hex);  // the 64 hex characters are the phone key (topics: cb::phone_topics)
   if (!cb::crypt32(cb_prov().key[(int)cb::UnitId::Outdoor], kLabel, nonce, key, 32, payload + kIdLen + kNonceUsed))
     return answer(req, "500 Internal Server Error", false, "Kryptofehler");
-  memset(key, 0, sizeof key);
+  cb::secure_zero(key, sizeof key);
   if (!run_event(cb::EventCode::PhoneAdd, payload, sizeof payload))
     return answer(req, "504 Gateway Timeout", false, "Außeneinheit hat nicht bestätigt – erreichbar?");
   cb_prov_phone_store(id, key_hex, own_flat());  // indoor keeps the key too: outage notice, link again (R27)
   cb_log("phones: phone '%s' added (outdoor confirmed)", id);
   esp_err_t r = link_reply(req, "Handy eingetragen. Jetzt auf DIESEM Handy den Link öffnen (App „ntfy“).", id, key_hex);
-  memset(key_hex, 0, sizeof key_hex);
+  cb::secure_zero(key_hex, sizeof key_hex);
   return r;
 }
 
@@ -239,12 +241,12 @@ void cb_phones_on_event(cb::UnitId from, cb::EventCode code, const uint8_t *data
   char key_hex[65];
   if (!cb::crypt32(cb_prov().key[(int)from], kLabel, nonce, data + kIdLen + kNonceUsed, 32, key)) return;
   cb::to_hex_lower(key, 32, key_hex);
-  memset(key, 0, sizeof key);
+  cb::secure_zero(key, sizeof key);
   // first the running RemoteAuth (it knows whether the flat has room), then storage - never a stored phone that
   // does not work (the indoor unit already got its event ack; the count shows on the outdoor status page)
   bool live = cb_remote_phone_add(id, key_hex, flat);
   int slot = live ? cb_prov_phone_store(id, key_hex, flat) : -1;
-  memset(key_hex, 0, sizeof key_hex);
+  cb::secure_zero(key_hex, sizeof key_hex);
   cb_log("phones: phone '%s' added by the %s unit (slot %d, %s)", id, cb::unit_name(from), slot,
          live ? "active" : "NOT active");
 #else

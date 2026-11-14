@@ -41,4 +41,19 @@ inline bool ct_equal(const uint8_t *a, const uint8_t *b, size_t len) {
   return diff == 0;
 }
 
+// Wipes a secret (key, key stream, expected tag) with writes the compiler may not drop as "dead stores" - stack
+// leftovers would otherwise end up in a core dump (security catalogue RV-60). Platform-neutral on purpose: cb_core
+// also builds for the PC tests.
+inline void secure_zero(void *p, size_t n) {
+  volatile uint8_t *v = static_cast<volatile uint8_t *>(p);
+  for (size_t i = 0; i < n; i++) v[i] = 0;
+}
+
+// Wipes a buffer when it goes out of scope - on every return path of a function.
+struct Wipe {
+  void *p;
+  size_t n;
+  ~Wipe() { secure_zero(p, n); }
+};
+
 }  // namespace cb

@@ -483,9 +483,11 @@ void cb_net_poll() {
     reply_ip = 0;
     // Remember where this peer is - only from an authentic AND fresh frame (RV-10: a replayed frame from
     // yesterday has a valid tag too), and never over an address fixed by provisioning.
-    if (ok && sender != UnitId::None && engine.last_rx_fresh()) {
+    if (sender != UnitId::None) {
       taskENTER_CRITICAL(&addr_lock);
-      if (addr[(int)sender].src != AddrSource::Fixed) addr[(int)sender] = {rx.ip, AddrSource::Learned};
+      if (cb::should_learn_address(ok ? cb::RxError::Ok : cb::RxError::BadTag, engine.last_rx_fresh(),
+                                   addr[(int)sender].src == AddrSource::Fixed))
+        addr[(int)sender] = {rx.ip, AddrSource::Learned};
       taskEXIT_CRITICAL(&addr_lock);
     }
   }

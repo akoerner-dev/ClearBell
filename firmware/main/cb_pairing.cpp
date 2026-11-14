@@ -8,6 +8,7 @@
 #include <atomic>
 #include <cstring>
 
+#include "cb_bytes.h"
 #include "cb_config.h"
 #include "cb_crypto.h"
 #include "cb_door.h"
@@ -92,16 +93,17 @@ esp_err_t h_pair_accept(httpd_req_t *req) {
     return reply(req, "403 Forbidden", false, "Gerätecode passt nicht");
   }
   pair_guard.success(src);
-  uint8_t c[32];
+  uint8_t c[32] = {};
   char ch[65];
-  cb::pair_confirm(key, o.nonce, (uint8_t)p.role, c);
+  cb::Wipe wkey{key, sizeof key};  // the link key leaves the stack on every return path
+  if (!cb::pair_confirm(key, o.nonce, (uint8_t)p.role, c))  // RV-60: never send uninitialised bytes, never half-pair
+    return reply(req, "500 Internal Server Error", false, "Kryptofehler");
   cb::to_hex_lower(c, 32, ch);
   // VK-01: a new pairing means the outdoor unit dropped this flat's phones - drop them here too, so the page lists
   // nothing that cannot work any more (they have to be added again)
   int dropped = cb_prov_phones_forget_flat((uint8_t)p.role);
   if (dropped > 0) cb_log("pairing: %d phone(s) of the old pairing removed - add them again", dropped);
   if (!cb_prov_set_link(cb::UnitId::Outdoor, key, au)) return reply(req, "500 Internal Server Error", false, "Speichern fehlgeschlagen");
-  memset(key, 0, sizeof key);
   cb_log("pairing: paired with outdoor unit %s as %s - restarting", au, cb::unit_name(p.role));
   cb_setup_reboot_in(2500);
   return reply(req, "200 OK", true, "gekoppelt", "flat", flat_txt(p.role), "c", ch);
@@ -227,21 +229,19 @@ esp_err_t h_pair_start(httpd_req_t *req) {
     cb_log("pairing: indoor unit %s refused (HTTP %d): %s", id, status, msg);
     return reply(req, "422 Unprocessable Entity", false, msg);
   }
-  uint8_t c[32], expect[32];
+  uint8_t c[32] = {}, expect[32] = {};
+  cb::Wipe wkey{key, sizeof key}, wexp{expect, sizeof expect};  // RV-60: no key material left on the stack
   bool ok = cb::json_get_string(answer, "flat", got_flat, sizeof got_flat) && !strcmp(got_flat, flat_req) &&
             cb::json_get_string(answer, "c", ch, sizeof ch) && cb::from_hex(ch, c, 32) &&
             cb::pair_confirm(key, nonce, (uint8_t)flat, expect);
-  // The confirmation proves the indoor unit really holds the key and serves this flat.
-  if (!ok || memcmp(c, expect, 32) != 0) {
-    memset(key, 0, sizeof key);
+  // The confirmation proves the indoor unit really holds the key and serves this flat (constant time, RV-60).
+  if (!ok || !cb::ct_equal(c, expect, 32))
     return reply(req, "502 Bad Gateway", false, "Bestätigung der Inneneinheit ungültig - nicht gekoppelt");
-  }
   // VK-01: the phones of the old pairing go FIRST (safe direction if the power fails in between), also from the
   // running RemoteAuth - the restart is 3 s away, no old token may work meanwhile.
   int dropped = cb_prov_phones_forget_flat((uint8_t)flat);
   cb_remote_drop_flat((uint8_t)flat);
   bool saved = dropped >= 0 && cb_prov_set_link(flat, key, id);
-  memset(key, 0, sizeof key);
   if (!saved) return reply(req, "500 Internal Server Error", false, "Speichern fehlgeschlagen");
   cb_log("pairing: %s paired with indoor unit %s - restarting", cb::unit_name(flat), id);
   if (dropped > 0)

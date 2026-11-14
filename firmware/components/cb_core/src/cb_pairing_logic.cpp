@@ -6,6 +6,7 @@
 
 #include "cb_bytes.h"
 #include "cb_crypto.h"
+#include "cb_labels.h"
 
 namespace cb {
 
@@ -14,7 +15,7 @@ namespace {
 const uint8_t *u8(const char *s) { return reinterpret_cast<const uint8_t *>(s); }
 
 bool derive(const char *code, uint8_t k[32]) {
-  Slice p[] = {{u8("CBP1"), 4}};
+  Slice p[] = {{u8(kLabelCode), strlen(kLabelCode)}};
   return hmac_sha256(u8(code), strlen(code), p, 1, k);
 }
 
@@ -25,7 +26,7 @@ bool stream(const uint8_t k[32], const char *label, const uint8_t nonce[kPairNon
 
 bool offer_tag(const uint8_t k[32], const char *out_ser, const char *in_ser, const uint8_t *nonce, const uint8_t *enc,
                uint8_t tag[32]) {
-  Slice p[] = {{u8("tag|"), 4},       {u8(out_ser), strlen(out_ser)}, {u8("|"), 1}, {u8(in_ser), strlen(in_ser)},
+  Slice p[] = {{u8(kLabelTag), 4},   {u8(out_ser), strlen(out_ser)}, {u8("|"), 1}, {u8(in_ser), strlen(in_ser)},
                {nonce, kPairNonceLen}, {enc, 32}};
   return hmac_sha256(k, 32, p, 6, tag);
 }
@@ -35,7 +36,8 @@ bool offer_tag(const uint8_t k[32], const char *out_ser, const char *in_ser, con
 bool pair_seal(const char *code, const char *out_ser, const char *in_ser, const uint8_t link_key[32],
                const uint8_t nonce[kPairNonceLen], PairOffer *o) {
   uint8_t k[32], s[32];
-  if (!derive(code, k) || !stream(k, "enc", nonce, s)) return false;
+  Wipe wk{k, sizeof k}, ws{s, sizeof s};
+  if (!derive(code, k) || !stream(k, kLabelEnc, nonce, s)) return false;
   memcpy(o->nonce, nonce, kPairNonceLen);
   for (int i = 0; i < 32; i++) o->enc[i] = link_key[i] ^ s[i];
   return offer_tag(k, out_ser, in_ser, o->nonce, o->enc, o->tag);
@@ -43,15 +45,16 @@ bool pair_seal(const char *code, const char *out_ser, const char *in_ser, const 
 
 bool pair_open(const char *code, const char *out_ser, const char *in_ser, const PairOffer &in, uint8_t key_out[32]) {
   uint8_t k[32], s[32], tag[32];
+  Wipe wk{k, sizeof k}, ws{s, sizeof s}, wt{tag, sizeof tag};
   if (!derive(code, k) || !offer_tag(k, out_ser, in_ser, in.nonce, in.enc, tag)) return false;
   if (!ct_equal(tag, in.tag, 32)) return false;
-  if (!stream(k, "enc", in.nonce, s)) return false;
+  if (!stream(k, kLabelEnc, in.nonce, s)) return false;
   for (int i = 0; i < 32; i++) key_out[i] = in.enc[i] ^ s[i];
   return true;
 }
 
 bool pair_confirm(const uint8_t link_key[32], const uint8_t nonce[kPairNonceLen], uint8_t flat, uint8_t out[32]) {
-  Slice p[] = {{u8("confirm|"), 8}, {nonce, kPairNonceLen}, {&flat, 1}};
+  Slice p[] = {{u8(kLabelConfirm), 8}, {nonce, kPairNonceLen}, {&flat, 1}};
   return hmac_sha256(link_key, 32, p, 3, out);
 }
 
@@ -59,9 +62,10 @@ bool wrap32(const uint8_t key[32], const char *label, const uint8_t nonce[kPairN
             size_t n, uint8_t *enc, uint8_t tag[16]) {
   if (n > 32) return false;
   uint8_t s[32], t[32];
+  Wipe ws{s, sizeof s}, wt{t, sizeof t};
   if (!stream(key, label, nonce, s)) return false;
   for (size_t i = 0; i < n; i++) enc[i] = plain[i] ^ s[i];
-  Slice p[] = {{u8("wrap|"), 5}, {u8(label), strlen(label)}, {nonce, kPairNonceLen}, {enc, n}};
+  Slice p[] = {{u8(kLabelWrap), 5}, {u8(label), strlen(label)}, {nonce, kPairNonceLen}, {enc, n}};
   if (!hmac_sha256(key, 32, p, 4, t)) return false;
   memcpy(tag, t, 16);
   return true;
@@ -71,7 +75,8 @@ bool unwrap32(const uint8_t key[32], const char *label, const uint8_t nonce[kPai
               size_t n, const uint8_t tag[16], uint8_t *plain) {
   if (n > 32) return false;
   uint8_t s[32], t[32];
-  Slice p[] = {{u8("wrap|"), 5}, {u8(label), strlen(label)}, {nonce, kPairNonceLen}, {enc, n}};
+  Wipe ws{s, sizeof s}, wt{t, sizeof t};
+  Slice p[] = {{u8(kLabelWrap), 5}, {u8(label), strlen(label)}, {nonce, kPairNonceLen}, {enc, n}};
   if (!hmac_sha256(key, 32, p, 4, t) || !ct_equal(t, tag, 16)) return false;
   if (!stream(key, label, nonce, s)) return false;
   for (size_t i = 0; i < n; i++) plain[i] = enc[i] ^ s[i];
@@ -82,6 +87,7 @@ bool crypt32(const uint8_t key[32], const char *label, const uint8_t nonce[kPair
              size_t n, uint8_t *out) {
   if (n > 32) return false;
   uint8_t s[32];
+  Wipe ws{s, sizeof s};
   if (!stream(key, label, nonce, s)) return false;
   for (size_t i = 0; i < n; i++) out[i] = in[i] ^ s[i];
   return true;
