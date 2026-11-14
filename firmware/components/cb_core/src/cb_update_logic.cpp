@@ -108,4 +108,27 @@ UpdateVerdict update_verdict(const UpdateHealth &h) {
   return UpdateVerdict::Wait;
 }
 
+void OwnerConfirm::arm(const OwnerChange &c, uint32_t now_ms) {
+  change_ = c;
+  change_.key_hex[sizeof change_.key_hex - 1] = 0;
+  since_ = now_ms;
+  armed_ = true;
+}
+
+bool OwnerConfirm::pending(uint32_t now_ms) const {
+  return armed_ && now_ms - since_ < kOwnerConfirmMs;
+}
+
+uint32_t OwnerConfirm::left_ms(uint32_t now_ms) const {
+  return pending(now_ms) ? kOwnerConfirmMs - (now_ms - since_) : 0;
+}
+
+bool OwnerConfirm::take(uint32_t now_ms, OwnerChange *out) {
+  bool ok = pending(now_ms);
+  if (ok) *out = change_;
+  armed_ = false;
+  memset(&change_, 0, sizeof change_);
+  return ok;
+}
+
 }  // namespace cb

@@ -19,6 +19,7 @@
 #include "cb_log.h"
 #include "cb_provisioning.h"
 #include "cb_setup.h"
+#include "cb_update.h"
 
 namespace {
 
@@ -27,10 +28,12 @@ cb::ModeMachine machine;
 CbLed normal_led = CbLed::Off;  // what the application wants to show in normal mode
 cb::ButtonEvent sim_event = cb::ButtonEvent::None;  // console button-sim, consumed by the next poll
 
+bool confirm_shown = false;  // R32: LED shows "waiting for the button"
+
 void show_mode_led() {
   switch (machine.mode()) {
     case cb::Mode::Normal: cb_led_set(normal_led); break;
-    case cb::Mode::Maintenance: cb_led_set(CbLed::MaintenanceBlink); break;
+    case cb::Mode::Maintenance: cb_led_set(confirm_shown ? CbLed::ConfirmBlink : CbLed::MaintenanceBlink); break;
     case cb::Mode::Setup: cb_led_set(CbLed::SetupAlternate); break;
   }
 }
@@ -79,9 +82,25 @@ void cb_modes_poll() {
     cb_log("button-sim: %s", ev == cb::ButtonEvent::Long ? "long (5 s)" : ev == cb::ButtonEvent::VeryLong ? "15 s" : "short");
   }
   if (ev == cb::ButtonEvent::Long) cb_log("boot button held %lu s", (unsigned long)(cb::kLongHoldMs / 1000));
+  // R32: an owner-key change from the status page waits for a short press (only in maintenance by the button)
+  bool waiting = cb_update_owner_waiting();
+  if (waiting && (machine.mode() != cb::Mode::Maintenance || machine.maintenance_by_event())) {
+    cb_update_owner_cancel();
+    waiting = false;
+  }
+  machine.set_confirm_pending(waiting);
+  if (waiting != confirm_shown) {
+    confirm_shown = waiting;
+    show_mode_led();
+  }
   cb::ModeAction a = machine.update(ev, now);
   switch (a) {
     case cb::ModeAction::None: break;
+    case cb::ModeAction::Confirm:
+      cb_update_owner_confirm();
+      confirm_shown = false;
+      show_mode_led();
+      break;
     case cb::ModeAction::VolumeStep:
       cb_audio_volume_step();  // logs, stores in NVS, plays a tick at the new volume
       break;

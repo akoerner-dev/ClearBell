@@ -209,7 +209,8 @@ python tools/cb.py ton-hochladen IN-1 ring meine_klingel.wav
 Ergebnis. Die Außeneinheit zählt Öffnungen über die Innentasten **nur als Summe** (ohne Zeit, ohne Wohnung) und führt
 nur Service-Pulse (`door-test`) und später Fern-Öffnungen einzeln. Uhrzeit per NTP; ohne Internet steht „Start #n + s“
 da. Die Anmeldung läuft per HTTP Digest – das Passwort geht nicht im Klartext über das WLAN; nach 5 falschen
-Passwörtern ist die Seite 30 s gesperrt.
+Passwörtern ist die Seite **für diesen Absender** 30 s gesperrt (bei Wiederholung länger, höchstens 15 min; andere
+Geräte nicht betroffen, R33). Ein eigenes Passwort braucht mindestens 10 Zeichen.
 
 ## 4 Konsolenbefehle
 

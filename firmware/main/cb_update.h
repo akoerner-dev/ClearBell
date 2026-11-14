@@ -46,4 +46,13 @@ void cb_update_abort();
 bool cb_update_set_owner_key(const char *hex, char *msg, size_t n);
 bool cb_update_set_owner_only(bool on, char *msg, size_t n);
 
+// R32 (VK-04): the status page does not call the two above directly - it ARMS the change, which takes effect only
+// when the boot button of this unit is pressed briefly within 60 s (cb::OwnerConfirm, cb_update_logic.h).
+//   key: new owner key (64 hex) or "" / "-" to remove it; nullptr = unchanged.  only: 1 / 0, -1 = unchanged.
+// Checks the values first (same rules and messages as the setters). Web task. German message for the page.
+bool cb_update_owner_request(const char *key, int only, char *msg, size_t n);
+bool cb_update_owner_waiting();   // something waits for the button (cb_modes: LED pattern, short press = confirm)
+void cb_update_owner_confirm();   // the button was pressed: apply the waiting change. Loop only.
+void cb_update_owner_cancel();    // maintenance left: forget it. Loop only.
+
 void cb_update_json(cb::Json &j);

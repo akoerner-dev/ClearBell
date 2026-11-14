@@ -65,6 +65,10 @@ ModeAction ModeMachine::update(ButtonEvent ev, uint32_t now_ms) {
       }
       break;
     case Mode::Maintenance:
+      if (ev == ButtonEvent::Short && confirm_pending_ && !by_event_) {  // R32: the press confirms, stays here
+        last_activity_ = now_ms;
+        return ModeAction::Confirm;
+      }
       if (ev == ButtonEvent::Short || now_ms - last_activity_ >= kMaintenanceTimeoutMs) {
         mode_ = Mode::Normal;
         by_event_ = false;

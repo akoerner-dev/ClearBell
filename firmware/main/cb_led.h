@@ -8,6 +8,7 @@
 //   green blinking maintenance mode (1 Hz)
 //   red/green alternating   setup mode (provisioning missing or factory reset done)
 //   red fast blinking       fatal configuration error (e.g. provisioning for the wrong image type)
+//   amber fast blinking     an owner-key change waits for a short press of the boot button (R32, max. 60 s)
 #pragma once
 
 #include <cstdint>
@@ -20,6 +21,7 @@ enum class CbLed {
   MaintenanceBlink,
   SetupAlternate,
   ErrorFast,
+  ConfirmBlink,
 };
 
 void cb_led_begin();

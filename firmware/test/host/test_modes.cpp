@@ -180,3 +180,19 @@ TEST(modes_remember_who_opened_maintenance) {
   m.update(ButtonEvent::Long, 90);  // button in event maintenance: on to setup as before
   CHECK(m.mode() == Mode::Setup && !m.maintenance_by_event());
 }
+
+TEST(modes_short_press_confirms_a_pending_owner_change) {
+  // R32: while an owner-key change waits, a short press in maintenance confirms it instead of leaving maintenance.
+  ModeMachine m;
+  m.begin(true, 0);
+  m.update(ButtonEvent::Long, 10);
+  m.set_confirm_pending(true);
+  CHECK(m.update(ButtonEvent::Short, 20) == ModeAction::Confirm);
+  CHECK(m.mode() == Mode::Maintenance);
+  m.set_confirm_pending(false);
+  CHECK(m.update(ButtonEvent::Short, 30) == ModeAction::Left);  // nothing waiting: leave as before
+  m.set_confirm_pending(true);
+  CHECK(m.update(ButtonEvent::Short, 40) == ModeAction::VolumeStep);  // normal mode: volume as before
+  m.request_maintenance(50);  // from inside: cannot arm anything anyway (R31), but a press must not confirm either
+  CHECK(m.update(ButtonEvent::Short, 60) == ModeAction::Left);
+}

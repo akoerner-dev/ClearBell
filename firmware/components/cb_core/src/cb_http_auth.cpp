@@ -226,6 +226,22 @@ bool looks_like_device_code(const char *p) {
 }
 }  // namespace
 
+int device_code_variants(const char *pass, char out[kCodeVariantsMax][kCodeVariantLen]) {
+  if (!looks_like_device_code(pass)) return 0;
+  memcpy(out[0], pass, 17);  // canonical form (16 characters + NUL)
+  for (int s = 0; s < 2; s++) {
+    char *v = out[1 + s];
+    int k = 0;
+    for (int i = 0; i < 16; i++) {
+      if (i && i % 4 == 0) v[k++] = s ? ' ' : '-';
+      v[k++] = pass[i];
+    }
+    v[k] = 0;
+  }
+  for (int i = 0; i <= 16; i++) out[3][i] = (char)((pass[i] >= 'A' && pass[i] <= 'Z') ? pass[i] + 32 : pass[i]);
+  return 4;
+}
+
 const char *auth_result_name(AuthResult r) {
   switch (r) {
     case AuthResult::Ok: return "ok";
@@ -235,6 +251,7 @@ const char *auth_result_name(AuthResult r) {
     case AuthResult::Replay: return "replay";
     case AuthResult::WrongUri: return "wrong-uri";
     case AuthResult::LockedOut: return "locked-out";
+    case AuthResult::Malformed: return "malformed";
   }
   return "?";
 }
@@ -248,7 +265,9 @@ void DigestAuth::begin(const uint8_t secret[32], const char *realm, const char *
 
 void DigestAuth::set_password(const char *password) {
   snprintf(pass_, sizeof(pass_), "%s", password);
-  failures_ = 0;  // the browsers still hold the old password: their next request fails once, then they ask
+  // the browsers still hold the old password: their next request fails once, then they ask - that must not
+  // add up to a lock. Running locks and the global brake stay.
+  for (auto &s : src_) s.fails = 0;
 }
 
 // ---- Own password, changed over plain HTTP ----------------------------------------------------------------
@@ -309,6 +328,27 @@ bool password_change_open(const char *cur, const char *nonce, const char *enc_he
   return out[0] == 0 || password_allowed(out);  // "" = back to the label password
 }
 
+bool password_change_open_stored(const char *stored, const char *nonce, const char *enc_hex, const char *mac_hex,
+                                 char *out, size_t cap, bool *wrong_current) {
+  char v[kCodeVariantsMax][kCodeVariantLen];
+  int n = device_code_variants(stored, v);
+  const char *cand[kCodeVariantsMax] = {stored};
+  if (n == 0) n = 1;
+  else
+    for (int i = 0; i < n; i++) cand[i] = v[i];
+  for (int i = 0; i < n; i++) {
+    bool wrong = false;
+    bool ok = password_change_open(cand[i], nonce, enc_hex, mac_hex, out, cap, &wrong);
+    if (!wrong) {  // the current password fits: the result (allowed or not) is final
+      *wrong_current = false;
+      return ok;
+    }
+  }
+  if (cap) out[0] = 0;
+  *wrong_current = true;  // every candidate failed the mac
+  return false;
+}
+
 void password_change_seal(const char *cur, const char *nonce, const char *pw, char enc_hex[2 * kPasswordMax + 1],
                           char mac_hex[33]) {
   uint8_t ks[kPasswordMax];
@@ -355,23 +395,81 @@ void DigestAuth::challenge(uint32_t now_s, bool stale, char *out, size_t n) {
            stale ? ", stale=true" : "");
 }
 
-AuthResult DigestAuth::fail(uint32_t now_s) {
+DigestAuth::Source *DigestAuth::find_source(uint32_t addr) {
+  for (auto &s : src_)
+    if (s.used && s.addr == addr) return &s;
+  return nullptr;
+}
+
+const DigestAuth::Source *DigestAuth::find_source(uint32_t addr) const {
+  for (auto &s : src_)
+    if (s.used && s.addr == addr) return &s;
+  return nullptr;
+}
+
+bool DigestAuth::locked(uint32_t now_s, uint32_t source) const {
+  return source_locked(find_source(source), now_s);
+}
+
+bool DigestAuth::braking(uint32_t now_s) const {
+  return global_fails_ >= kGlobalMaxFails && now_s - global_since_ < kGlobalWindowS;
+}
+
+uint32_t DigestAuth::retry_after_s(uint32_t now_s, uint32_t source) const {
+  const Source *s = find_source(source);
+  if (source_locked(s, now_s)) return (uint32_t)(int32_t)(s->locked_until - now_s);
+  return braking(now_s) ? 1 : 0;
+}
+
+AuthResult DigestAuth::fail(uint32_t now_s, uint32_t source) {
   fail_total_++;
-  if (++failures_ >= kMaxFailures) {
-    failures_ = 0;
-    lock_until_ = now_s + kLockS;
-    if (!lock_until_) lock_until_ = 1;
+  // global window: counts the wrong passwords of all sources together
+  if (!global_fails_ || now_s - global_since_ >= kGlobalWindowS) {
+    global_since_ = now_s;
+    global_fails_ = 0;
+  }
+  global_fails_++;
+
+  Source *s = find_source(source);
+  if (!s) {
+    // New entry: replace the oldest source that is NOT locked; if all are locked, the oldest of them. So a flood
+    // of made-up sources cannot lift the lock of a source that is already locked.
+    Source *pick = nullptr;
+    for (auto &c : src_) {
+      if (!c.used) {
+        pick = &c;
+        break;
+      }
+      bool c_locked = source_locked(&c, now_s);
+      bool p_locked = pick && source_locked(pick, now_s);
+      if (!pick || (p_locked && !c_locked) || (p_locked == c_locked && (int32_t)(c.last - pick->last) < 0)) pick = &c;
+    }
+    s = pick;
+    *s = Source{};
+    s->used = true;
+    s->addr = source;
+  }
+  s->last = now_s;
+  if (++s->fails >= kMaxFailures) {
+    s->fails = 0;
+    uint32_t dur = s->level < 16 ? (kLockS << s->level) : kLockMaxS;
+    if (dur > kLockMaxS) dur = kLockMaxS;
+    if (s->level < 16) s->level++;
+    s->locked_until = now_s + dur;
+    if (!s->locked_until) s->locked_until = 1;
     locks_++;
   }
   return AuthResult::Bad;
 }
 
-AuthResult DigestAuth::check(const char *header, const char *method, const char *uri, uint32_t now_s) {
-  if (locked(now_s)) return AuthResult::LockedOut;
+AuthResult DigestAuth::check(const char *header, const char *method, const char *uri, uint32_t now_s,
+                             uint32_t source) {
+  if (locked(now_s, source)) return AuthResult::LockedOut;
   if (!header || !*header) return AuthResult::Missing;
   DigestFields f;
-  if (!parse_digest(header, &f)) return fail(now_s);
-  if (strcmp(f.realm, realm_) != 0) return fail(now_s);
+  // Not parseable / foreign realm: the password was not checked, so this is no failed attempt (RV-15).
+  if (!parse_digest(header, &f)) return AuthResult::Malformed;
+  if (strcmp(f.realm, realm_) != 0) return AuthResult::Malformed;
 
   // Expired nonce, nonce from before a reboot (other secret -> MAC does not match) or a made-up one: "stale",
   // the browser fetches a fresh challenge silently. Not counted as failure - the password was not even
@@ -380,42 +478,36 @@ AuthResult DigestAuth::check(const char *header, const char *method, const char 
   if (!nonce_valid(f.nonce, now_s, &seq)) return AuthResult::Stale;
   if (seq < floor_seq_) return AuthResult::Stale;  // its count was forgotten -> must not be trusted again
 
+  // Global brake (many / forged sources): at most one password check per second for everybody.
+  if (braking(now_s) && checked_once_ && last_check_s_ == now_s) return AuthResult::LockedOut;
+  checked_once_ = true;
+  last_check_s_ = now_s;
+
   bool user_ok = strcmp(f.username, user_) == 0;
   bool resp_ok = false;
   if (strlen(f.response) == 32) {
     // FW-B-14: the browser hashes exactly what was typed. While the password is the 16-character device code, also
-    // accept the ways people copy it from a label: in groups of four with '-' or ' ', and in lower case.
-    char alt[3][24];
-    const char *cand[4] = {pass_};
-    int n = 1;
-    if (looks_like_device_code(pass_)) {
-      for (int s = 0; s < 2; s++) {
-        char *v = alt[s];
-        int k = 0;
-        for (int i = 0; i < 16; i++) {
-          if (i && i % 4 == 0) v[k++] = s ? ' ' : '-';
-          v[k++] = pass_[i];
-        }
-        v[k] = 0;
-        cand[n++] = v;
-      }
-      for (int i = 0; i <= 16; i++) alt[2][i] = (char)((pass_[i] >= 'A' && pass_[i] <= 'Z') ? pass_[i] + 32 : pass_[i]);
-      cand[n++] = alt[2];
-    }
+    // accept the ways people copy it from a label (device_code_variants).
+    char alt[kCodeVariantsMax][kCodeVariantLen];
+    const char *cand[kCodeVariantsMax] = {pass_};
+    int n = device_code_variants(pass_, alt);
+    if (n == 0) n = 1;
+    else
+      for (int i = 0; i < n; i++) cand[i] = alt[i];
     for (int i = 0; i < n; i++) {
       char expect[33];
       digest_response(f, cand[i], method, expect);
       resp_ok |= ct_equal(reinterpret_cast<const uint8_t *>(expect), reinterpret_cast<const uint8_t *>(f.response), 32);
     }
   }
-  if (!user_ok || !resp_ok) return fail(now_s);
+  if (!user_ok || !resp_ok) return fail(now_s, source);
   // Past this point the sender knows the password. Remaining checks protect against replay / misuse of a
   // recorded header and do not count as wrong password.
   if (strcmp(f.uri, uri) != 0) return AuthResult::WrongUri;
 
   char *end = nullptr;
   unsigned long nc = strtoul(f.nc, &end, 16);
-  if (!end || *end || nc == 0) return fail(now_s);
+  if (!end || *end || nc == 0) return fail(now_s, source);
   int slot = -1, oldest = 0;
   for (int i = 0; i < kTracked; i++) {
     if (tracked_[i].seq == seq) slot = i;
@@ -431,7 +523,7 @@ AuthResult DigestAuth::check(const char *header, const char *method, const char 
     tracked_[slot].seq = seq;
   }
   tracked_[slot].nc = (uint32_t)nc;
-  failures_ = 0;
+  if (Source *s = find_source(source)) *s = Source{};  // success of this source: wrong-password count and lock level reset
   ok_++;
   return AuthResult::Ok;
 }

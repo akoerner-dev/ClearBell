@@ -14,6 +14,11 @@ Versionen nach SemVer; `version.txt` ist die Quelle. Solange die Portierung läu
 - **VK-03 (R31):** Koppeln und Entfernen – auch die erste Kopplung einer freien Wohnung – nur noch in der Wartung per
   Boot-Taster an der Außeneinheit oder in der Einrichtung. Die Wartung, die eine Inneneinheit öffnet, erlaubt nur
   Töne, Update und Pulslänge; die Statusseite zeigt das an.
+- **VK-04 (R32):** Eigener Update-Schlüssel und „nur eigener“ werden auf der Statusseite nur vorgemerkt und erst mit
+  einem kurzen Druck auf den Boot-Taster der Einheit innerhalb von 60 s wirksam (LED blinkt schnell gelb).
+- **VK-05 (R33):** Eigenes Passwort mindestens 10 Zeichen (gespeicherte kürzere gelten weiter); falsche Passwörter
+  sperren nur noch ihren Absender, mit steigender Sperrzeit, kaputte Anfragen zählen nicht; Passwortwechsel nimmt den
+  Etikett-Code auch mit Strichen oder klein geschrieben.
 
 ### Sicherheitskatalog Phase 1 (14.11.2026, Review vom 13.11.)
 

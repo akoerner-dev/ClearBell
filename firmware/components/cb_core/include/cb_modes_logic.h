@@ -4,6 +4,7 @@
 //
 //   Normal --hold 5 s--> Maintenance --hold 5 s--> Setup --hold 15 s--> factory reset
 //   Maintenance --short press, or 10 min without action--> Normal
+//     (R32: while an owner-key change waits, the short press CONFIRMS it and maintenance stays)
 //   Setup (configured unit) --short press, or 30 min without action--> Normal
 //   start without WiFi configuration --> Setup (left only by configuring + reboot)
 //
@@ -52,7 +53,9 @@ enum class Mode : uint8_t { Normal, Maintenance, Setup };
 const char *mode_name(Mode m);
 
 // What the mode machine asks the application to do as a side effect of an event.
-enum class ModeAction : uint8_t { None, VolumeStep, Entered, Left, FactoryReset };
+// Confirm (R32): a short press in maintenance while an owner-key change waits (set_confirm_pending) - confirms it
+// instead of leaving maintenance.
+enum class ModeAction : uint8_t { None, VolumeStep, Entered, Left, FactoryReset, Confirm };
 
 class ModeMachine {
  public:
@@ -70,10 +73,13 @@ class ModeMachine {
   // matrix (cb_access.h) then allows only tones, update and pulse length - no pairing, no keys, no password. A later
   // request never downgrades the button's maintenance; the button in this state goes on to setup as always.
   bool maintenance_by_event() const { return mode_ == Mode::Maintenance && by_event_; }
+  // R32: the application says whether an owner-key change waits for the button (cb::OwnerConfirm).
+  void set_confirm_pending(bool p) { confirm_pending_ = p; }
 
  private:
   Mode mode_ = Mode::Setup;
   bool by_event_ = false;
+  bool confirm_pending_ = false;
   bool provisioned_ = false;
   uint32_t last_activity_ = 0;
 };

@@ -290,10 +290,10 @@ function maintCard(d){
     const s=btn('Speichern');s.onclick=async()=>toast(await post('/settings',{led:i.value}));row.append(i,s);
     b.append(row,$('p','mute','5–100 % (Standard 40). Grün und Rot sollen gleich hell wirken – am besten mit der Front davor.'))}));
   c.append(fold('pw','Passwort der Statusseite · '+(st.own_password?'eigenes':'Gerätecode'),b=>pwform(b,st.own_password)));
-  if(d.update&&d.update.keys)c.append(fold('keys','Update-Schlüssel · '+(d.update.keys.owner_only?'nur eigener':d.update.keys.owner?'Hersteller und eigener':'Hersteller'),b=>keyform(b,d.update.keys)));
+  if(d.update&&d.update.keys)c.append(fold('keys','Update-Schlüssel · '+(d.update.keys.owner_only?'nur eigener':d.update.keys.owner?'Hersteller und eigener':'Hersteller'),b=>keyform(b,d.update.keys,d.update.owner_pending_s)));
   c.append(fold('fw','Firmware aktualisieren · '+d.system.version,b=>fwform(b,d.system.image)));
   paused=true;return c}
-function keyform(s,k){
+function keyform(s,k,pend){
   const off=k.owner_only?' (abgeschaltet)':'';kv(s,'Hersteller, Hauptschlüssel',k.main+off,k.owner_only?'mute':'');
   kv(s,'Hersteller, Ersatzschlüssel',k.spare+off,k.owner_only?'mute':'');kv(s,'eigener Schlüssel',k.owner||'keiner');
   const i=$('input');i.placeholder='Kennung des eigenen Schlüssels (64 Hex-Zeichen)';i.autocomplete='off';i.maxLength=64;
@@ -303,7 +303,8 @@ function keyform(s,k){
   if(k.owner){const c=btn(k.owner_only?'Herstellerschlüssel wieder annehmen':'Nur noch eigenen Schlüssel annehmen','','sec');
     c.onclick=async()=>{if(!confirm(k.owner_only?'Updates des Herstellers wieder annehmen?':'Updates des Herstellers nicht mehr annehmen? Danach installiert diese Einheit nur noch Dateien, die mit Ihrem eigenen Schlüssel signiert sind.'))return;
       toast(await post('/settings',{owneronly:k.owner_only?'0':'1'}));load(true)};s.append(c)}
-  s.append($('p','mute','Nur nötig, wenn Sie Firmware selbst bauen und signieren. Kennung: „cb.py besitzer-schluessel“ oder „espsecure.py digest_sbv2_public_key“. Leer speichern entfernt den eigenen Schlüssel; der Werksreset ebenfalls.'))}
+  s.append($('p','mute','Nur nötig, wenn Sie Firmware selbst bauen und signieren. Kennung: „cb.py besitzer-schluessel“ oder „espsecure.py digest_sbv2_public_key“. Leer speichern entfernt den eigenen Schlüssel; der Werksreset ebenfalls. Jede Änderung hier wird erst wirksam, wenn Sie danach innerhalb von 60 s kurz den Boot-Taster dieser Einheit drücken (die LED blinkt dann schnell gelb).'));
+  if(pend)s.append($('p','bad','Wartet auf den Boot-Taster: noch '+pend+' s – kurz drücken, sonst verfällt die Änderung.'))}
 // MD5 (RFC 1321) for the password change: the new password never crosses the WiFi in clear text (cb_http_auth.h).
 function md5(str){const K=[],S=[7,12,17,22,5,9,14,20,4,11,16,23,6,10,15,21];for(let i=0;i<64;i++)K[i]=Math.floor(Math.abs(Math.sin(i+1))*4294967296)|0;
   const b=Array.from(str,c=>c.charCodeAt(0)&255),n=b.length;b.push(128);while(b.length%64!==56)b.push(0);
@@ -320,18 +321,18 @@ function pwform(s,own){
   // FW-B-13: the label calls it "Gerätecode" - the page uses the same word
   s.append($('p','mute',(own?'Ein eigenes Passwort ist gesetzt.':'Es gilt der Gerätecode vom Etikett.')+' Leer lassen und speichern = wieder der Gerätecode. Der Werksreset stellt ihn ebenfalls her.'));
   const f=(ph,ac)=>{const i=$('input');i.type='password';i.placeholder=ph;i.autocomplete=ac;i.maxLength=32;return i};
-  const cur=f('aktuelles Passwort','current-password'),nw=f('neues Passwort (4–32 Zeichen)','new-password'),rp=f('neues Passwort wiederholen','new-password');
+  const cur=f('aktuelles Passwort','current-password'),nw=f('neues Passwort (10–32 Zeichen)','new-password'),rp=f('neues Passwort wiederholen','new-password');
   const b=btn('Passwort speichern');
   b.onclick=async()=>{
     if(nw.value!==rp.value){toast({ok:false,message:'Die beiden neuen Passwörter sind verschieden.'});return}
-    if(nw.value&&(nw.value.length<4||/[^\x20-\x7e]/.test(nw.value))){toast({ok:false,message:'4 bis 32 Zeichen, ohne Umlaute.'});return}
+    if(nw.value&&(nw.value.length<10||/[^\x20-\x7e]/.test(nw.value))){toast({ok:false,message:'Mindestens 10 Zeichen (bis 32), ohne Umlaute.'});return}
     if(!confirm(nw.value?'Passwort jetzt ändern?':'Wieder den Gerätecode verwenden?'))return;
     try{const n=(await (await fetch('/settings/pw-nonce',{cache:'no-store'})).json()).nonce;
       const ks=md5(cur.value+':'+n+':k1')+md5(cur.value+':'+n+':k2');let enc='';
       for(let i=0;i<32;i++){const c=i<nw.value.length?nw.value.charCodeAt(i):0;enc+=(c^parseInt(ks.substr(2*i,2),16)).toString(16).padStart(2,'0')}
       const r=await post('/settings/password',{enc,mac:md5(cur.value+':'+n+':'+nw.value)});toast(r);
       if(r.ok){cur.value=nw.value=rp.value='';setTimeout(()=>location.reload(),2500)}}catch(e){toast({ok:false,message:'Fehler: '+e})}};
-  s.append(cur,nw,rp,b,$('p','mute','Mindestens 10 Zeichen sind sicherer. Keine Umlaute.'))}
+  s.append(cur,nw,rp,b,$('p','mute','Mindestens 10 Zeichen, keine Umlaute. Besser lang und einmalig (z. B. ein Satz): Wer den WLAN-Verkehr mitschneidet, kann ein kurzes Passwort zu Hause durchprobieren. Der Gerätecode vom Etikett ist dagegen sicher – leer lassen und speichern stellt ihn wieder her.'))}
 function fwform(s,img){
   const fp=picker('.bin');const lb=$('label','chk');const older=$('input');older.type='checkbox';lb.append(older,'ältere Version zulassen (nur zum Zurückgehen)');
   const b=btn('Installieren','up');

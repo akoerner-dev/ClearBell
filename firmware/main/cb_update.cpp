@@ -408,6 +408,85 @@ bool cb_update_set_owner_key(const char *hex, char *msg, size_t n) {
   return ok;
 }
 
+// ---- R32: owner changes wait for the button -----------------------------------------------------------------------
+namespace {
+cb::OwnerConfirm owner_confirm;
+portMUX_TYPE owner_lock = portMUX_INITIALIZER_UNLOCKED;  // web task arms, loop confirms
+}  // namespace
+
+bool cb_update_owner_request(const char *key, int only, char *msg, size_t n) {
+  cb::OwnerChange c{};
+  c.set_key = key != nullptr;
+  c.set_only = only >= 0;
+  c.only = only == 1;
+  bool remove = c.set_key && (!*key || !strcmp(key, "-"));
+  char fp[17] = "";
+  if (c.set_key && !remove) {
+    uint8_t d[cb::kKeyDigestLen];
+    if (!cb::parse_key_digest(key, d)) {
+      snprintf(msg, n, "Schlüssel-Kennung: genau 64 Hex-Zeichen (0-9, a-f)");
+      return false;
+    }
+    cb::TrustedKeys t = cb::maker_trust();
+    if (!memcmp(d, t.main, sizeof d) || !memcmp(d, t.spare, sizeof d)) {
+      snprintf(msg, n, "das ist ein Herstellerschlüssel - der gilt ohnehin");
+      return false;
+    }
+    cb::key_fingerprint(d, fp);
+    snprintf(c.key_hex, sizeof c.key_hex, "%s", key);
+  }
+  if (c.set_only && c.only && !(c.set_key ? !remove : trust().has_owner)) {
+    snprintf(msg, n, "erst einen eigenen Update-Schlüssel eintragen");
+    return false;
+  }
+  if (!c.set_key && !c.set_only) {
+    snprintf(msg, n, "nichts zu ändern");
+    return false;
+  }
+  uint32_t now = millis();
+  taskENTER_CRITICAL(&owner_lock);
+  owner_confirm.arm(c, now);
+  taskEXIT_CRITICAL(&owner_lock);
+  char what[80];
+  if (c.set_key) snprintf(what, sizeof what, remove ? "eigenen Schlüssel entfernen" : "eigener Schlüssel %s", fp);
+  else snprintf(what, sizeof what, "%s", c.only ? "nur eigener Schlüssel" : "Herstellerschlüssel wieder annehmen");
+  snprintf(msg, n, "Vorgemerkt: %s%s. Jetzt innerhalb von 60 s KURZ den Boot-Taster dieser Einheit drücken "
+           "(LED blinkt schnell gelb) – sonst verfällt es.", what, c.set_key && c.set_only ? " + „nur eigener“" : "");
+  cb_log("update: owner change ARMED (%s) - waits 60 s for a short press of the boot button (R32)", what);
+  return true;
+}
+
+bool cb_update_owner_waiting() {
+  uint32_t now = millis();
+  taskENTER_CRITICAL(&owner_lock);
+  bool w = owner_confirm.pending(now);
+  taskEXIT_CRITICAL(&owner_lock);
+  return w;
+}
+
+void cb_update_owner_confirm() {
+  cb::OwnerChange c;
+  uint32_t now = millis();
+  taskENTER_CRITICAL(&owner_lock);
+  bool ok = owner_confirm.take(now, &c);
+  taskEXIT_CRITICAL(&owner_lock);
+  if (!ok) return;
+  char msg[160];
+  bool done = true;
+  if (c.set_key) done = cb_update_set_owner_key(c.key_hex, msg, sizeof msg);
+  if (done && c.set_only) done = cb_update_set_owner_only(c.only, msg, sizeof msg);
+  cb_log("update: owner change CONFIRMED by the boot button - %s", done ? "applied" : "FAILED");
+  memset(&c, 0, sizeof c);
+}
+
+void cb_update_owner_cancel() {
+  taskENTER_CRITICAL(&owner_lock);
+  bool was = owner_confirm.pending(millis());
+  owner_confirm.cancel();
+  taskEXIT_CRITICAL(&owner_lock);
+  if (was) cb_log("update: waiting owner change dropped (maintenance left)");
+}
+
 bool cb_update_set_owner_only(bool on, char *msg, size_t n) {
   if (on && !trust().has_owner) {
     snprintf(msg, n, "erst einen eigenen Update-Schlüssel eintragen");
@@ -442,5 +521,11 @@ void cb_update_json(cb::Json &j) {
   }
   j.kv("owner_only", t.owner_only);
   j.end_obj();
+  // R32: a change that waits for the boot button - seconds left (0 = none)
+  uint32_t now = millis();
+  taskENTER_CRITICAL(&owner_lock);
+  uint32_t left = owner_confirm.left_ms(now);
+  taskEXIT_CRITICAL(&owner_lock);
+  j.kv("owner_pending_s", (unsigned long)((left + 999) / 1000));
   j.end_obj();
 }

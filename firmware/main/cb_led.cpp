@@ -102,7 +102,8 @@ void cb_led_poll() {
   switch (current) {
     case CbLed::MaintenanceBlink:
     case CbLed::SetupAlternate: phase = (t / 500) % 2; break;
-    case CbLed::ErrorFast: phase = (t / 100) % 2; break;
+    case CbLed::ErrorFast:
+    case CbLed::ConfirmBlink: phase = (t / 100) % 2; break;
     default: break;
   }
   if (current == shown && phase == last_phase) return;
@@ -116,5 +117,6 @@ void cb_led_poll() {
     case CbLed::MaintenanceBlink: out(false, phase == 0); break;
     case CbLed::SetupAlternate: out(phase == 0, phase != 0); break;
     case CbLed::ErrorFast: out(phase == 0, false); break;
+    case CbLed::ConfirmBlink: out(phase == 0, phase == 0); break;
   }
 }

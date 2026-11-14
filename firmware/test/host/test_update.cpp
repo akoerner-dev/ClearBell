@@ -106,3 +106,39 @@ TEST(update_verdict_probation) {
   s.selftest_run = false;
   CHECK(update_verdict(s) == UpdateVerdict::Wait);
 }
+
+TEST(owner_change_waits_for_the_button) {
+  // R32 (E4, VK-04, RV-05): own update key / "owner only" take effect only after a short press of the boot button at
+  // the unit within 60 s - a request rewritten by someone in the WiFi, or a script injected into the page, cannot
+  // set a key on its own.
+  OwnerConfirm c;
+  OwnerChange ch{};
+  ch.set_key = true;
+  memcpy(ch.key_hex, "ab", 3);
+  CHECK(!c.pending(0));
+  OwnerChange got{};
+  CHECK(!c.take(0, &got));  // nothing armed: a press confirms nothing
+  c.arm(ch, 1000);
+  CHECK(c.pending(1000));
+  CHECK(c.left_ms(1000) == kOwnerConfirmMs);
+  CHECK(c.pending(1000 + kOwnerConfirmMs - 1));
+  CHECK(!c.pending(1000 + kOwnerConfirmMs));  // 60 s passed: forgotten
+  CHECK(!c.take(1000 + kOwnerConfirmMs, &got));
+  c.arm(ch, 5000);
+  CHECK(c.take(6000, &got));
+  CHECK(got.set_key && strcmp(got.key_hex, "ab") == 0);
+  CHECK(!c.pending(6000));
+  CHECK(!c.take(6001, &got));  // used once
+  OwnerChange other{};
+  other.set_only = true;
+  other.only = true;
+  c.arm(ch, 7000);
+  c.arm(other, 8000);  // a newer request replaces the older one (the page shows which one is waiting)
+  CHECK(c.take(8500, &got));
+  CHECK(!got.set_key && got.set_only && got.only);
+  c.arm(ch, 9000);
+  c.cancel();  // maintenance left
+  CHECK(!c.pending(9000));
+  c.arm(ch, 0xFFFFFF00u);  // across the millis wrap
+  CHECK(c.pending(0x00000100u));
+}

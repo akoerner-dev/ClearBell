@@ -203,20 +203,27 @@ bool authorize(httpd_req_t *req) {
   size_t l = httpd_req_get_hdr_value_len(req, "Authorization");
   if (l && l < sizeof hdr && httpd_req_get_hdr_value_str(req, "Authorization", hdr, sizeof hdr) == ESP_OK) h = hdr;
   const char *method = http_method_str((enum http_method)req->method);  // GET, PUT, POST ...
-  cb::AuthResult r = auth.check(h, method, req->uri, now_s());
+  // RV-15: wrong passwords are counted per source address, not for the whole unit.
+  const uint32_t src = cb_http_peer_ipv4(req);
+  cb::AuthResult r = auth.check(h, method, req->uri, now_s(), src);
   if (r == cb::AuthResult::Ok) return true;
+  const uint32_t wait_s = auth.retry_after_s(now_s(), src);
   if (r != cb::AuthResult::Missing && r != cb::AuthResult::Stale) {
     char ip[16];
     peer_ip(req, ip, sizeof ip);
-    cb_log("web: login %s from %s (%s %s)%s", cb::auth_result_name(r), ip, method, req->uri,
-           auth.locked(now_s()) ? " - LOCKED for 30 s" : "");
+    char lock[40] = "";
+    if (wait_s) snprintf(lock, sizeof lock, " - LOCKED for %lu s", (unsigned long)wait_s);
+    cb_log("web: login %s from %s (%s %s)%s", cb::auth_result_name(r), ip, method, req->uri, lock);
   }
   httpd_resp_set_hdr(req, "Connection", "close");  // the body of a refused upload is not read
   if (r == cb::AuthResult::LockedOut) {
+    char msg[80];
+    snprintf(msg, sizeof msg, "Zu viele falsche Passwoerter - %lu s warten.\n", (unsigned long)wait_s);
     httpd_resp_set_status(req, "429 Too Many Requests");
-    httpd_resp_sendstr(req, "Zu viele falsche Passwoerter - 30 s warten.\n");
+    httpd_resp_sendstr(req, msg);
     return false;
   }
+  // Malformed (unparseable header / foreign realm) falls through like Missing/Stale: a fresh 401 challenge.
   auth.challenge(now_s(), r == cb::AuthResult::Stale, www_auth, sizeof www_auth);
   httpd_resp_set_status(req, "401 Unauthorized");
   httpd_resp_set_hdr(req, "WWW-Authenticate", www_auth);
@@ -403,15 +410,15 @@ esp_err_t h_settings(httpd_req_t *req) {
     cb_audio_play(cb::Sound::Success);
     if (!msg[0]) snprintf(msg, sizeof msg, "Probeton bei %u %%", (unsigned)cb_audio_volume());
   }
-  // Own update key (R26): ownerkey=<64 hex> | "-" (remove); owneronly=1|0. Maintenance only.
+  // Own update key (R26): ownerkey=<64 hex> | "-" (remove); owneronly=1|0. Maintenance by the button only (R31).
+  // R32: only ARMED here - takes effect after a short press of the boot button within 60 s (cb_update.h).
   char key[72];
   bool has_key = cb::form_get(body, "ownerkey", key, sizeof key), has_only = cb::form_get(body, "owneronly", v, sizeof v);
   if (has_key || has_only) {
     cb::Access acc = cb::mode_access(cb::Endpoint::SettingsOwnerKey, cb_access_input(req));
     if (!acc.ok) return reply_settings(req, acc.status, acc.message);
     maintenance_activity = true;
-    if (has_key && !cb_update_set_owner_key(key, msg, sizeof msg)) return reply_settings(req, "400 Bad Request", msg);
-    if (has_only && !cb_update_set_owner_only(v[0] == '1', msg, sizeof msg))
+    if (!cb_update_owner_request(has_key ? key : nullptr, has_only ? (v[0] == '1' ? 1 : 0) : -1, msg, sizeof msg))
       return reply_settings(req, "400 Bad Request", msg);
   }
   if (!msg[0]) return reply_settings(req, "400 Bad Request", "nichts zu ändern");
@@ -465,13 +472,14 @@ esp_err_t h_password(httpd_req_t *req) {
   if (!fresh) return reply_settings(req, "409 Conflict", "Sitzung abgelaufen - Seite neu laden und nochmal");
   char pw[cb::kPasswordMax + 1];
   bool wrong = false;
-  if (!cb::password_change_open(cb_prov().dev_pass, nonce, enc, mac, pw, sizeof pw, &wrong)) {
+  // RV-43: while the label code is the password it may be typed in any spelling; one attempt counts once.
+  if (!cb::password_change_open_stored(cb_prov().dev_pass, nonce, enc, mac, pw, sizeof pw, &wrong)) {
     if (wrong && ++pw_wrong >= 5) {
       pw_wrong = 0;
       pw_locked_until = now_s() + 60;
     }
     return reply_settings(req, "400 Bad Request",
-                          wrong ? "aktuelles Passwort falsch" : "neues Passwort: 4 bis 32 Zeichen, ohne Umlaute");
+                          wrong ? "aktuelles Passwort falsch" : "neues Passwort: 10 bis 32 Zeichen, ohne Umlaute");
   }
   pw_wrong = 0;
   if (!cb_prov_set_web_pass(pw)) return reply_settings(req, "500 Internal Server Error", "nicht gespeichert");
@@ -487,7 +495,7 @@ esp_err_t h_password(httpd_req_t *req) {
 void cmd_web_pass(const char *args) {
   const char *pw = !strcmp(args, "label") ? "" : args;
   if (!*args || (*pw && !cb::password_allowed(pw))) {
-    cb_log("usage: web-pass <4..32 printable ASCII characters> | web-pass label   (now: %s)",
+    cb_log("usage: web-pass <10..32 printable ASCII characters> | web-pass label   (now: %s)",
            cb_prov_has_own_web_pass() ? "own password" : "label password");
     return;
   }

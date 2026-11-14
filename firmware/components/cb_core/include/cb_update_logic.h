@@ -58,4 +58,36 @@ struct UpdateHealth {
 };
 UpdateVerdict update_verdict(const UpdateHealth &h);
 
+// ---- Owner key needs the button (R32, E4_Besitzerschluessel_Taster, VK-04, RV-05) ---------------------------------
+// The status page runs over plain HTTP until R29 (HTTPS) is built: someone in the WiFi could rewrite a request or
+// inject script into the page. So setting/removing the own update key or switching "owner only" only ARMS the change;
+// it takes effect when the boot button of this unit is pressed briefly within kOwnerConfirmMs (cb_modes: short press
+// in maintenance = Confirm while something waits; own LED pattern). Without the press it is forgotten. A newer
+// request replaces a waiting one. The USB console (update-owner) stays without confirmation: the cable needs the
+// opened unit, which is physical presence already.
+constexpr uint32_t kOwnerConfirmMs = 60 * 1000;
+
+struct OwnerChange {
+  bool set_key;       // key_hex is the new owner key ("" = remove the key, which also ends "owner only")
+  bool set_only;      // switch "owner only" to `only`
+  bool only;
+  char key_hex[65];
+};
+
+class OwnerConfirm {
+ public:
+  void arm(const OwnerChange &c, uint32_t now_ms);
+  bool pending(uint32_t now_ms) const;
+  uint32_t left_ms(uint32_t now_ms) const;  // 0 if nothing waits
+  // The button was pressed: hands out the waiting change (once) if it is still valid.
+  bool take(uint32_t now_ms, OwnerChange *out);
+  void cancel() { armed_ = false; }
+  const OwnerChange &change() const { return change_; }
+
+ private:
+  OwnerChange change_{};
+  uint32_t since_ = 0;
+  bool armed_ = false;
+};
+
 }  // namespace cb
