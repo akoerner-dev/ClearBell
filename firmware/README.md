@@ -350,6 +350,8 @@ firmware/
     ├── statusseite.py      Statusseite vom PC: status, ton-hochladen, Gerätepasswort anzeigen
     ├── fern.py             Fern-Öffnen vom PC: PC als Test-Handy (über die Webseite eingetragen)
     ├── signatur.py         Herstellerschlüssel erzeugen, Images signieren, Besitzer-Kennung, Testvektor (10d)
+    ├── geheim.py           Geheimnis-Scan vor jedem Commit (`scan`), Konsolen-Logs prüfen/schwärzen (`logs`)
+    ├── dauertest.py        lautloser Dauertest aller Boards (nur lesend), CSV + Log
     └── werk.py             Werksschritt: Firmware, Töne, Gerätecode, Etikett
 ```
 

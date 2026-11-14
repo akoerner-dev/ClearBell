@@ -5,6 +5,16 @@ config.h
 **/config.h
 secrets.h
 **/secrets.h
+# Schlüssel und Anlagendaten (Sicherheitskatalog RV-47): gehören nach <ClearBell>/Geheimnisse, nie ins Repo.
+# Vor jedem Commit zusätzlich: python firmware/tools/geheim.py scan
+Geheimnisse/
+*.pem
+*.key
+*.p12
+*.pfx
+*_anlage*.json
+werk_geraete*.json
+etiketten/
 
 # ── Firmware / Build ────────────────────────────────────────
 build/

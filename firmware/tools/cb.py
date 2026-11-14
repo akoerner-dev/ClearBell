@@ -151,7 +151,11 @@ def cmd_bauen(which: str) -> int:
             return r
         # Every build also yields the signed update file - as long as the main key is on this PC. USB flashing does
         # not need a signature (only uploads are checked, R26), so a missing key is a warning, not an error.
-        if signatur.MAIN.exists():
+        # Test builds of Härtung Stufe B carry a PUBLIC test key or emulated eFuses: they must never get a valid
+        # manufacturer signature (security catalogue RV-18) - flash them over USB only.
+        if unit in HB_TEST_UNITS:
+            print(f"{unit}: test build - deliberately NOT signed (USB only, RV-18)")
+        elif signatur.MAIN.exists():
             r = signatur.signieren(unit, idf_python(), BUILD_ROOT)
             if r != 0:
                 return r
@@ -170,13 +174,17 @@ def cmd_konsole(port: str, command: str | None, seconds: float) -> int:
     log_dir = FIRMWARE / "build" / "konsole"
     log_dir.mkdir(parents=True, exist_ok=True)
     log = log_dir / f"{port}_{datetime.date.today()}.log"
+    # RV-20: commands with secret arguments are logged masked, known secret values are blacked out (log and screen)
+    sys.path.insert(0, str(Path(__file__).parent))
+    import geheim
+    secret_values, _ = geheim.werte()
     s = serial.Serial()
     s.port, s.baudrate, s.timeout = port, 115200, 0.2
     s.dtr = False
     s.rts = False
     s.open()
     with open(log, "a", encoding="utf-8") as f:
-        f.write(f"--- {datetime.datetime.now():%H:%M:%S} konsole {command or ''}\n")
+        f.write(f"--- {datetime.datetime.now():%H:%M:%S} konsole {geheim.maskiere_befehl(command or '')}\n")
         # A command may be a sequence: "touch-sim 400 400 | @2 | door" = send, wait 2 s, send - all in ONE
         # connection, so the reader keeps the port while commands go out.
         steps = [c.strip() for c in command.split("|")] if command else []
@@ -193,7 +201,7 @@ def cmd_konsole(port: str, command: str | None, seconds: float) -> int:
             buf += s.read(512)
             while b"\n" in buf:
                 line, buf = buf.split(b"\n", 1)
-                text = line.decode(errors="replace").rstrip()
+                text, _ = geheim.schwaerze(line.decode(errors="replace").rstrip(), secret_values)
                 print(text)
                 f.write(f"{datetime.datetime.now():%H:%M:%S} {text}\n")
     s.close()

@@ -113,6 +113,22 @@ Befunde 10.11.2026 abends (noch nicht behoben):
   Wohnung eigene Handys mit eigenen Topics aus ihrer Kopplung bekommen? **Entschieden 12.11.: ja, beide Wohnungen,
   Handys je Inneneinheit (R27). Umgesetzt 12.11.**
 
+### Sicherheitskatalog Phase 0 (14.11.2026, TOWER, nur Werkzeuge – keine Firmware, kein Board)
+
+Plan: `V0.2/01_Dokumentation/ClearBell_Plan_20261114_Sicherheitskatalog.md`, Quelle: Review 13.11.2026.
+
+| Zeile | Befund | Prüfung | Ergebnis |
+|---|---|---|---|
+| SK0.1 | RV-18_Testbau_produktiv_signiert | `cb.py bauen innen-hbtest/-hbemu` signiert nicht mehr; `signatur.py` lehnt Testbau-Ordner ab; die sechs mit dem Hauptschlüssel signierten Testimages (Bauordner, Scratchpad 12.11.) gelöscht | ✓ Nachsuche: 0 Dateien. Restrisiko: die Signaturen bleiben gültig, bis die Herstellerschlüssel getauscht sind (VK-09, vor dem Verkauf) |
+| SK0.2 | RV-20_Konsolenlog_mit_Passwoertern | `cb.py konsole` maskiert `web-pass`, `setup-wifi` (Passwort), `update-owner` und schwärzt bekannte Geheimwerte in Log und Bildschirm; 9 Testfälle | ✓ 9/9; alte Logs: 19 Dateien, 542 Werte + 6 Befehlszeilen geschwärzt, Nachprüfung 0 Treffer; Firmware gibt selbst keine Passwörter aus |
+| SK0.3 | RV-47_Gitignore_und_Secret_Scan | `.gitignore`-Muster (Schlüssel, Anlagendateien, Etiketten), `tools/geheim.py scan` | ✓ keine getrackte Datei betroffen; Scan des Arbeitsstands CLEAN; Negativprobe mit erfundenem Schlüsselkopf → 1 Treffer, Exit 1 |
+
+Befund (kein Sicherheitsthema, beim 24-h-Lauf gesehen):
+- **FW-B-24_IN-2_verliert_Logzeilen:** IN-2 verwirft bei den Konsolenabfragen viel mehr Logzeilen als die anderen Boards
+  (14.11. 00:20–05:41: IN-2 59 → 475, AU-1 und IN-1 je 0 neue); 11 von 65 Dauertest-Runden bleiben trotz dreifacher
+  Nachfrage unvollständig. Gleiche Firmware → Verdacht USB-Anschluss/Kabel oder Board. Nach dem Dauertest prüfen
+  (Port tauschen, Kabel tauschen).
+
 ### Härtung Stufe B – IN-2 gebrannt, HB.7/HB.8/HB.10 (13.11.2026 morgens, TOWER, Firmware `845753c`)
 
 Freigabe Meister 13.11.2026: „Ja, IN-2 brennen“ – nur IN-2.
