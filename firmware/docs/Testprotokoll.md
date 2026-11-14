@@ -386,6 +386,26 @@ und `.log` im OneDrive-Projektordner.
 Rahmen an die nicht vorhandene OG-Einheit mit, die ohne Adresse gar nicht gesendet werden (`link_send` verwirft sie).
 Nicht im Einzelnen geprüft, kein Verlust: Retries und Erreichbarkeit sind sauber.
 
+**24-h-Dauertest, drei Boards, lautlos (14.11.2026 00:20 – 15.11.2026 00:16, `tools/dauertest.py --stunden 24 --takt
+300`).** AU-1, IN-1 (EG) und IN-2 (OG, NVS verschlüsselt seit HB.7) mit Firmware bis `0d22b8e` (vor dem
+Sicherheitskatalog), Normalbetrieb mit Modem-Sleep, Gastnetz. Wie oben nur `info`/`net` alle 5 min, kein Klingeln.
+Rohdaten: `V0.2/05_Inbetriebnahme/Dauertest/dauertest_20261114_0020.csv` und `.log`.
+
+| # | Prüfung | Erwartung | AU-1 | IN-1 | IN-2 |
+|---|---|---|---|---|---|
+| 11.11 | Abfragen gelesen | alle | 288/288 | 288/288 | 231/288 (FW-B-24: IN-2 verliert Logzeilen; nicht lesbare Abfragen ohne Befund) |
+| 11.12 | kein Neustart | Startzähler gleich | ✓ Start #89, 91 052 → 177 153 s (≈ 49 h am Stück) | ✓ Start #83, 91 013 → 177 115 s | ✓ Start #36, 62 160 → 148 261 s |
+| 11.13 | kein Coredump, Selbsttest | no / OK | ✓ | ✓ | ✓ |
+| 11.14 | kein Speicherleck | freier Heap ohne Abwärtstrend | ✓ +376 B, kleinster 8 491 751 | ✓ +348 B, kleinster 8 543 975 | ✓ +440 B, kleinster 8 545 931 |
+| 11.15 | kein Paketverlust | Zähler ohne Zuwachs | ✓ alle 0 | ✓ alle 0 | ✓ alle 0 (Anfangswerte teils nicht lesbar) |
+| 11.16 | Verbindung | WLAN-Abbrüche 0, Gegenstelle immer erreichbar | ✓ 0, EG und OG 288/288 | ✓ 0, 288/288 | ✓ 0, 231/231 |
+| 11.17 | Herzschlag | gesendet = empfangen | AU-1 rx 11 493 = IN-1 tx 5745 + IN-2 tx 5747 (± Abfragezeitpunkt) | – | – |
+| 11.18 | Speicherzustand | wie eingerichtet | plain | plain | encrypted |
+
+**Ergebnis: bestanden.** Der verschlüsselte Speicher auf IN-2 läuft 24 h ohne Auffälligkeit („erst 24 h beobachten“,
+Meister 13.11. – Voraussetzung für HB.11 an IN-1/AU-1 erfüllt, Freigabe je Board weiter beim Meister). Der Test lief mit
+der Firmware **vor** Phase 0–2 des Sicherheitskatalogs; die neue Firmware wird danach geflasht (SK1.2b ff.).
+
 **Nicht abgedeckt** (lautlos): Klingelwege und Türbefehl unter Dauerlast. Die laufen vor dem 72-h-Test tagsüber mit,
 z. B. `ring eg` in größerem Abstand bei kleiner Lautstärke. **72-h-Test:** offen – läuft als allerletzter Abschlusstest mit beiden Einheiten im Gehäuse (Meister 10.11.2026).
 
