@@ -372,7 +372,7 @@ esp_err_t h_update(httpd_req_t *req) {
 // the current volume), ownerkey / owneronly (maintenance only, R26). The answer is the same JSON shape as the
 // uploads: {ok, message}.
 esp_err_t reply_settings(httpd_req_t *req, const char *status, const char *msg) {
-  char body[160];
+  char body[384];  // FW-B-25: the R32 "armed" message is ~210 bytes in UTF-8 - 160 cut it off mid-sentence
   cb::Json j(body, sizeof body);
   j.begin_obj();
   j.kv("ok", status[0] == '2');
@@ -390,7 +390,7 @@ esp_err_t h_settings(httpd_req_t *req) {
   char body[192], v[8];
   if (req->content_len == 0 || req->content_len >= sizeof body) return reply_settings(req, "400 Bad Request", "Wert fehlt");
   if (!cb_http_read_body(req, body, sizeof body)) return reply_settings(req, "400 Bad Request", "Anfrage abgebrochen");
-  char msg[96];
+  char msg[256];  // FW-B-25: cb_update_owner_request() writes up to ~210 bytes
   msg[0] = 0;
   if (cb::form_get(body, "led", v, sizeof v)) {
     cb::Access acc = cb::mode_access(cb::Endpoint::SettingsLed, cb_access_input(req));

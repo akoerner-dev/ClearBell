@@ -32,15 +32,16 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 | ~~10b.10~~ | ✓ 12.11. EG und OG nach Werksreset AU-1 (Ergebnis im Abschnitt IN-2 unten) | – | – |
 | 5.13 | IN-1 | im Gehäuse am Montageort: Klingel mit üblicher Lautstärke | laut genug (10.11.: bei 15 % ohne Gehäuse zu leise) |
 | 5.14 | AU-1 | im Gehäuse: `play error` mit 50 / 75 / 100 % | kein Klirren; sonst Höchstgrenze außen senken (10.11.: ohne Gehäuse klirrt es bei 75 % deutlich) |
-| SK1.2b | AU-1, IN-1, IN-2 (selbst, nach dem 24-h-Lauf) | neue Firmware flashen; `ring eg`/`ring og`; IN-1 neu starten → Sitzung steht wieder; Türbefehl per `touch-sim` an IN-1; `net` zeigt die Adressquelle | Klingeln quittiert, Sitzungen nach Neustart in Sekunden, Tür öffnet einmal, keine „unreachable“ |
-| SK1.3b | IN-2 (selbst, nach dem 24-h-Lauf) | POST `/settings` ohne `X-ClearBell` und mit fremder Origin; mit Kopfzeile; Client mit `Content-Length: 399` ohne Körper an `/pair`, danach `cb.py status`; 6 falsche Kopplungsangebote von einem PC, dann eines von einer zweiten Adresse | 403 „Anfrage von fremder Seite abgelehnt“ bzw. normal; Statusseite antwortet nach ≤ 20 s wieder; nur die erste Adresse ist gesperrt |
+| ~~SK1.2b~~ | ✓ 15.11. (Abschnitt „Gerätetests Sicherheitskatalog“ unten) | – | – |
+| SK1.3b-Rest | IN-2 + Handy, **mit dem Meister** (der TOWER hat nur eine Adresse) | vom TOWER 6 falsche Kopplungsangebote (Skript wie am 15.11.), sofort danach im Handy-Browser `http://<IP von IN-2>/pair` per Formular – oder einfacher: vom Handy aus ein Angebot über die Statusseite von AU-1 anstoßen | TOWER bekommt 429, das Handy/die zweite Adresse 403 „Gerätecode passt nicht“ (nicht gesperrt) |
+| FW-B-24 | IN-2, USB | IN-2 an einen USB-Anschluss neben IN-1/AU-1 stecken (gleicher Controller), dann `cb.py konsole COM5 "net" 2` mehrmals und `info` | `log lines dropped` bleibt nahe 0 wie bei IN-1 → Ursache Anschluss/Controller am PC, kein Firmwarefehler |
 | SK1.3c | Browser + Handy, **mit dem Meister** | Statusseite und Wartung durchklicken (Lautstärke, Handy hinzufügen, Name, Ton hochladen), dazu eine lokale HTML-Datei mit Formular-POST an `/settings` (`vol=15`) öffnen | alles funktioniert wie bisher; das fremde Formular ändert nichts (403) |
 | SK1.2c | Router, **mit dem Meister** | DHCP-Bereich am Router umstellen (WLAN-Name gleich) bzw. Router neu starten, so dass beide Einheiten neue Adressen bekommen | beide ohne Neustart nach etwa 10–20 s wieder „reachable“; `net` zeigt erst „mdns“, dann „learned“ (RV-11) |
-| SK2.1b | AU-1, IN-1, IN-2 (selbst, nach dem 24-h-Lauf) | neue Firmware flashen; `net` an allen dreien; `cb.py status` → `radio.pmf` | alle verbinden sich; `PMF required` (FRITZ!Box kann PMF) bzw. `optional` mit Logzeile „does NOT support“; keine zusätzlichen Trennungen |
+| ~~SK2.1b~~ | ✓ 15.11. (Abschnitt „Gerätetests Sicherheitskatalog“ unten) | – | – |
 | SK2.1c | IN-2 + Handy, **mit dem Meister** | an IN-2 per Konsole falsches WLAN eintragen (`setup-wifi Falsch 12345678`, Neustart) → nach 5 min Zugangspunkt „ClearBell-…“ mit dem Handy (Etikett-Code) öffnen; Einrichtungsseite ansehen, Werkszustand per Konsole-`curl` versuchen; mit eigenem Passwort wiederholen; richtiges WLAN eintragen. Danach Einrichtungsmodus (Taster 2 × 5 s) und vom TOWER `route add 192.168.4.1 mask 255.255.255.255 <IP von IN-2>`, dann `curl http://192.168.4.1/setup/info` | nur WLAN-Feld aktiv, Hinweis „WLAN verloren“; Werkszustand 403; mit eigenem Passwort fragt der Zugangspunkt nach der Anmeldung; nach 35 min ohne WLAN geht er zu (Log); richtiges WLAN → verbunden, Klingeltaste/Name unverändert. Route über das Heimnetz → 401 (Anmeldung), Log „NOT from the access point net“ |
 | SK2.2b | AU-1 + IN-1, **mit dem Meister** | an IN-1 Wartung (Taster) → „Wartung der Außeneinheit öffnen“; auf der Seite von AU-1: Banner, Kopplungskarte, Ton hochladen, Pulslänge, Update-Schlüssel versuchen; dann AU-1 Normalbetrieb → `/pair/start` per Konsole-`curl`; danach Taster an AU-1 5 s → Kopplungskarte | Banner „von einer Inneneinheit geöffnet“; Kopplungskarte nur mit Hinweis; Ton und Pulslänge gehen, Update-Schlüssel 403; Normalbetrieb `/pair/start` 403; mit dem Taster sind Suche und Entfernen wieder da |
-| SK2.3b | IN-2 (selbst, nach dem 24-h-Lauf) | Wartung per `button-sim long`; POST `/settings ownerkey=<erfundener 64-Hex-Wert>` (mit `X-ClearBell`); `cb.py status` → `update.owner_pending_s`; 70 s warten → `update-keys`; nochmal POST, dann `button-sim short` → `update-keys`; danach `update-owner clear` | erst „Vorgemerkt …“, LED gelb schnell, nach 70 s kein eigener Schlüssel (Log „dropped“ nur beim Verlassen) ; mit kurzem Druck „CONFIRMED … applied“ und Schlüssel gesetzt, Wartung bleibt offen; danach wieder entfernt |
-| SK2.4b | IN-2 (selbst, nach dem 24-h-Lauf) | vom TOWER 5× falsches Passwort (`curl --digest`), dann richtiges vom TOWER und von einem zweiten Gerät/Adresse; 100 Anfragen mit `Authorization: Digest x=1`; Passwortwechsel mit Etikett-Code in Vierergruppen mit Strich | TOWER 429 mit Restzeit, zweite Adresse sofort Ok; kaputte Header sperren niemanden; Wechsel klappt mit Strichen; neues Passwort < 10 Zeichen abgelehnt |
+| SK2.3b-Rest | IN-2, **mit dem Meister** (Auge) | wie am 15.11.: Wartung, Besitzerschlüssel auf der Statusseite eintragen | LED blinkt schnell gelb, solange die Vormerkung wartet; Hinweis auf der Seite vollständig lesbar (FW-B-25) |
+| SK2.4b-Rest | IN-2 + Handy, **mit dem Meister** (ändert das Gerätepasswort) | vom TOWER 5× falsches Passwort, sofort danach am Handy anmelden; in der Wartung Passwortwechsel mit dem Gerätecode in Vierergruppen mit Strich, neues Passwort mit 9 Zeichen, dann mit ≥ 10; danach `cb.py anlage-webpasswort IN-2` | Handy sofort angemeldet, TOWER 429; 9 Zeichen abgelehnt, Wechsel mit Strichen klappt |
 | SK1.1b | IN-2 + AU-1 + Handy, **mit dem Meister** (löscht das OG-Handy) | an AU-1 in der Wartung die OG-Kopplung entfernen → `ring og` → danach neu koppeln (Gerätecode IN-2) → `ring og` | Meldung „… N Handy(s) dieser Wohnung gelöscht“; keine Push am Handy, AU-1 `remote` OG 0, IN-2 listet kein Handy mehr; nach Neukopplung weiter 0 und keine Neustart-Push an das alte Topic; Handy neu hinzufügen → wieder Push |
 
 **Reihenfolge (Meister 10.11.2026):** zuerst diese Handprüfungen; der 72-h-Test läuft ganz zum Schluss mit beiden
@@ -122,6 +123,30 @@ Befunde 10.11.2026 abends (noch nicht behoben):
   AU-1↔EG. Der Meister wollte an IN-2 (OG) ein Handy verbinden. Mit FW-B-21 passt „nur EG“ nicht mehr: soll jede
   Wohnung eigene Handys mit eigenen Topics aus ihrer Kopplung bekommen? **Entschieden 12.11.: ja, beide Wohnungen,
   Handys je Inneneinheit (R27). Umgesetzt 12.11.**
+
+### Gerätetests Sicherheitskatalog Phase 0–2 (15.11.2026, TOWER, selbst; Firmware `bde5876` + FW-B-25)
+
+Alle drei Boards per USB geflasht (`cb.py flashen`, je 4 × „Hash of data verified“), Lautstärke 15 %. Nach der
+Korrektur FW-B-25 alle drei erneut geflasht; Klingeln EG/OG danach wieder quittiert. Prüfskript für die Webteile
+unversioniert (Scratchpad), Testdaten erfunden.
+
+| Zeile | Board | Ergebnis |
+|---|---|---|
+| SK2.1b | AU-1, IN-1, IN-2 | ✓ alle drei verbunden, `net` „PMF required“, `cb.py status` → `radio.pmf` = `required`, Trennungen 0; Selbsttest OK, kein Coredump. IN-2 nach dem Flashen weiter `nvs_state` = `encrypted`, `nvs_key` = `efuse`, Daten erhalten |
+| SK1.2b | AU-1, IN-1, IN-2 | ✓ `ring eg` quittiert nach 76 ms, `ring og` nach 99 ms; `reboot` IN-1 → Sitzung an AU-1 nach ≈ 8 s wieder „session confirmed, reachable“; `touch-sim 400 3500` an IN-1 → „OPENED after 131 ms“, AU-1 „door challenges 1, opened 1“; Adressquelle „learned“, keine „unreachable“. (`touch-sim 400 300` außerhalb des Fensters wird bestimmungsgemäß ignoriert, siehe 6.7) |
+| SK1.3b | IN-2 | ✓ POST `/settings vol=15` ohne `X-ClearBell`, mit fremder `Origin` und mit `Sec-Fetch-Site: cross-site` je 403 „Anfrage von fremder Seite abgelehnt“, mit Kopfzeile 200; `Content-Length: 399` ohne Körper an `/pair` → nach 10,0 s „408 Request Timeout“, Statusseite antwortet nach 10,2 s wieder (≤ 20 s); in der Wartung 5 falsche Angebote 403 „Gerätecode passt nicht“, das 6. 429 „gesperrt“. ⏳ zweite Adresse (Sammelliste SK1.3b-Rest) |
+| SK2.3b | IN-2 | ✓ Wartung per `button-sim long`; POST `ownerkey` → „Vorgemerkt …“, `update.owner_pending_s` = 60; nach 70 s `update-keys` „owner key none“; erneut POST, `button-sim short` → „owner change CONFIRMED by the boot button - applied“, Schlüssel gesetzt, Modus bleibt Wartung; `update-owner clear` → entfernt. Die Vormerk-Meldung war abgeschnitten → FW-B-25, behoben und erneut geprüft (Meldung vollständig, Ablauf nach 60 s, kurzer Druck verlässt danach die Wartung). ⏳ LED (Sammelliste SK2.3b-Rest) |
+| SK2.4b | IN-2 | ✓ 5 falsche Passwörter je 401, danach das richtige 429 „Zu viele falsche Passwoerter - 30 s warten.“, nach 35 s 200; 100 Anfragen mit `Authorization: Digest x=1` je 401, danach richtiges Passwort sofort 200 (kaputte Header sperren nicht). ⏳ zweite Adresse und Passwortwechsel (Sammelliste SK2.4b-Rest) |
+
+Befunde 15.11.2026:
+- **FW-B-24_IN-2_verliert_Logzeilen – eingegrenzt:** 15 × `net` an IN-1 alle vollständig (`log lines dropped` 0), an
+  IN-2 keine vollständig (Zähler 167 nach 10 min), gleiche Firmware, kein Neustart. IN-2 (COM5) hängt an einem anderen
+  USB-Controller des TOWER (Hub 1, Port 12) als AU-1/IN-1 (Hub 3) → Ursache sehr wahrscheinlich der Anschluss am PC,
+  nicht die Firmware. Gegenprobe in der Sammelliste. Für den Betrieb ohne USB ohne Bedeutung.
+- **FW-B-25_Vormerk-Meldung_abgeschnitten (behoben 15.11.):** `/settings ownerkey` antwortete mit „… KURZ den
+  Boot-Taster “ – Satzende fehlte. `h_settings` hatte einen Meldungspuffer von 96 Byte und `reply_settings` einen
+  Antwortpuffer von 160 Byte, die Meldung aus `cb_update_owner_request` braucht in UTF-8 bis ≈ 210 Byte. Puffer auf
+  256 bzw. 384 Byte (Webserver-Stack 8 KB). 178 PC-Tests grün, beide Images ohne Warnung, am Gerät vollständig.
 
 ### Sicherheitskatalog Phase 2 (14.11.2026, TOWER; Entscheidungen R30–R33; Gerätetests nach dem 24-h-Lauf)
 
