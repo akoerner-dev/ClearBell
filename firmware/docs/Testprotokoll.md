@@ -137,6 +137,10 @@ unversioniert (Scratchpad), Flash-Abzüge nach der Auswertung gelöscht.
 | HB.11b | IN-1, AU-1 nachher | wie HB.11a | ✓ KEY0 `HMAC_UP` (schreibgesperrt), `RD_DIS` 1; Secure Boot, Flash-Verschlüsselung, Download-Sperre weiter aus, Sicherheitsversion 0; `nvs-liste` 68/68 bzw. 70/70, alle identisch außer `cb_sys/boots`; Flash-Abzug: die drei Geheimnisse je 0× im Klartext |
 | HB.11c | alle drei | Funktion | ✓ AU-1 nach `reboot` „storage encrypted (key source efuse)“ (keine erneute Übernahme); `ring eg`/`ring og` quittiert; Statusseiten aller drei: `nvs_state` encrypted, `nvs_key` efuse, Selbsttest ok, PMF required, Handys erhalten (AU-1 2, IN-1 1, IN-2 1); Tür von IN-1 „OPENED after 48 ms“. Ein erster Türversuch wurde mit „lock-out time“ abgelehnt – richtig: 5 s vorher hatte das Handy des Meisters nach der Klingel-Push geöffnet („last by app Andre“) |
 
+**✗ Vorbedingung verletzt:** R35 verlangt den TLS-Negativtest **vor** HB.11 an AU-1; er fehlte (Plan Punkt 21) und
+wurde vor dem Brennen nicht gegengeprüft (beim Sitzungsabschluss bemerkt). Stufe B sperrt nichts, der Test ist
+nachholbar und hat jetzt Vorrang vor allen weiteren Härtungsschritten an AU-1.
+
 Damit sind alle drei Boards in Stufe B. Offen bleiben HB.8-Rest (Werksreset verschlüsselt, mit dem Meister) und HB.9
 (Bootloader mit Anti-Rollback). Neustarts während des Tests aus den Mitschnitten zugeordnet (der Meister hat nur
 Klingel-Pushes bestätigt und per Handy geöffnet): AU-1 #95 = Reset am Ende des Flash-Abzugs, #96 = eigener `reboot`;

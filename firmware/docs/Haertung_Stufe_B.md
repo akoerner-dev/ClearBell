@@ -111,7 +111,8 @@ Erst umkehrbar (HB.1–HB.6), dann endgültig an IN-2 (HB.7–HB.10), dann die �
 Danach 24 h Normalbetrieb aller drei, bevor Stufe B als fertig gilt.
 
 **Stand 15.11.2026 abends:** **alle drei Boards gebrannt** – HB.11 IN-1 und AU-1 (Freigabe Meister 15.11.), je
-68/70 Einträge übernommen, Flash-Gegenprobe bestanden (Testprotokoll „HB.11“). Offen: HB.8 Werksreset verschlüsselt,
+68/70 Einträge übernommen, Flash-Gegenprobe bestanden (Testprotokoll „HB.11“). **AU-1 wurde entgegen R35 vor dem
+TLS-Negativtest gebrannt** – Test nachholen, bevor an AU-1 weiter gehärtet wird. Offen: HB.8 Werksreset verschlüsselt,
 HB.9 Anti-Rollback-Bootloader.
 
 **Stand 13.11.2026 morgens:** **IN-2 gebrannt** (HB.7, Freigabe Meister „Ja, IN-2 brennen“), Übernahme und
