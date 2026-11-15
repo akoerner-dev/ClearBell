@@ -124,6 +124,23 @@ Befunde 10.11.2026 abends (noch nicht behoben):
   Wohnung eigene Handys mit eigenen Topics aus ihrer Kopplung bekommen? **Entschieden 12.11.: ja, beide Wohnungen,
   Handys je Inneneinheit (R27). Umgesetzt 12.11.**
 
+### Härtung Stufe B – HB.11 IN-1 und AU-1 gebrannt (15.11.2026 abends, TOWER, Firmware `7f400de`)
+
+Freigabe Meister 15.11.2026: „Ja Brenn den Kram“ (Frage nannte IN-1 und AU-1). Ablauf wie HB.7 an IN-2; Prüfskript
+unversioniert (Scratchpad), Flash-Abzüge nach der Auswertung gelöscht.
+
+| Zeile | Board | Prüfung | Ergebnis |
+|---|---|---|---|
+| HB.11a | IN-1, AU-1 vorher | `haertung`; `espefuse summary`; `nvs-liste`; Flash-Abzug `nvs` (0x9000, 0x5000) | beide „storage plain“, KEY0 `USER`, `RD_DIS` 0, Secure Boot/Flash-Verschlüsselung/Download-Sperre aus, Sicherheitsversion 0; IN-1 68, AU-1 70 Einträge; WLAN-Name, WLAN-Passwort, Statusseiten-Passwort je ≥ 1× im Klartext (Gegenprobe greift) |
+| HB.11 IN-1 | IN-1 | `haertung nvs-schluessel BRENNEN <Gerätenummer>` | ✓ „NVS key BURNED into eFuse KEY0 and usable“, Neustart, „storage MIGRATED to encrypted (68 entries, key efuse)“ |
+| HB.11 AU-1 | AU-1 | dasselbe | ✓ „… (70 entries, key efuse)“; die TLS-Fehlerzeilen direkt davor stammen von einer laufenden ntfy-Verbindung, die der Neustart abbrach |
+| HB.11b | IN-1, AU-1 nachher | wie HB.11a | ✓ KEY0 `HMAC_UP` (schreibgesperrt), `RD_DIS` 1; Secure Boot, Flash-Verschlüsselung, Download-Sperre weiter aus, Sicherheitsversion 0; `nvs-liste` 68/68 bzw. 70/70, alle identisch außer `cb_sys/boots`; Flash-Abzug: die drei Geheimnisse je 0× im Klartext |
+| HB.11c | alle drei | Funktion | ✓ AU-1 nach `reboot` „storage encrypted (key source efuse)“ (keine erneute Übernahme); `ring eg`/`ring og` quittiert; Statusseiten aller drei: `nvs_state` encrypted, `nvs_key` efuse, Selbsttest ok, PMF required, Handys erhalten (AU-1 2, IN-1 1, IN-2 1); Tür von IN-1 „OPENED after 48 ms“. Ein erster Türversuch wurde mit „lock-out time“ abgelehnt – richtig: 5 s vorher hatte das Handy des Meisters nach der Klingel-Push geöffnet („last by app Andre“) |
+
+Damit sind alle drei Boards in Stufe B. Offen bleiben HB.8-Rest (Werksreset verschlüsselt, mit dem Meister) und HB.9
+(Bootloader mit Anti-Rollback). Beobachtet, noch ungeklärt: während des Tests ein weiterer Software-Neustart von AU-1
+(Start #96, kein Coredump) und ein Power-on von IN-1 (Start #92) – vermutlich Handgriffe am Tisch, beim Meister erfragen.
+
 ### Gerätetests Sicherheitskatalog Phase 0–2 (15.11.2026, TOWER, selbst; Firmware `bde5876` + FW-B-25)
 
 Alle drei Boards per USB geflasht (`cb.py flashen`, je 4 × „Hash of data verified“), Lautstärke 15 %. Nach der
