@@ -138,8 +138,10 @@ unversioniert (Scratchpad), Flash-Abzüge nach der Auswertung gelöscht.
 | HB.11c | alle drei | Funktion | ✓ AU-1 nach `reboot` „storage encrypted (key source efuse)“ (keine erneute Übernahme); `ring eg`/`ring og` quittiert; Statusseiten aller drei: `nvs_state` encrypted, `nvs_key` efuse, Selbsttest ok, PMF required, Handys erhalten (AU-1 2, IN-1 1, IN-2 1); Tür von IN-1 „OPENED after 48 ms“. Ein erster Türversuch wurde mit „lock-out time“ abgelehnt – richtig: 5 s vorher hatte das Handy des Meisters nach der Klingel-Push geöffnet („last by app Andre“) |
 
 Damit sind alle drei Boards in Stufe B. Offen bleiben HB.8-Rest (Werksreset verschlüsselt, mit dem Meister) und HB.9
-(Bootloader mit Anti-Rollback). Beobachtet, noch ungeklärt: während des Tests ein weiterer Software-Neustart von AU-1
-(Start #96, kein Coredump) und ein Power-on von IN-1 (Start #92) – vermutlich Handgriffe am Tisch, beim Meister erfragen.
+(Bootloader mit Anti-Rollback). Neustarts während des Tests aus den Mitschnitten zugeordnet (der Meister hat nur
+Klingel-Pushes bestätigt und per Handy geöffnet): AU-1 #95 = Reset am Ende des Flash-Abzugs, #96 = eigener `reboot`;
+IN-1 #92 = Flash-Abzug. **Falle:** `espefuse summary` + `esptool --after watchdog_reset` meldet die Firmware danach als
+„last reset: power-on“, nicht als Watchdog – an IN-1 nachgestellt (#93 „power-on“). Kein Befund.
 
 ### Gerätetests Sicherheitskatalog Phase 0–2 (15.11.2026, TOWER, selbst; Firmware `bde5876` + FW-B-25)
 
