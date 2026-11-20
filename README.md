@@ -1,5 +1,7 @@
 # ClearBell — Smart-Doorbell (ESP32-S3, Hardware + Firmware)
 
+🇬🇧 [English version](README.en.md)
+
 Selbst entwickeltes Türklingelsystem für ein Zweifamilienhaus — vollständig
 eigenentwickelt von der Schaltung über das PCB-Layout bis zur Firmware.
 Das Projekt dokumentiert nicht nur *was* gebaut wurde, sondern die
