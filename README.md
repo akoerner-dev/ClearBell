@@ -8,7 +8,7 @@ Das Projekt dokumentiert nicht nur *was* gebaut wurde, sondern die
 > Leitsatz des Projekts: **„Keep it simple, but working."**
 
 **Aktuelle Generation: V0.2** — Redesign auf den ESP32-S3. Beide Platinen sind fertig
-verlegt, geprüft und werden bei PCBWay gefertigt und bestückt. Die erste Generation läuft
+verlegt, bei PCBWay gefertigt und bestückt und in Betrieb genommen. Die erste Generation läuft
 im Haus und liegt im [Archiv](archiv/V0.1/).
 
 | Außeneinheit V0.2 | Inneneinheit V0.2 |
@@ -131,10 +131,12 @@ fünf Verhaltensfragen, die bewusst noch offen sind.
 
 ## Stand
 
-- **V0.2:** Platinen beider Einheiten in Fertigung und Bestückung bei PCBWay; die
-  Firmware-Architektur steht ([Revision 2](docs/Softwarearchitektur_V0.2.md)). Als Nächstes:
-  Inbetriebnahme (Versorgung → USB/Flash → Audio → Mikrofon → Touch → Türöffner), danach die
-  Firmware-Portierung.
+- **V0.2:** Platinen am 24.10.2026 von PCBWay geliefert, Leiterplatten und Bestückung ohne Mangel
+  ([Bewertung](docs/pcbway-review/README.md)). Inbetriebnahme beider Einheiten bestanden (Versorgung, USB/Flash,
+  Audio, Mikrofon, Touch, Türausgang, WLAN). Die neue [Firmware](firmware/README.md) ist portiert und am
+  12.11.2026 abgenommen; alle drei Boards (eine Außen-, zwei Inneneinheiten) liefen 24 Stunden ohne Neustart
+  und ohne fehlgeschlagenes Klingeln. Derzeit läuft die Härtung (verschlüsselter Schlüsselspeicher, Sicherheitstests).
+  Noch offen: Test mit dem echten Türöffner und Funktest am Montageort, sobald die Gehäuse gebaut sind.
 - **V0.1:** läuft im Haus; WLAN/UDP-Transport im Dauertest ohne Paketverlust.
 
 ---
