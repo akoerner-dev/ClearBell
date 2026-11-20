@@ -80,6 +80,7 @@ clearbell/
 │   └── Inneneinheit/          dito
 ├── docs/
 │   ├── img/                   3D-Ansichten V0.2
+│   ├── pcbway-review/         Bewertung der PCBWay-Platinen mit Fotos (DE/EN)
 │   ├── Softwarearchitektur_V0.2.md      Firmware-Architektur, Laufzeit, Sicherheit
 │   ├── Softwarearchitektur_V0.2.en.md   dasselbe auf Englisch
 │   └── Funkvalidierung_ESPNOW.md
@@ -98,7 +99,11 @@ clearbell/
 | Stückliste | je Einheit in `fertigung/`, mit Spalte „Ersatz zulässig" (kritische Teile ohne Ersatz) |
 | Prüfung | DRC und ERC ohne Befund |
 
-Leiterplatten und Bestückung der V0.2 übernimmt **[www.pcbway.com](https://www.pcbway.com)** im Rahmen eines Sponsorings.
+Leiterplatten und Bestückung der V0.2 übernimmt **[www.pcbway.com](https://www.pcbway.com)**; die Leiterplatten
+selbst sind im Rahmen eines Sponsorings entstanden.
+
+📋 [**Bewertung der gelieferten Platinen**](docs/pcbway-review/README.md) — Sichtprüfung mit Fotos, Inbetriebnahme,
+Fazit · 🇬🇧 [English version](docs/pcbway-review/README.en.md)
 
 ---
 
