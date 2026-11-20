@@ -22,7 +22,7 @@ Design oder auf Bedienfehler zurück, keiner auf die Fertigung.
 |---|---|---|
 | Abmessungen | 110 × 60 mm | 98 × 60 mm |
 | Lagenaufbau | 4 Lagen, 1,6 mm, FR-4 (S1000H, TG150), 1 oz außen und innen | dito |
-| Oberfläche | ENIG, Lötstopplack grün, Bestückungsdruck weiß (nur oben) | dito |
+| Oberfläche | HAL bleifrei, Lötstopplack grün, Bestückungsdruck weiß (nur oben) | dito |
 | Bohrungen | 432 durchkontaktiert, 7 nicht durchkontaktiert | 379 durchkontaktiert, 12 nicht durchkontaktiert |
 | Bestückung | einseitig, 56 Bauteile | einseitig, 33 Bauteile |
 | Kritische Bauteile | ESP32-S3-Modul, LMR33630 (Abwärtsregler), MAX98357A (Audioverstärker, QFN), MEMS-Mikrofon, Service-USB-C | ESP32-S3-Modul, TLV62568 (Abwärtsregler), MAX98357A (QFN), MEMS-Mikrofon, USB-C |
@@ -53,9 +53,9 @@ beachtet.
 
 ## Leiterplatte (unbestückt)
 
-| Innen, Oberseite | Innen, ENIG-Detail | Innen, Unterseite |
+| Innen, Oberseite | Innen, Pad-Detail | Innen, Unterseite |
 |---|---|---|
-| ![Inneneinheit unbestückt, Oberseite](img/01_innen_unbestueckt_oben.jpg) | ![Inneneinheit unbestückt, Pads des ESP32-Moduls und Mikrofonbohrung](img/02_innen_unbestueckt_enig_detail.jpg) | ![Inneneinheit unbestückt, Unterseite](img/03_innen_unbestueckt_unten.jpg) |
+| ![Inneneinheit unbestückt, Oberseite](img/01_innen_unbestueckt_oben.jpg) | ![Inneneinheit unbestückt, Pads des ESP32-Moduls und Mikrofonbohrung](img/02_innen_unbestueckt_pad_detail.jpg) | ![Inneneinheit unbestückt, Unterseite](img/03_innen_unbestueckt_unten.jpg) |
 
 | Außen, Oberseite | Außen, Versorgungsteil | Außen, Unterseite |
 |---|---|---|
@@ -65,8 +65,8 @@ beachtet.
   passgenau, auch an der feinen Pad-Reihe des ESP32-Moduls und am QFN des Audioverstärkers.
 - **Bestückungsdruck:** scharf und vollständig lesbar, auch die kleinsten Referenzbezeichner und Testpunkt-Namen.
   Kein Druck auf Pads.
-- **ENIG-Oberfläche:** glatt und plan, auch auf den großen Wärmepads (Regler, ESP32-Modul mit Via-Feld). Keine
-  Verfärbungen.
+- **HAL-Oberfläche:** gleichmäßig verzinnt, auch auf den großen Wärmepads (Regler, ESP32-Modul mit Via-Feld) und
+  den feinen Pad-Reihen. Keine Verfärbungen.
 - **Bohrungen und Kontur:** Bohrungen sauber und mittig im Restring, die Mikrofon-Schallbohrung mit intaktem Kupferring.
   Die Fräskontur einschließlich Ausschnitt für die Modulantenne und abgerundeter Ecken ist maßhaltig und gratfrei.
 - **Material:** keine Delamination, keine Blasen, keine Verwölbung erkennbar. Beide Platinen liegen plan.

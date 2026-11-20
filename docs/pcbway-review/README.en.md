@@ -22,7 +22,7 @@ manufacturing.
 |---|---|---|
 | Size | 110 × 60 mm | 98 × 60 mm |
 | Stack-up | 4 layers, 1.6 mm, FR-4 (S1000H, TG150), 1 oz outer and inner | same |
-| Finish | ENIG, green solder mask, white silkscreen (top only) | same |
+| Finish | lead-free HASL, green solder mask, white silkscreen (top only) | same |
 | Holes | 432 plated, 7 non-plated | 379 plated, 12 non-plated |
 | Assembly | single-sided, 56 parts | single-sided, 33 parts |
 | Critical parts | ESP32-S3 module, LMR33630 (buck), MAX98357A (audio amp, QFN), MEMS microphone, service USB-C | ESP32-S3 module, TLV62568 (buck), MAX98357A (QFN), MEMS microphone, USB-C |
@@ -52,9 +52,9 @@ no-clean paste). The microphone works on every board tested — the notes were c
 
 ## Bare PCB
 
-| Indoor, top | Indoor, ENIG detail | Indoor, bottom |
+| Indoor, top | Indoor, pad detail | Indoor, bottom |
 |---|---|---|
-| ![Indoor unit bare, top side](img/01_innen_unbestueckt_oben.jpg) | ![Indoor unit bare, ESP32 module pads and microphone port](img/02_innen_unbestueckt_enig_detail.jpg) | ![Indoor unit bare, bottom side](img/03_innen_unbestueckt_unten.jpg) |
+| ![Indoor unit bare, top side](img/01_innen_unbestueckt_oben.jpg) | ![Indoor unit bare, ESP32 module pads and microphone port](img/02_innen_unbestueckt_pad_detail.jpg) | ![Indoor unit bare, bottom side](img/03_innen_unbestueckt_unten.jpg) |
 
 | Outdoor, top | Outdoor, power section | Outdoor, bottom |
 |---|---|---|
@@ -64,8 +64,8 @@ no-clean paste). The microphone works on every board tested — the notes were c
   the fine pad row of the ESP32 module and the QFN of the audio amplifier.
 - **Silkscreen:** sharp and fully legible down to the smallest reference designators and test point names. No ink on
   pads.
-- **ENIG finish:** smooth and flat, including the large thermal pads (regulator, ESP32 module with via array). No
-  discoloration.
+- **HASL finish:** evenly tinned, including the large thermal pads (regulator, ESP32 module with via array) and the
+  fine-pitch pad rows. No discoloration.
 - **Drilling and outline:** holes clean and centred in their annular rings; the microphone sound port has an intact
   copper ring. The routed outline, including the cut-out for the module antenna and the rounded corners, is accurate
   and burr-free.

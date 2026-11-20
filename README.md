@@ -95,16 +95,29 @@ clearbell/
 | | |
 |---|---|
 | Lagenaufbau | 4 Lagen, 1,6 mm, FR-4 (S1000H, TG150), 1 oz außen und innen, keine Impedanzkontrolle |
-| Oberfläche | ENIG, Lötstopplack grün, Bestückungsdruck weiß (nur oben) |
+| Oberfläche | HAL bleifrei, Lötstopplack grün, Bestückungsdruck weiß (nur oben) |
 | Bestückung | einseitig, maschinell — außen 56, innen 33 Bauteile |
 | Stückliste | je Einheit in `fertigung/`, mit Spalte „Ersatz zulässig" (kritische Teile ohne Ersatz) |
 | Prüfung | DRC und ERC ohne Befund |
 
-Leiterplatten und Bestückung der V0.2 übernimmt **[www.pcbway.com](https://www.pcbway.com)**; die Leiterplatten
-selbst sind im Rahmen eines Sponsorings entstanden.
+### Erfahrung mit PCBWay
 
-📋 [**Bewertung der gelieferten Platinen**](docs/pcbway-review/README.md) — Sichtprüfung mit Fotos, Inbetriebnahme,
-Fazit · 🇬🇧 [English version](docs/pcbway-review/README.en.md)
+Leiterplatten und Bestückung der V0.2 hat **[PCBWay](https://www.pcbway.com)** übernommen. Die Leiterplatten
+wurden im Rahmen eines Sponsorings gefertigt, Bestückung und Bauteile habe ich selbst bezahlt.
+
+Mein Fazit als Leiterplattenentwickler, der beruflich fast täglich Platinen in der Hand hat:
+
+- **Leiterplatten sehr gut:** Lötstopp und Bestückungsdruck sauber und passgenau, HAL-Oberfläche gleichmäßig, keine Delamination,
+  Platinen plan und gratfrei.
+- **Bestückung sehr gut:** alle Bauteile lagerichtig, kritische Stellen (USB-C, QFN-Audioverstärker, ESP32-S3-Modul)
+  ohne Brücken verlötet.
+- **Auf Anhieb funktionsfähig:** Inbetriebnahme und 24-Stunden-Dauertest ohne einen einzigen Fertigungsfehler.
+- **Kommunikation sehr gut:** fachlich sinnvolle Rückfragen zur Stückliste, Auftragsfortschritt auf der Website
+  Schritt für Schritt nachvollziehbar.
+
+Ich würde PCBWay wieder beauftragen.
+
+📋 [**Ausführliche Bewertung mit Fotos**](docs/pcbway-review/README.md) · 🇬🇧 [English version](docs/pcbway-review/README.en.md)
 
 ---
 
