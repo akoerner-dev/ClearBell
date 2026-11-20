@@ -78,6 +78,7 @@ clearbell/
 │   ├── Ausseneinheit/         Schaltplan, Platine, Schaltplan.pdf
 │   │   └── fertigung/         Gerber-ZIP, Stückliste, Bestückungsdaten
 │   └── Inneneinheit/          dito
+├── firmware/                  V0.2-Firmware (ESP-IDF), Werkzeuge, Testprotokoll
 ├── docs/
 │   ├── img/                   3D-Ansichten V0.2
 │   ├── pcbway-review/         Bewertung der PCBWay-Platinen mit Fotos (DE/EN)
@@ -109,13 +110,18 @@ Fazit · 🇬🇧 [English version](docs/pcbway-review/README.en.md)
 
 ## Firmware
 
-Die Firmware — Arduino Core, quittiertes UDP-Protokoll, HMAC-gesicherter Türbefehl,
-eigener WAV-Player — läuft auf V0.1 und liegt unter
-[`archiv/V0.1/firmware/`](archiv/V0.1/firmware/). Die V0.2-Firmware entsteht nach der
-Inbetriebnahme der V0.2-Platinen: Die Prinzipien des Protokolls werden übernommen,
-Paketformat, Türbefehl, Fern-Öffnen und Touch-Auswertung dagegen neu aufgesetzt.
+Die **V0.2-Firmware** liegt unter [`firmware/`](firmware/README.md): ein ESP-IDF-Projekt (v5.5.5) mit dem
+Arduino-Core als Komponente, ein Image für außen und eins für innen. Sie ist portiert, auf allen drei Boards
+getestet und am 12.11.2026 abgenommen. Enthalten sind unter anderem ein authentifiziertes Protokoll mit Sitzungen,
+Türbefehl per Challenge–Response, Touch mit adaptiver Baseline, Statusseite mit Gerätepasswort, Fern-Öffnen per
+Push aufs Handy, Einrichtung ohne PC über ein eigenes WLAN und signierte Updates mit Rückfall. Den Stand jedes
+Schritts und die Belege zeigen das [Firmware-README](firmware/README.md) und das
+[Testprotokoll](firmware/docs/Testprotokoll.md). Offen sind noch der 72-h-Dauertest und einige Handprüfungen.
 
-**Wie die V0.2-Firmware aufgebaut wird, beschreibt ein eigenes Dokument:** Architektur und
+Die Firmware der ersten Generation (Arduino, quittiertes UDP-Protokoll, HMAC-gesicherter Türbefehl, eigener
+WAV-Player) läuft weiter im Haus und liegt unter [`archiv/V0.1/firmware/`](archiv/V0.1/firmware/).
+
+**Wie die V0.2-Firmware aufgebaut ist und warum, beschreibt ein eigenes Dokument:** Architektur und
 Ausführungsmodell, authentifiziertes Protokoll, Startsequenz und Laufzeitverhalten,
 Datenhaltung und Flash-Aufteilung, ein Sicherheitskapitel mit Angreifermodell,
 **offen benannten Restrisiken** und einem Abgleich mit ETSI EN 303 645, Fehlerverhalten,
