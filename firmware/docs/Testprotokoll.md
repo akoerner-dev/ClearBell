@@ -33,13 +33,13 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 | 5.13 | IN-1 | im Gehäuse am Montageort: Klingel mit üblicher Lautstärke | laut genug (10.11.: bei 15 % ohne Gehäuse zu leise) |
 | 5.14 | AU-1 | im Gehäuse: `play error` mit 50 / 75 / 100 % | kein Klirren; sonst Höchstgrenze außen senken (10.11.: ohne Gehäuse klirrt es bei 75 % deutlich) |
 | ~~SK1.2b~~ | ✓ 15.11. (Abschnitt „Gerätetests Sicherheitskatalog“ unten) | – | – |
-| SK1.3b-Rest | IN-2 + Handy, **mit dem Meister** (der TOWER hat nur eine Adresse) | vom TOWER 6 falsche Kopplungsangebote (Skript wie am 15.11.), sofort danach im Handy-Browser `http://<IP von IN-2>/pair` per Formular – oder einfacher: vom Handy aus ein Angebot über die Statusseite von AU-1 anstoßen | TOWER bekommt 429, das Handy/die zweite Adresse 403 „Gerätecode passt nicht“ (nicht gesperrt) |
+| ~~SK1.3b-Rest~~ | ✓ 21.11. mit AU-1 als zweiter Adresse (Abschnitt „Vorab-Prüfungen Sammeltermin“ unten) | – | – |
 | ~~FW-B-24~~ | ✓ 21.11. über den neuen USB-Hub (Abschnitt „TLS-Negativtest“ unten, Gegenprobe FW-B-24) | – | – |
 | SK1.3c | Browser + Handy, **mit dem Meister** | Statusseite und Wartung durchklicken (Lautstärke, Handy hinzufügen, Name, Ton hochladen), dazu eine lokale HTML-Datei mit Formular-POST an `/settings` (`vol=15`) öffnen | alles funktioniert wie bisher; das fremde Formular ändert nichts (403) |
 | SK1.2c | Router, **mit dem Meister** | DHCP-Bereich am Router umstellen (WLAN-Name gleich) bzw. Router neu starten, so dass beide Einheiten neue Adressen bekommen | beide ohne Neustart nach etwa 10–20 s wieder „reachable“; `net` zeigt erst „mdns“, dann „learned“ (RV-11) |
 | ~~SK2.1b~~ | ✓ 15.11. (Abschnitt „Gerätetests Sicherheitskatalog“ unten) | – | – |
 | SK2.1c | IN-2 + Handy, **mit dem Meister** | an IN-2 per Konsole falsches WLAN eintragen (`setup-wifi Falsch 12345678`, Neustart) → nach 5 min Zugangspunkt „ClearBell-…“ mit dem Handy (Etikett-Code) öffnen; Einrichtungsseite ansehen, Werkszustand per Konsole-`curl` versuchen; mit eigenem Passwort wiederholen; richtiges WLAN eintragen. Danach Einrichtungsmodus (Taster 2 × 5 s) und vom TOWER `route add 192.168.4.1 mask 255.255.255.255 <IP von IN-2>`, dann `curl http://192.168.4.1/setup/info` | nur WLAN-Feld aktiv, Hinweis „WLAN verloren“; Werkszustand 403; mit eigenem Passwort fragt der Zugangspunkt nach der Anmeldung; nach 35 min ohne WLAN geht er zu (Log); richtiges WLAN → verbunden, Klingeltaste/Name unverändert. Route über das Heimnetz → 401 (Anmeldung), Log „NOT from the access point net“ |
-| SK2.2b | AU-1 + IN-1, **mit dem Meister** | an IN-1 Wartung (Taster) → „Wartung der Außeneinheit öffnen“; auf der Seite von AU-1: Banner, Kopplungskarte, Ton hochladen, Pulslänge, Update-Schlüssel versuchen; dann AU-1 Normalbetrieb → `/pair/start` per Konsole-`curl`; danach Taster an AU-1 5 s → Kopplungskarte | Banner „von einer Inneneinheit geöffnet“; Kopplungskarte nur mit Hinweis; Ton und Pulslänge gehen, Update-Schlüssel 403; Normalbetrieb `/pair/start` 403; mit dem Taster sind Suche und Entfernen wieder da |
+| ~~SK2.2b~~ | ✓ 21.11. mit `button-sim` statt Taster (Abschnitt „Vorab-Prüfungen Sammeltermin“ unten) | – | – |
 | SK2.3b-Rest | IN-2, **mit dem Meister** (Auge) | wie am 15.11.: Wartung, Besitzerschlüssel auf der Statusseite eintragen | LED blinkt schnell gelb, solange die Vormerkung wartet; Hinweis auf der Seite vollständig lesbar (FW-B-25) |
 | SK2.4b-Rest | IN-2 + Handy, **mit dem Meister** (ändert das Gerätepasswort) | vom TOWER 5× falsches Passwort, sofort danach am Handy anmelden; in der Wartung Passwortwechsel mit dem Gerätecode in Vierergruppen mit Strich, neues Passwort mit 9 Zeichen, dann mit ≥ 10; danach `cb.py anlage-webpasswort IN-2` | Handy sofort angemeldet, TOWER 429; 9 Zeichen abgelehnt, Wechsel mit Strichen klappt |
 | ~~TLS.10~~ | ✓ 21.11. (Abschnitt „TLS-Negativtest“ unten) | – | – |
@@ -125,6 +125,24 @@ Befunde 10.11.2026 abends (noch nicht behoben):
   AU-1↔EG. Der Meister wollte an IN-2 (OG) ein Handy verbinden. Mit FW-B-21 passt „nur EG“ nicht mehr: soll jede
   Wohnung eigene Handys mit eigenen Topics aus ihrer Kopplung bekommen? **Entschieden 12.11.: ja, beide Wohnungen,
   Handys je Inneneinheit (R27). Umgesetzt 12.11.**
+
+### Vorab-Prüfungen Sammeltermin – SK1.3b-Rest, SK2.2b (21.11.2026, TOWER, selbst; Firmware `8da12a2` auf allen drei)
+
+Zwei Zeilen der Sammelliste brauchten den Meister nur wegen Taster und zweiter Adresse; beides geht ohne ihn. Taster:
+`button-sim long|short` über USB in die echte Modus-Logik (der echte Taster ist seit 08.11. geprüft). Zweite Adresse:
+AU-1, die das Angebot über `/pair/start` selbst an IN-2 schickt. Hilfsskript außerhalb des Repos
+(`ClearBell\V0.2\05_Inbetriebnahme\Sammeltermin\`); jede Prüfanfrage war so gebaut, dass sie nichts ändern kann
+(erfundener Gerätecode, kaputte WAV-Datei, gleiche Pulslänge, ungültiger Schlüssel, ungültige Wohnung).
+
+| Zeile | Board | Prüfung | Ergebnis |
+|---|---|---|---|
+| SK1.3b-Rest | IN-2, AU-1 | IN-2 in Wartung; 6 falsche Angebote vom TOWER an `/pair`; sofort danach AU-1 in Wartung und ein Angebot mit erfundenem Code über `/pair/start` | ✓ TOWER 5 × 403 „Gerätecode passt nicht“, das 6. 429 „gesperrt“; AU-1 bekommt von IN-2 weiter 403 (bei AU-1 „422 Gerätecode passt nicht“) – die Sperre trifft nur den Absender |
+| SK2.2b | IN-1, AU-1 | IN-1 Wartung, POST `/outdoor-maint` | ✓ „Anfrage gesendet“, AU-1 `system.mode` = maintenance, `maint_by_event` = true (darauf zeigt die Seite das Banner „Von einer Inneneinheit geöffnet …“ und die Kopplungskarte nur mit Hinweis – Seite selbst nicht angesehen) |
+| SK2.2b | AU-1 (Wartung von innen) | Ton-Upload, Pulslänge, Update-Schlüssel, Kopplung starten, Kopplung entfernen | ✓ Ton zugelassen (413 aus der Größenprüfung, die erst nach der Rechteprüfung kommt), Pulslänge 200 (2000 ms wie vorher); Update-Schlüssel, `/pair/start` und `/pair/remove` je 403 „nur in der Wartung per Boot-Taster an dieser Einheit …“ |
+| SK2.2b | AU-1 (Normalbetrieb) | kurzer Druck, dann `/pair/start` und `/pair/remove` | ✓ beide 403 „Koppeln nur in der Wartung der Außeneinheit … oder in der Einrichtung“ |
+| SK2.2b | AU-1 (Wartung per Taster) | langer Druck, dann dieselben Anfragen | ✓ `maint_by_event` = false; `/pair/remove` 400 „Wohnung fehlt“ und Update-Schlüssel 400 (Format) – also zugelassen, `/pair/list` 200 (Suche) |
+
+Danach AU-1 und IN-1 per kurzem Druck zurück in den Normalbetrieb; Pulslänge 2000 ms, EG und OG weiter gekoppelt.
 
 ### TLS-Negativtest – R35_P6_Tor, SA 10.3 (21.11.2026, TOWER, selbst; Firmware dieses Commits auf AU-1, IN-1)
 
