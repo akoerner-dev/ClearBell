@@ -197,6 +197,7 @@ Firmware und gleichem Board). Ein **kleiner Rest bleibt an IN-2**: 3 verworfene 
 Zeile, ohne dass der Zähler stieg – die ging also auf dem Weg zum PC verloren, nicht im Puffer der Firmware. Ob der
 Rest am Board oder am Hub-Anschluss hängt, ließe sich durch Tauschen der Stecker von IN-1 und IN-2 klären. Für den
 Betrieb ohne USB hat das keine Bedeutung; Auswertungen an IN-2 weiter über `status --json` oder mehrfach abfragen.
+
 **TLS.11 – Start nach Stromausfall (21.11.2026, AU-1):** Ein USB-Reset behält die Uhr, deshalb hat der Meister AU-1
 abgesteckt und nach ≈ 8 s wieder angesteckt. Mitgelesen hat ein Skript, das auf COM4 wartet (Scratchpad).
 ✓ `boot #102, last reset: power-on`, Selbsttest OK, „storage encrypted (key efuse)“. Nach dem WLAN-Aufbau bei 11,1 s kam
