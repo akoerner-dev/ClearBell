@@ -42,7 +42,7 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 | SK2.2b | AU-1 + IN-1, **mit dem Meister** | an IN-1 Wartung (Taster) → „Wartung der Außeneinheit öffnen“; auf der Seite von AU-1: Banner, Kopplungskarte, Ton hochladen, Pulslänge, Update-Schlüssel versuchen; dann AU-1 Normalbetrieb → `/pair/start` per Konsole-`curl`; danach Taster an AU-1 5 s → Kopplungskarte | Banner „von einer Inneneinheit geöffnet“; Kopplungskarte nur mit Hinweis; Ton und Pulslänge gehen, Update-Schlüssel 403; Normalbetrieb `/pair/start` 403; mit dem Taster sind Suche und Entfernen wieder da |
 | SK2.3b-Rest | IN-2, **mit dem Meister** (Auge) | wie am 15.11.: Wartung, Besitzerschlüssel auf der Statusseite eintragen | LED blinkt schnell gelb, solange die Vormerkung wartet; Hinweis auf der Seite vollständig lesbar (FW-B-25) |
 | SK2.4b-Rest | IN-2 + Handy, **mit dem Meister** (ändert das Gerätepasswort) | vom TOWER 5× falsches Passwort, sofort danach am Handy anmelden; in der Wartung Passwortwechsel mit dem Gerätecode in Vierergruppen mit Strich, neues Passwort mit 9 Zeichen, dann mit ≥ 10; danach `cb.py anlage-webpasswort IN-2` | Handy sofort angemeldet, TOWER 429; 9 Zeichen abgelehnt, Wechsel mit Strichen klappt |
-| TLS.10 | IN-2, USB | IN-2 an den TOWER stecken, `cb.py flashen innen COM5`, dann `cb.py konsole COM5 "tls-probe https://ntfy.sh \| @12 \| tls-probe https://expired-rsa-dv.ssl.com" 26` | Firmware mit FW-B-26 auf IN-2; ntfy.sh verbindet, das abgelaufene Zertifikat wird abgelehnt (`-0x2700`) |
+| ~~TLS.10~~ | ✓ 21.11. (Abschnitt „TLS-Negativtest“ unten) | – | – |
 | TLS.11 | AU-1, Stecker (Finger) | AU-1 stromlos machen (USB ab, 10 s warten, wieder an), dabei `cb.py konsole COM4 - 60` mitlaufen lassen; nach ≈ 30 s `ring eg` | Log „remote: waiting for the clock (NTP) …“, wenige Sekunden später „stream UP“ (`remote`); Neustart- und Klingel-Push kommen am Handy an |
 | SK1.1b | IN-2 + AU-1 + Handy, **mit dem Meister** (löscht das OG-Handy) | an AU-1 in der Wartung die OG-Kopplung entfernen → `ring og` → danach neu koppeln (Gerätecode IN-2) → `ring og` | Meldung „… N Handy(s) dieser Wohnung gelöscht“; keine Push am Handy, AU-1 `remote` OG 0, IN-2 listet kein Handy mehr; nach Neukopplung weiter 0 und keine Neustart-Push an das alte Topic; Handy neu hinzufügen → wieder Push |
 
@@ -157,7 +157,11 @@ trotzdem (blockiert die Warteschlange nicht, wenn NTP fehlt). **Falle:** eine be
 übernimmt neue Vorgaben aus `sdkconfig.defaults` nicht – sie wurde zur Seite gelegt (`sdkconfig.vor_20261121`) und neu
 erzeugt; Vergleich alt/neu: nur diese eine Zeile. 178 PC-Tests grün, eigener Code ohne Warnung.
 
-⏳ IN-2 hing nicht am TOWER (kein COM5) – noch alte Firmware, beim nächsten Anstecken flashen (Sammelliste).
+| Zeile | Board | Prüfung | Ergebnis |
+|---|---|---|---|
+| TLS.10 | IN-2 | später am Tag angesteckt (COM5), `cb.py flashen innen COM5` (4 × „Hash of data verified“), dann `tls-probe` | ✓ „storage encrypted (key efuse)“, Selbsttest OK; ntfy.sh verbindet, `expired-rsa-dv.ssl.com` und `wrong.host.badssl.com` `-0x2700`, `untrusted-root.badssl.com` `-0x3000`; AU-1 `net`: EG und OG „session confirmed, reachable“ |
+
+Damit laufen alle drei Boards mit FW-B-26.
 ⏳ Start nach Stromausfall (Uhr leer): nur per Ab- und Anstecken prüfbar, ein USB-Reset behält die Uhr (Sammelliste).
 
 ### Härtung Stufe B – HB.11 IN-1 und AU-1 gebrannt (15.11.2026 abends, TOWER, Firmware `7f400de`)
