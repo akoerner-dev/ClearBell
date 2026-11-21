@@ -34,7 +34,7 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 | 5.14 | AU-1 | im Gehäuse: `play error` mit 50 / 75 / 100 % | kein Klirren; sonst Höchstgrenze außen senken (10.11.: ohne Gehäuse klirrt es bei 75 % deutlich) |
 | ~~SK1.2b~~ | ✓ 15.11. (Abschnitt „Gerätetests Sicherheitskatalog“ unten) | – | – |
 | SK1.3b-Rest | IN-2 + Handy, **mit dem Meister** (der TOWER hat nur eine Adresse) | vom TOWER 6 falsche Kopplungsangebote (Skript wie am 15.11.), sofort danach im Handy-Browser `http://<IP von IN-2>/pair` per Formular – oder einfacher: vom Handy aus ein Angebot über die Statusseite von AU-1 anstoßen | TOWER bekommt 429, das Handy/die zweite Adresse 403 „Gerätecode passt nicht“ (nicht gesperrt) |
-| FW-B-24 | IN-2, USB | IN-2 an einen USB-Anschluss neben IN-1/AU-1 stecken (gleicher Controller), dann `cb.py konsole COM5 "net" 2` mehrmals und `info` | `log lines dropped` bleibt nahe 0 wie bei IN-1 → Ursache Anschluss/Controller am PC, kein Firmwarefehler |
+| ~~FW-B-24~~ | ✓ 21.11. über den neuen USB-Hub (Abschnitt „TLS-Negativtest“ unten, Gegenprobe FW-B-24) | – | – |
 | SK1.3c | Browser + Handy, **mit dem Meister** | Statusseite und Wartung durchklicken (Lautstärke, Handy hinzufügen, Name, Ton hochladen), dazu eine lokale HTML-Datei mit Formular-POST an `/settings` (`vol=15`) öffnen | alles funktioniert wie bisher; das fremde Formular ändert nichts (403) |
 | SK1.2c | Router, **mit dem Meister** | DHCP-Bereich am Router umstellen (WLAN-Name gleich) bzw. Router neu starten, so dass beide Einheiten neue Adressen bekommen | beide ohne Neustart nach etwa 10–20 s wieder „reachable“; `net` zeigt erst „mdns“, dann „learned“ (RV-11) |
 | ~~SK2.1b~~ | ✓ 15.11. (Abschnitt „Gerätetests Sicherheitskatalog“ unten) | – | – |
@@ -162,6 +162,23 @@ erzeugt; Vergleich alt/neu: nur diese eine Zeile. 178 PC-Tests grün, eigener Co
 | TLS.10 | IN-2 | später am Tag angesteckt (COM5), `cb.py flashen innen COM5` (4 × „Hash of data verified“), dann `tls-probe` | ✓ „storage encrypted (key efuse)“, Selbsttest OK; ntfy.sh verbindet, `expired-rsa-dv.ssl.com` und `wrong.host.badssl.com` `-0x2700`, `untrusted-root.badssl.com` `-0x3000`; AU-1 `net`: EG und OG „session confirmed, reachable“ |
 
 Damit laufen alle drei Boards mit FW-B-26.
+
+**Gegenprobe FW-B-24_IN-2_verliert_Logzeilen (21.11.2026):** Der Meister hat einen USB-Hub angeschlossen; seitdem
+hängen alle drei Boards am selben Controller (AMD USB 3.10, Root-Hub 3): AU-1 direkt, IN-2 am neuen Hub, IN-1 hinter
+einem weiteren Hub. Am 15.11. hing IN-2 an einem anderen Controller (Hub 1, Port 12). Ablauf: 15 Runden im Abstand
+von ≈ 36 s (≈ 8,5 min), je Board `cb.py konsole <Port> "net | @1 | info" 3`; gezählt wurden die `net:`-Zeilen (vollständig
+= 6), die Zeilen insgesamt (11) und der Zähler `log lines dropped`. Prüfskript unversioniert (Scratchpad).
+
+| Board | `net` vollständig | Zeilen insgesamt 11 | `log lines dropped` | zum Vergleich 15.11. |
+|---|---|---|---|---|
+| IN-2 (COM5) | 14 von 15 (einmal 5 Zeilen) | 12 von 15 (dreimal 10) | 0 → 3 | 0 von 15 vollständig, Zähler 167 nach 10 min |
+| IN-1 (COM3) | 15 von 15 | 15 von 15 | 0 → 0 | 15 von 15, Zähler 0 |
+
+✓ Die Ursache ist bestätigt: Der Anschluss bzw. Controller am PC macht den großen Unterschied aus (167 → 3 bei gleicher
+Firmware und gleichem Board). Ein **kleiner Rest bleibt an IN-2**: 3 verworfene Zeilen. Zweimal fehlte außerdem eine
+Zeile, ohne dass der Zähler stieg – die ging also auf dem Weg zum PC verloren, nicht im Puffer der Firmware. Ob der
+Rest am Board oder am Hub-Anschluss hängt, ließe sich durch Tauschen der Stecker von IN-1 und IN-2 klären. Für den
+Betrieb ohne USB hat das keine Bedeutung; Auswertungen an IN-2 weiter über `status --json` oder mehrfach abfragen.
 ⏳ Start nach Stromausfall (Uhr leer): nur per Ab- und Anstecken prüfbar, ein USB-Reset behält die Uhr (Sammelliste).
 
 ### Härtung Stufe B – HB.11 IN-1 und AU-1 gebrannt (15.11.2026 abends, TOWER, Firmware `7f400de`)
