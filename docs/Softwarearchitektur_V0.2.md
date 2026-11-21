@@ -452,7 +452,7 @@ sequenceDiagram
 | **Token** | 128 bit aus dem Hardware-Zufall, einmalig, an genau ein Klingeln und genau ein Handy gebunden, 5 min gültig; die letzten drei Klingeln je Wohnung bleiben nutzbar; nach einer Öffnung sind alle Tokens der Wohnung verbraucht; nach einem Neustart gilt keines mehr |
 | **Nachricht** | „CBR2 ‹Token›“; die Verfahrenskennung hält den Weg für ein späteres Verfahren offen |
 | **Beide Wohnungen** | je Inneneinheit bis zu 4 Handys; das Klingeln an EG geht nur an die EG-Handys, an OG nur an die OG-Handys |
-| **TLS** | Zertifikatsprüfung gegen das im Core eingebettete Zertifikatsbündel (Mozilla-Liste); kein Pinning — die Serverzertifikate wechseln alle paar Wochen |
+| **TLS** | Zertifikatsprüfung gegen das im Core eingebettete Zertifikatsbündel (Mozilla-Liste) mit Hostname und Gültigkeitsdaten — die Datumsprüfung braucht die NTP-Uhr, TLS wartet darauf (seit 21.11.2026, FW-B-26); kein Pinning — die Serverzertifikate wechseln alle paar Wochen; Sperrlisten/OCSP prüft mbedTLS nicht |
 | **Nachvollziehbar** | jede Fern-Öffnung wird per Push an die Handys der Wohnung bestätigt und protokolliert (Kapitel 6.4); abgelehnte Befehle werden gezählt (Statusseite) |
 | **Ausfallmeldung** | Jede Inneneinheit meldet ihren Handys, wenn die Außeneinheit nicht erreichbar ist (≈ 2 min nach dem Ausfall: 90 s Erkennung der Verbindungsschicht + 30 s), und wenn sie zurück ist, mit der Dauer; in den ersten 3 min nach dem eigenen Start schweigt sie |
 
@@ -1107,7 +1107,7 @@ Die Portierung gilt als abgeschlossen, wenn **alle** Punkte erfüllt sind:
 - [ ] Funktionsparität mit V0.1: beide Klingelwege, Türbefehl, Erfolgs- und Fehlertöne
 - [ ] Die Tür öffnet nur über ① und ③; die Sicherheits- und Robustheitstests aus Kapitel 11.2 sind bestanden
 - [x] Fern-Öffnen mit der ntfy-App auf Android, beide Wohnungen (12.11.2026)
-- [ ] TLS mit falschem Zertifikat scheitert
+- [x] TLS mit falschem Zertifikat scheitert (21.11.2026, AU-1 und IN-1: abgelaufen, falscher Hostname, selbst signiert, fremde Wurzel; Testprotokoll „TLS-Negativtest“)
 - [ ] Klingelton ohne PC tauschbar (Wartung, Upload)
 - [ ] Signiertes Update ohne Kabel; ein absichtlich defektes Update kehrt zurück
 - [ ] Werksreset löscht alle Geheimnisse; Neuprovisionierung funktioniert

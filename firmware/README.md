@@ -263,6 +263,7 @@ R23), jede Zeile beginnt mit der Laufzeit in Sekunden.
 | `update-fault crash` / `nowifi` / `off` | **Test:** das nächste Update scheitert absichtlich in der Probezeit – muss zurückfallen |
 | `remote` | außen: Fern-Öffnen – Handys je Wohnung, Befehlskanal verbunden?, Push gesendet/fehlgeschlagen, Befehle je Ergebnis; innen: Ausfallmeldung |
 | `remote-push` | Test-Push an die Handys dieser Einheit |
+| `tls-probe <https-URL>` | **Test:** eine HTTPS-Verbindung mit genau den TLS-Einstellungen von Push und Befehlskanal – „CONNECTED“ oder „REFUSED“ mit mbedTLS-Fehler (TLS-Negativtest R35, z. B. `tls-probe https://expired-rsa-dv.ssl.com`) |
 | `button-sim long` / `short` / `reset` | **Test:** Boot-Taster-Geste über USB (long = 5 s, reset = 15 s) – z. B. Wartung ohne Finger |
 
 **So arbeitet der Touch** (Details und Entwurfswerte im Kopf von `cb_touch_logic.h`): Ausgewertet wird relativ zur

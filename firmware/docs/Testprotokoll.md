@@ -42,6 +42,8 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 | SK2.2b | AU-1 + IN-1, **mit dem Meister** | an IN-1 Wartung (Taster) → „Wartung der Außeneinheit öffnen“; auf der Seite von AU-1: Banner, Kopplungskarte, Ton hochladen, Pulslänge, Update-Schlüssel versuchen; dann AU-1 Normalbetrieb → `/pair/start` per Konsole-`curl`; danach Taster an AU-1 5 s → Kopplungskarte | Banner „von einer Inneneinheit geöffnet“; Kopplungskarte nur mit Hinweis; Ton und Pulslänge gehen, Update-Schlüssel 403; Normalbetrieb `/pair/start` 403; mit dem Taster sind Suche und Entfernen wieder da |
 | SK2.3b-Rest | IN-2, **mit dem Meister** (Auge) | wie am 15.11.: Wartung, Besitzerschlüssel auf der Statusseite eintragen | LED blinkt schnell gelb, solange die Vormerkung wartet; Hinweis auf der Seite vollständig lesbar (FW-B-25) |
 | SK2.4b-Rest | IN-2 + Handy, **mit dem Meister** (ändert das Gerätepasswort) | vom TOWER 5× falsches Passwort, sofort danach am Handy anmelden; in der Wartung Passwortwechsel mit dem Gerätecode in Vierergruppen mit Strich, neues Passwort mit 9 Zeichen, dann mit ≥ 10; danach `cb.py anlage-webpasswort IN-2` | Handy sofort angemeldet, TOWER 429; 9 Zeichen abgelehnt, Wechsel mit Strichen klappt |
+| TLS.10 | IN-2, USB | IN-2 an den TOWER stecken, `cb.py flashen innen COM5`, dann `cb.py konsole COM5 "tls-probe https://ntfy.sh \| @12 \| tls-probe https://expired-rsa-dv.ssl.com" 26` | Firmware mit FW-B-26 auf IN-2; ntfy.sh verbindet, das abgelaufene Zertifikat wird abgelehnt (`-0x2700`) |
+| TLS.11 | AU-1, Stecker (Finger) | AU-1 stromlos machen (USB ab, 10 s warten, wieder an), dabei `cb.py konsole COM4 - 60` mitlaufen lassen; nach ≈ 30 s `ring eg` | Log „remote: waiting for the clock (NTP) …“, wenige Sekunden später „stream UP“ (`remote`); Neustart- und Klingel-Push kommen am Handy an |
 | SK1.1b | IN-2 + AU-1 + Handy, **mit dem Meister** (löscht das OG-Handy) | an AU-1 in der Wartung die OG-Kopplung entfernen → `ring og` → danach neu koppeln (Gerätecode IN-2) → `ring og` | Meldung „… N Handy(s) dieser Wohnung gelöscht“; keine Push am Handy, AU-1 `remote` OG 0, IN-2 listet kein Handy mehr; nach Neukopplung weiter 0 und keine Neustart-Push an das alte Topic; Handy neu hinzufügen → wieder Push |
 
 **Reihenfolge (Meister 10.11.2026):** zuerst diese Handprüfungen; der 72-h-Test läuft ganz zum Schluss mit beiden
@@ -123,6 +125,40 @@ Befunde 10.11.2026 abends (noch nicht behoben):
   AU-1↔EG. Der Meister wollte an IN-2 (OG) ein Handy verbinden. Mit FW-B-21 passt „nur EG“ nicht mehr: soll jede
   Wohnung eigene Handys mit eigenen Topics aus ihrer Kopplung bekommen? **Entschieden 12.11.: ja, beide Wohnungen,
   Handys je Inneneinheit (R27). Umgesetzt 12.11.**
+
+### TLS-Negativtest – R35_P6_Tor, SA 10.3 (21.11.2026, TOWER, selbst; Firmware dieses Commits auf AU-1, IN-1)
+
+Plan Punkt 21, nachgeholt nach HB.11 (Verstoß R35 am 15.11.). Aufbau ohne Klingeln und ohne Netzänderung: neuer
+Konsolenbefehl `tls-probe <https-URL>` öffnet **eine** HTTPS-Verbindung mit `tls_settings()` – derselben Funktion, die
+Push-Versand und Befehlskanal benutzen (`main/cb_remote.cpp`), also genau die Betriebseinstellung. Gegenstellen: die
+öffentlichen Testserver badssl.com und SSL.com. Jede Ablehnung steht neben einer Gegenprobe, die vom selben Gerät
+verbindet (sonst hieße „abgelehnt“ womöglich nur „kein Netz“). Befehl:
+`python tools/cb.py konsole COM4 "tls-probe https://expired-rsa-dv.ssl.com" 15`.
+
+| Zeile | Board | Gegenstelle | Erwartung | Ergebnis |
+|---|---|---|---|---|
+| TLS.1 | AU-1, IN-1 | `https://ntfy.sh` (Gegenprobe Betrieb) | verbindet | ✓ HTTP 200 |
+| TLS.2 | AU-1 | `https://badssl.com`, `https://test-dv-rsa.ssl.com` (Gegenproben derselben Anbieter) | verbinden | ✓ je HTTP 200 |
+| TLS.3 | AU-1, IN-1 | `https://expired-rsa-dv.ssl.com` (abgelaufen, Wurzel im Bündel) | abgelehnt | ✗ **zuerst angenommen (HTTP 200)** → FW-B-26, behoben; danach ✓ abgelehnt `-0x2700` (Prüfung fehlgeschlagen) |
+| TLS.4 | AU-1 | `https://expired.badssl.com` (abgelaufen, alte Kette) | abgelehnt | ✓ vor der Behebung `-0x3000` (keine vertraute Wurzel), danach `-0x2700` |
+| TLS.5 | AU-1, IN-1 | `https://wrong.host.badssl.com` (gültig, falscher Hostname) | abgelehnt | ✓ `-0x2700` – die Hostnamenprüfung greift |
+| TLS.6 | AU-1 | `https://self-signed.badssl.com` | abgelehnt | ✓ `-0x3000`, Bündel „Failed to verify certificate“ (zwei weitere Versuche liefen in die Zeitüberschreitung des Servers – zählen nicht) |
+| TLS.7 | AU-1, IN-1 | `https://untrusted-root.badssl.com` (fremde Wurzel) | abgelehnt | ✓ `-0x3000` |
+| TLS.8 | AU-1 | `https://revoked-rsa-dv.ssl.com` (widerrufen) | – (bekannte Grenze) | verbindet: mbedTLS fragt weder Sperrlisten noch OCSP ab; kein Prüfkriterium (SA 4.5) |
+| TLS.9 | AU-1, IN-1 | Betrieb nach dem Flashen | wie vorher | ✓ AU-1 Befehlskanal „stream UP“, 2 Neustart-Pushes ok (Handys des Meisters), EG „session confirmed, reachable“; IN-1 „storage encrypted (key efuse)“, Selbsttest OK |
+
+**FW-B-26_TLS_ohne_Ablaufpruefung (behoben 21.11.):** `CONFIG_MBEDTLS_HAVE_TIME_DATE` ist im IDF standardmäßig aus –
+mbedTLS hat die Gültigkeitsdaten von Zertifikaten nie geprüft. Ein abgelaufenes (oder noch nicht gültiges) Zertifikat
+einer vertrauten Wurzel wurde angenommen (TLS.3). `expired.badssl.com` fiel nur durch, weil seine Kette auf einer aus
+dem Bündel entfernten Wurzel endet – ein reiner badssl-Test hätte die Lücke nicht gezeigt. Behebung: Option in
+`sdkconfig.defaults` an; TLS wartet auf die NTP-Uhr (vorher steht sie auf 1970, jedes Zertifikat wäre „noch nicht
+gültig“): der Befehlskanal verbindet erst mit gestellter Uhr, ein Push wartet höchstens 10 s darauf und versucht es dann
+trotzdem (blockiert die Warteschlange nicht, wenn NTP fehlt). **Falle:** eine bestehende `sdkconfig` im Build-Ordner
+übernimmt neue Vorgaben aus `sdkconfig.defaults` nicht – sie wurde zur Seite gelegt (`sdkconfig.vor_20261121`) und neu
+erzeugt; Vergleich alt/neu: nur diese eine Zeile. 178 PC-Tests grün, eigener Code ohne Warnung.
+
+⏳ IN-2 hing nicht am TOWER (kein COM5) – noch alte Firmware, beim nächsten Anstecken flashen (Sammelliste).
+⏳ Start nach Stromausfall (Uhr leer): nur per Ab- und Anstecken prüfbar, ein USB-Reset behält die Uhr (Sammelliste).
 
 ### Härtung Stufe B – HB.11 IN-1 und AU-1 gebrannt (15.11.2026 abends, TOWER, Firmware `7f400de`)
 

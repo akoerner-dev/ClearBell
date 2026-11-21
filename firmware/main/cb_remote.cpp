@@ -7,6 +7,7 @@
 
 #include <atomic>
 #include <cstring>
+#include <ctime>
 
 #include "cb_config.h"
 #include "cb_console.h"
@@ -28,6 +29,79 @@ namespace {
 
 constexpr const char *kServer = "https://ntfy.sh";
 constexpr uint32_t kPushMaxAgeMs = 60000;  // a push that could not go out within 60 s is dropped (restart: never)
+
+// The ONE place for the TLS settings of every HTTPS connection (S-1, R35): push sender, command stream and the
+// console test "tls-probe" all call it, so the negative test checks exactly the setting used in operation.
+// Certificate chain against the Mozilla bundle of the IDF; host name check stays on (esp-tls takes the URL host).
+void tls_settings(esp_http_client_config_t &cfg) {
+  cfg.crt_bundle_attach = esp_crt_bundle_attach;
+  cfg.skip_cert_common_name_check = false;
+}
+
+// Certificates are checked against the validity dates (CONFIG_MBEDTLS_HAVE_TIME_DATE, sdkconfig.defaults). Before
+// NTP has set the clock it reads 1970 and every certificate is "not yet valid" - so TLS waits for the clock.
+constexpr time_t kClockValid = 1700000000;  // 2023-11, same threshold as the door log (cb_status)
+bool clock_set() { return time(nullptr) >= kClockValid; }
+constexpr uint32_t kPushClockWaitMs = 10000;  // a push waits at most this long for the clock, then tries anyway
+
+// ---- Console test tls-probe (R35, SA 10.3 "TLS mit falschem Zertifikat scheitert") -------------------------------
+// Opens one HTTPS connection with tls_settings() and reports whether the handshake succeeded. Runs in its own short
+// task: a handshake can take seconds and must not block the console/loop task. Sends nothing to any phone.
+char probe_url[128];
+std::atomic<bool> probe_busy{false};
+
+void probe_task(void *) {
+  esp_http_client_config_t cfg = {};
+  cfg.url = probe_url;
+  cfg.method = HTTP_METHOD_GET;
+  cfg.timeout_ms = 10000;
+  tls_settings(cfg);
+  if (!clock_set()) cb_log("tls-probe: note - clock not set (no NTP yet), every certificate counts as not yet valid");
+  uint32_t t0 = millis();
+  esp_http_client_handle_t c = esp_http_client_init(&cfg);
+  if (!c) {
+    cb_log("tls-probe: %s -> ERROR (client init failed)", probe_url);
+  } else {
+    esp_err_t e = esp_http_client_open(c, 0);
+    if (e == ESP_OK) {
+      esp_http_client_fetch_headers(c);
+      cb_log("tls-probe: %s -> CONNECTED (HTTP %d, %lu ms)", probe_url, esp_http_client_get_status_code(c),
+             (unsigned long)(millis() - t0));
+      esp_http_client_close(c);
+    } else {
+      int tls_code = 0, tls_flags = 0;
+      esp_err_t te = esp_http_client_get_and_clear_last_tls_error(c, &tls_code, &tls_flags);
+      // tls code = mbedTLS error: -0x2700 certificate verify failed (e.g. expired, wrong host), -0x3000 from the
+      // bundle check (no trusted root). The verify flags are mostly not passed through by the HTTP client (0).
+      cb_log("tls-probe: %s -> REFUSED (%s; tls %s, code -0x%04x, %lu ms)", probe_url, esp_err_to_name(e),
+             esp_err_to_name(te), (unsigned)(tls_code < 0 ? -tls_code : tls_code), (unsigned long)(millis() - t0));
+    }
+    esp_http_client_cleanup(c);
+  }
+  probe_busy = false;
+  vTaskDelete(nullptr);
+}
+
+void cmd_tls_probe(const char *args) {
+  if (strncmp(args, "https://", 8) != 0 || strlen(args) >= sizeof probe_url) {
+    cb_log("tls-probe: usage tls-probe https://<host>[/path] (max %u characters)", (unsigned)(sizeof probe_url - 1));
+    return;
+  }
+  if (!cb_net_wifi_up()) {
+    cb_log("tls-probe: no WiFi");
+    return;
+  }
+  bool expected = false;
+  if (!probe_busy.compare_exchange_strong(expected, true)) {
+    cb_log("tls-probe: still running, try again in a few seconds");
+    return;
+  }
+  strcpy(probe_url, args);
+  if (xTaskCreatePinnedToCore(probe_task, "tls_probe", 8192, nullptr, 1, nullptr, 0) != pdPASS) {
+    probe_busy = false;
+    cb_log("tls-probe: could not start the task");
+  }
+}
 
 // ---- Push queue and sender (task ntfy_tx), both unit types ---------------------------------------------------
 enum class Tag : uint8_t { None, Bell, Door, Warning, Ok, Test };
@@ -91,7 +165,7 @@ bool publish(const Push &p) {
   cfg.url = kServer;
   cfg.method = HTTP_METHOD_POST;
   cfg.timeout_ms = 10000;
-  cfg.crt_bundle_attach = esp_crt_bundle_attach;  // certificate check against the Mozilla bundle (S-1)
+  tls_settings(cfg);  // certificate check against the Mozilla bundle (S-1)
   esp_http_client_handle_t c = esp_http_client_init(&cfg);
   if (!c) return false;
   esp_http_client_set_header(c, "Content-Type", "application/json");
@@ -111,6 +185,9 @@ void tx_task(void *) {
     auto too_old = [] { return !p.keep && millis() - p.queued_ms > kPushMaxAgeMs; };
     for (int attempt = 0; attempt < 4 && !ok && !too_old(); attempt++) {
       while (!cb_net_wifi_up() && !too_old()) vTaskDelay(pdMS_TO_TICKS(500));
+      // Bounded: without NTP the push fails at the certificate check instead of blocking the queue (keep pushes!)
+      for (uint32_t t0 = millis(); !clock_set() && millis() - t0 < kPushClockWaitMs && !too_old();)
+        vTaskDelay(pdMS_TO_TICKS(250));
       if (too_old()) break;
       ok = publish(p);
       if (!ok) vTaskDelay(pdMS_TO_TICKS(2000 * (attempt + 1)));
@@ -219,7 +296,7 @@ void stream_once() {
   cfg.url = url;
   cfg.timeout_ms = 1000;  // per read: returns what arrived, so a line is handled at once (not when 1 KB is full)
   cfg.buffer_size = 1024;
-  cfg.crt_bundle_attach = esp_crt_bundle_attach;
+  tls_settings(cfg);
   esp_http_client_handle_t c = esp_http_client_init(&cfg);
   if (!c) return;
   if (esp_http_client_open(c, 0) != ESP_OK) {
@@ -268,9 +345,16 @@ void stream_once() {
 
 void rx_task(void *) {
   uint32_t backoff = 2000;
+  bool told = false;
   for (;;) {
     if (!cb_net_wifi_up()) {
       vTaskDelay(pdMS_TO_TICKS(1000));
+      continue;
+    }
+    if (!clock_set()) {  // the certificate check needs the date; a stream without it would only fail
+      if (!told) cb_log("remote: waiting for the clock (NTP) before connecting the command stream");
+      told = true;
+      vTaskDelay(pdMS_TO_TICKS(500));
       continue;
     }
     uint32_t t0 = millis();
@@ -350,6 +434,8 @@ void cb_remote_begin() {
   const CbProvisioning &pv = cb_prov();
   cb_console_add("remote", "pushes: remote opening (outdoor) / outage notice (indoor), counters", cmd_remote);
   cb_console_add("remote-push", "send a test push to the phones of this unit", cmd_remote_push);
+  cb_console_add("tls-probe", "TEST: one HTTPS connection with the push TLS settings (R35), e.g. tls-probe "
+                 "https://expired.badssl.com", cmd_tls_probe);
   if (!pv.valid) return;
   start_sender();
 #if CB_IS_OUTDOOR

@@ -5,6 +5,13 @@ Versionen nach SemVer; `version.txt` ist die Quelle. Solange die Portierung läu
 
 ## 0.2.0-dev (in Arbeit)
 
+### TLS-Negativtest (21.11.2026, R35, SA 10.3)
+
+- **FW-B-26:** Zertifikate werden jetzt auch gegen ihre Gültigkeitsdaten geprüft (`CONFIG_MBEDTLS_HAVE_TIME_DATE`);
+  vorher wurde ein abgelaufenes Zertifikat einer vertrauten Wurzel angenommen. TLS wartet dafür auf die NTP-Uhr: der
+  Befehlskanal verbindet erst mit gestellter Uhr, ein Push wartet höchstens 10 s.
+- Alle HTTPS-Verbindungen holen ihre TLS-Einstellung aus einer Funktion; neuer Testbefehl `tls-probe <https-URL>`.
+
 ### Sicherheitskatalog Phase 2 (14.11.2026, Entscheidungen R30–R33)
 
 - **VK-02 (R30):** Der Zugangspunkt, der nach 5 min ohne WLAN von selbst aufgeht, erlaubt nur noch den WLAN-Wechsel

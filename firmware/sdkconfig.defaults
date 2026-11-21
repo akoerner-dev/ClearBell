@@ -61,6 +61,10 @@ CONFIG_ESP_WIFI_ENABLE_WPA3_SAE=y
 CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
 # TLS buffers (2 connections x ~40 KB) in PSRAM: internal RAM stays for WiFi, stacks and DMA.
 CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y
+# Check the validity dates of every certificate (expired / not yet valid). Off by default in the IDF - the TLS
+# negative test of 21.11.2026 (R35) found an expired certificate accepted. Needs the NTP clock: cb_remote starts
+# TLS only once the clock is set.
+CONFIG_MBEDTLS_HAVE_TIME_DATE=y
 
 # --- Door pulse end must not wait for flash operations (NVS writes, firmware upload): the gptimer interrupt
 #     that switches GPIO47 off runs from IRAM even while the flash cache is disabled (port step 10). ---

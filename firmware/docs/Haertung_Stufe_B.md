@@ -115,6 +115,10 @@ Danach 24 h Normalbetrieb aller drei, bevor Stufe B als fertig gilt.
 TLS-Negativtest gebrannt** – Test nachholen, bevor an AU-1 weiter gehärtet wird. Offen: HB.8 Werksreset verschlüsselt,
 HB.9 Anti-Rollback-Bootloader.
 
+**Stand 21.11.2026:** TLS-Negativtest an AU-1 und IN-1 nachgeholt und bestanden, nachdem FW-B-26 (keine Prüfung der
+Gültigkeitsdaten) behoben war (Testprotokoll „TLS-Negativtest“). Die Vorbedingung aus R35 ist damit nachträglich
+erfüllt; weitere Härtungsschritte an AU-1 sind von dieser Seite her frei (eFuses weiter nur mit Freigabe je Board).
+
 **Stand 13.11.2026 morgens:** **IN-2 gebrannt** (HB.7, Freigabe Meister „Ja, IN-2 brennen“), Übernahme und
 Flash-Gegenprobe bestanden (HB.8 teilweise, HB.10). Offen: HB.8 Werksreset mit erneuter Einrichtung (löscht das
 eingetragene Handy), HB.9 Bootloader mit Anti-Rollback, HB.11 IN-1 und AU-1 (je eigene Freigabe), 24 h Normalbetrieb.

@@ -448,7 +448,7 @@ sequenceDiagram
 | **Token** | 128 bit from the hardware RNG, single-use, bound to exactly one ring and exactly one phone, valid 5 min; the last three rings per flat stay usable; after an opening all tokens of the flat are consumed; none survives a reboot |
 | **Message** | "CBR2 ‹token›"; the scheme identifier keeps the door open for a later scheme |
 | **Both flats** | up to 4 phones per indoor unit; a ring at GF goes only to the GF phones, at UF only to the UF phones |
-| **TLS** | certificate validation against the certificate bundle embedded in the core (Mozilla list); no pinning — the server certificates change every few weeks |
+| **TLS** | certificate validation against the certificate bundle embedded in the core (Mozilla list) including host name and validity dates — the date check needs the NTP clock, TLS waits for it (since 2026-11-21, FW-B-26); no pinning — the server certificates change every few weeks; mbedTLS does not check revocation lists/OCSP |
 | **Traceable** | every remote opening is confirmed by push to the flat's phones and logged (section 6.4); refused commands are counted (status page) |
 | **Outage notice** | each indoor unit tells its phones when the outdoor unit is unreachable (≈ 2 min after the outage: 90 s detection by the link layer + 30 s) and when it is back, with the duration; it stays silent for the first 3 min after its own start |
 
@@ -1093,7 +1093,7 @@ The port counts as complete when **all** of the following hold:
 - [ ] Feature parity with V0.1: both ring paths, door command, success and failure tones
 - [ ] The door opens only via ① and ③; the security and robustness tests from section 11.2 pass
 - [x] Remote opening with the ntfy app on Android, both flats (2026-11-12)
-- [ ] TLS with a wrong certificate fails
+- [x] TLS with a wrong certificate fails (2026-11-21, AU-1 and IN-1: expired, wrong host name, self-signed, untrusted root; test log "TLS-Negativtest")
 - [ ] Chime replaceable without a PC (maintenance, upload)
 - [ ] Signed update without a cable; a deliberately broken update rolls back
 - [ ] A factory reset erases all secrets; re-provisioning works
