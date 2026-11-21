@@ -43,7 +43,7 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 | SK2.3b-Rest | IN-2, **mit dem Meister** (Auge) | wie am 15.11.: Wartung, Besitzerschlüssel auf der Statusseite eintragen | LED blinkt schnell gelb, solange die Vormerkung wartet; Hinweis auf der Seite vollständig lesbar (FW-B-25) |
 | SK2.4b-Rest | IN-2 + Handy, **mit dem Meister** (ändert das Gerätepasswort) | vom TOWER 5× falsches Passwort, sofort danach am Handy anmelden; in der Wartung Passwortwechsel mit dem Gerätecode in Vierergruppen mit Strich, neues Passwort mit 9 Zeichen, dann mit ≥ 10; danach `cb.py anlage-webpasswort IN-2` | Handy sofort angemeldet, TOWER 429; 9 Zeichen abgelehnt, Wechsel mit Strichen klappt |
 | ~~TLS.10~~ | ✓ 21.11. (Abschnitt „TLS-Negativtest“ unten) | – | – |
-| TLS.11 | AU-1, Stecker (Finger) | AU-1 stromlos machen (USB ab, 10 s warten, wieder an), dabei `cb.py konsole COM4 - 60` mitlaufen lassen; nach ≈ 30 s `ring eg` | Log „remote: waiting for the clock (NTP) …“, wenige Sekunden später „stream UP“ (`remote`); Neustart- und Klingel-Push kommen am Handy an |
+| ~~TLS.11~~ | ✓ 21.11. (Abschnitt „TLS-Negativtest“ unten) | – | – |
 | SK1.1b | IN-2 + AU-1 + Handy, **mit dem Meister** (löscht das OG-Handy) | an AU-1 in der Wartung die OG-Kopplung entfernen → `ring og` → danach neu koppeln (Gerätecode IN-2) → `ring og` | Meldung „… N Handy(s) dieser Wohnung gelöscht“; keine Push am Handy, AU-1 `remote` OG 0, IN-2 listet kein Handy mehr; nach Neukopplung weiter 0 und keine Neustart-Push an das alte Topic; Handy neu hinzufügen → wieder Push |
 
 **Reihenfolge (Meister 10.11.2026):** zuerst diese Handprüfungen; der 72-h-Test läuft ganz zum Schluss mit beiden
@@ -179,7 +179,13 @@ Firmware und gleichem Board). Ein **kleiner Rest bleibt an IN-2**: 3 verworfene 
 Zeile, ohne dass der Zähler stieg – die ging also auf dem Weg zum PC verloren, nicht im Puffer der Firmware. Ob der
 Rest am Board oder am Hub-Anschluss hängt, ließe sich durch Tauschen der Stecker von IN-1 und IN-2 klären. Für den
 Betrieb ohne USB hat das keine Bedeutung; Auswertungen an IN-2 weiter über `status --json` oder mehrfach abfragen.
-⏳ Start nach Stromausfall (Uhr leer): nur per Ab- und Anstecken prüfbar, ein USB-Reset behält die Uhr (Sammelliste).
+**TLS.11 – Start nach Stromausfall (21.11.2026, AU-1):** Ein USB-Reset behält die Uhr, deshalb hat der Meister AU-1
+abgesteckt und nach ≈ 8 s wieder angesteckt. Mitgelesen hat ein Skript, das auf COM4 wartet (Scratchpad).
+✓ `boot #102, last reset: power-on`, Selbsttest OK, „storage encrypted (key efuse)“. Nach dem WLAN-Aufbau bei 11,1 s kam
+„remote: waiting for the clock (NTP) before connecting the command stream“, EG/OG bei 11,1/11,7 s erreichbar. `remote`
+bei 41 s: „stream UP (connects 1, errors 0, last data 20 s ago)“, also nach dem Stellen der Uhr im ersten Versuch
+verbunden (spätestens bei ≈ 21 s); „pushes ok 2 failed 0“, das sind die Neustart-Pushes an beide Handys. Die Klingelprobe
+entfiel bewusst (kein Klingeln am Morgen); den Push-Weg nach dem Kaltstart belegen die Neustart-Pushes.
 
 ### Härtung Stufe B – HB.11 IN-1 und AU-1 gebrannt (15.11.2026 abends, TOWER, Firmware `7f400de`)
 
