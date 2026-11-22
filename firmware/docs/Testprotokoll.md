@@ -35,12 +35,12 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 | ~~SK1.2b~~ | ✓ 15.11. (Abschnitt „Gerätetests Sicherheitskatalog“ unten) | – | – |
 | ~~SK1.3b-Rest~~ | ✓ 21.11. mit AU-1 als zweiter Adresse (Abschnitt „Vorab-Prüfungen Sammeltermin“ unten) | – | – |
 | ~~FW-B-24~~ | ✓ 21.11. über den neuen USB-Hub (Abschnitt „TLS-Negativtest“ unten, Gegenprobe FW-B-24) | – | – |
-| SK1.3c | Browser + Handy, **mit dem Meister** | Statusseite und Wartung durchklicken (Lautstärke, Handy hinzufügen, Name, Ton hochladen), dazu eine lokale HTML-Datei mit Formular-POST an `/settings` (`vol=15`) öffnen | alles funktioniert wie bisher; das fremde Formular ändert nichts (403) |
-| SK1.2c | Router, **mit dem Meister** | DHCP-Bereich am Router umstellen (WLAN-Name gleich) bzw. Router neu starten, so dass beide Einheiten neue Adressen bekommen | beide ohne Neustart nach etwa 10–20 s wieder „reachable“; `net` zeigt erst „mdns“, dann „learned“ (RV-11) |
+| ~~SK1.3c~~ | ✓ 22.11. mit dem Meister (Abschnitt „Sammeltermin Teil 1“ unten) | – | – |
+| ~~SK1.2c~~ | ✓ 22.11. mit dem Meister; Zwischenstufe „mdns“ nicht einzeln belegt (Abschnitt „Sammeltermin Teil 1“ unten) | – | – |
 | ~~SK2.1b~~ | ✓ 15.11. (Abschnitt „Gerätetests Sicherheitskatalog“ unten) | – | – |
-| SK2.1c | IN-2 + Handy, **mit dem Meister** | an IN-2 per Konsole falsches WLAN eintragen (`setup-wifi Falsch 12345678`, Neustart) → nach 5 min Zugangspunkt „ClearBell-…“ mit dem Handy (Etikett-Code) öffnen; Einrichtungsseite ansehen, Werkszustand per Konsole-`curl` versuchen; mit eigenem Passwort wiederholen; richtiges WLAN eintragen. Danach Einrichtungsmodus (Taster 2 × 5 s) und vom TOWER `route add 192.168.4.1 mask 255.255.255.255 <IP von IN-2>`, dann `curl http://192.168.4.1/setup/info` | nur WLAN-Feld aktiv, Hinweis „WLAN verloren“; Werkszustand 403; mit eigenem Passwort fragt der Zugangspunkt nach der Anmeldung; nach 35 min ohne WLAN geht er zu (Log); richtiges WLAN → verbunden, Klingeltaste/Name unverändert. Route über das Heimnetz → 401 (Anmeldung), Log „NOT from the access point net“ |
+| SK2.1c-Rest | IN-2 (+ Admin-PowerShell am TOWER); Handy-Teil ✓ 22.11. (Abschnitt „Sammeltermin Teil 1“ unten) | **offen nur noch:** Schließen nach 35 min (Log, geht ohne Meister), Werkszustand über den automatischen Zugangspunkt → 403, Einrichtungsmodus + Route. Ursprüngliche Zeile: an IN-2 per Konsole falsches WLAN eintragen (`setup-wifi Falsch 12345678`, Neustart) → nach 5 min Zugangspunkt „ClearBell-…“ mit dem Handy (Etikett-Code) öffnen; Einrichtungsseite ansehen, Werkszustand per Konsole-`curl` versuchen; mit eigenem Passwort wiederholen; richtiges WLAN eintragen. Danach Einrichtungsmodus (Taster 2 × 5 s) und vom TOWER `route add 192.168.4.1 mask 255.255.255.255 <IP von IN-2>`, dann `curl http://192.168.4.1/setup/info` | nur WLAN-Feld aktiv, Hinweis „WLAN verloren“; Werkszustand 403; mit eigenem Passwort fragt der Zugangspunkt nach der Anmeldung; nach 35 min ohne WLAN geht er zu (Log); richtiges WLAN → verbunden, Klingeltaste/Name unverändert. Route über das Heimnetz → 401 (Anmeldung), Log „NOT from the access point net“ |
 | ~~SK2.2b~~ | ✓ 21.11. mit `button-sim` statt Taster (Abschnitt „Vorab-Prüfungen Sammeltermin“ unten) | – | – |
-| SK2.3b-Rest | IN-2, **mit dem Meister** (Auge) | wie am 15.11.: Wartung, Besitzerschlüssel auf der Statusseite eintragen | LED blinkt schnell gelb, solange die Vormerkung wartet; Hinweis auf der Seite vollständig lesbar (FW-B-25) |
+| ~~SK2.3b-Rest~~ | ✓ 22.11. mit dem Meister, Befunde FW-B-27, FW-B-28 (Abschnitt „Sammeltermin Teil 1“ unten) | – | – |
 | SK2.4b-Rest | IN-2 + Handy, **mit dem Meister** (ändert das Gerätepasswort) | vom TOWER 5× falsches Passwort, sofort danach am Handy anmelden; in der Wartung Passwortwechsel mit dem Gerätecode in Vierergruppen mit Strich, neues Passwort mit 9 Zeichen, dann mit ≥ 10; danach `cb.py anlage-webpasswort IN-2` | Handy sofort angemeldet, TOWER 429; 9 Zeichen abgelehnt, Wechsel mit Strichen klappt |
 | ~~TLS.10~~ | ✓ 21.11. (Abschnitt „TLS-Negativtest“ unten) | – | – |
 | ~~TLS.11~~ | ✓ 21.11. (Abschnitt „TLS-Negativtest“ unten) | – | – |
@@ -125,6 +125,52 @@ Befunde 10.11.2026 abends (noch nicht behoben):
   AU-1↔EG. Der Meister wollte an IN-2 (OG) ein Handy verbinden. Mit FW-B-21 passt „nur EG“ nicht mehr: soll jede
   Wohnung eigene Handys mit eigenen Topics aus ihrer Kopplung bekommen? **Entschieden 12.11.: ja, beide Wohnungen,
   Handys je Inneneinheit (R27). Umgesetzt 12.11.**
+
+### Sammeltermin Teil 1 – SK2.3b-Rest, SK1.3c, SK2.1c, SK1.2c (22.11.2026 morgens, TOWER, mit dem Meister; Firmware mit FW-B-26 auf allen drei)
+
+Vorab 05:00 alle drei online, Kopplungen „learned, reachable“, Lautstärke 15 %. Rohnotizen außerhalb des Repos
+(`ClearBell\V0.2\05_Inbetriebnahme\Sammeltermin\Notizen_20261122.md`). Der Termin wurde nach SK2.1c unterbrochen;
+SK1.1b + HB.8-Rest und SK2.4b-Rest stehen weiter in der Sammelliste oben.
+
+| Zeile | Board | Ergebnis |
+|---|---|---|
+| SK2.3b-Rest | IN-2 | ✓ Wartung per `button-sim long`; Meister trägt einen erfundenen Testschlüssel auf der Statusseite ein → Meldung vollständig lesbar (FW-B-25 bestätigt), LED blinkt schnell, solange die Vormerkung wartet – wirkt aber **rot** statt gelb → FW-B-27. Meister drückte den echten Boot-Taster → Schlüssel übernommen (die echte Bestätigung damit zusätzlich belegt); ohne sichtbare Rückmeldung → FW-B-28, Meister drückte daraufhin Reset (`power-on`, Start 44 → 45, kein Coredump). Aufgeräumt: `update-owner clear` → „owner key none“, `button-sim short` → normal |
+| SK1.3c | IN-2, TOWER-Browser + Handy | ✓ Statusseite im Normalbetrieb und in der Wartung durchgeklickt (Name, Handy hinzufügen, Ton-Upload, Einstellungen), danach unverändert: Name, Handy, 5 Töne, 15 %. Fremdes Formular (lokale Datei, `vol=30`, weil 15 % die kleinste Stufe ist) im selben angemeldeten Browser → `{"ok":false,"message":"Anfrage von fremder Seite abgelehnt"}`, kein Probeton, `settings.volume` 15 |
+| SK2.1c (Handy-Teil) | IN-2 + Handy | ✓ `setup-wifi Falsch …`, Neustart; nach erneutem Neustart (Start 47) Log 300,6 s „access point 'ClearBell-…' on“ (5 min), am Handy sichtbar. Android-Anmeldefenster zeigt nur den 401-Text → FW-B-30; Chrome macht still `https://` daraus → FW-B-31. Mit `http://192.168.4.1` in Chrome: Anmeldung verlangt (eigenes Passwort, R30), Hinweis „Die Einheit hat ihr WLAN verloren …“, Klingeltaste und Name gesperrt (sehen aber aktiv aus). Richtiges WLAN gespeichert → Log „automatic access point - only the WiFi is changed (R30)“, Neustart, `WiFi up`, Außeneinheit nach 2 s erreichbar, Name und Rolle unverändert. **Nicht erfasst:** Schließen nach 35 min, Werkszustand 403, Route (Sammelliste SK2.1c-Rest) |
+| SK1.2c | AU-1, IN-1 | ✓ DHCP-Bereich geändert → keine neuen Adressen; Router-Neustart → beide `WiFi down`, kein Neustart der Boards, Rückzug bis 60 s; zurück mit neuen Adressen und Kanal 3 → 8; AU-1 „EG reachable“ nach 7,8 s, IN-1 „AUSSEN reachable“ nach 3,9 s; danach `net` beide „learned“. Zwischenstufe „mdns“ lief zwischen zwei Abfragen ab (nicht einzeln belegt). IN-1-Ausfallmeldung → FW-B-29 |
+| 8.15 (Nachtrag) | IN-2 + Handy | ✓ `clearbell-<Gerätenummer>.local` öffnet am Android-Handy (Chrome) die Statusseite, auch aus einem anderen WLAN des Heimnetzes; TOWER löst den Namen über den Systemresolver auf (`Resolve-DnsName` fragt nur DNS und scheitert) |
+
+Befunde 22.11.2026 (noch nicht behoben):
+- **FW-B-27_Vormerkung_blinkt_wie_Fehler:** Das Bestätigungsblinken schaltet Rot und Grün gleichzeitig, Grün nur mit
+  dem LED-Abgleich (40 %) → wirkt rot/orange. Es hat denselben 100-ms-Takt wie das rote Fehlerblinken, ist für Nutzer
+  also kaum von „Fehler“ zu unterscheiden. Lösung offen (anderes Muster bzw. mehr Grün für Gelb).
+- **FW-B-28_Bestaetigung_ohne_Rueckmeldung:** Nach dem Tastendruck übernimmt die Firmware den Schlüssel still (nur
+  Logzeile): kein Ton, LED fällt ins normale Wartungsblinken, Seite aktualisiert sich nicht. Folge im Termin: Reset.
+  Vorschlag: OK-/Fehlerton, Seite fragt den Vormerkstatus selbst ab.
+- **FW-B-29_Ausfallmeldung_ohne_eigenes_WLAN:** Beim Router-Neustart kam am Handy nur „… wieder erreichbar“. IN-1
+  `remote.outage`: 1 Meldung, 1 ok, **1 fehlgeschlagen** – die Ausfallmeldung fiel, als IN-1 selbst kein WLAN hatte,
+  und wurde verworfen. Lösung offen (nachholen mit Zeitangabe oder Rückmeldung als „Netz war … weg“ formulieren).
+- **FW-B-30_Anmeldung_im_Captive-Portal_unmoeglich:** Das Android-Fenster „In ClearBell-… anmelden“ zeigt keine
+  Digest-Anmeldemaske, nur den 401-Text ohne Umlaute und ohne Hinweis. Ein Käufer mit eigenem Passwort kommt am
+  automatischen Zugangspunkt so nicht weiter. Lösung offen (401 als kleine Seite mit Anleitung „im Browser
+  `http://192.168.4.1` öffnen“, oder Formular-Anmeldung auf dem Zugangspunkt).
+- **FW-B-31_Chrome_macht_https_draus:** Chrome ergänzt `192.168.4.1` still zu `https://` → Zeitüberschreitung. Betrifft
+  jeden Käufer bis R29_HTTPS_mit_Werkszertifikat; bis dahin mindestens Anleitung/Etikett mit vollem `http://`.
+- **Unauffällig, notiert:** beim WLAN-Abriss `STA clear config failed … ESP_ERR_WIFI_STATE` und ein abgebrochener
+  TLS-Lesevorgang an AU-1 (erholt sich); beim Entfernen des eigenen Schlüssels `nvs_erase_key fail: upd_ownonly
+  NOT_FOUND` (Eintrag nie gesetzt); einmal `WiFi down (reason 36)` direkt nach dem Start mit falschem WLAN.
+
+Wünsche und Entscheidungen des Meisters (22.11.2026):
+- **SW-Wunsch_Lautstaerke_stufenlos:** Schieberegler statt Stufen 15/30/50/75/100 (betrifft auch die Firmware-Prüfung
+  der Stufen und den Boot-Taster).
+- **SW-Wunsch_Aufklappen_ohne_Spaltensprung:** Aufgeklappte Teile springen eine Spalte nach rechts – stört deutlich.
+- **SW-Wunsch_gesperrte_Felder_grau:** Gesperrte Felder der Einrichtungsseite sehen aus wie aktiv.
+- Die drei Wünsche gehen in eine **optische Überarbeitung der Seiten ganz zum Schluss** (Meister).
+- **SW-Entscheid_Adresse_in_Erfolgsmeldung:** Nach der WLAN-Eingabe soll die Seite die echte Adresse als Link zeigen
+  (ntfy-Nachricht scheidet aus: die App ist bei der Ersteinrichtung oft noch nicht eingerichtet). Ablauf: Passwort
+  falsch → „Falsche Anmeldedaten“, Formular bleibt, neuer Versuch; WLAN nicht gefunden → eigene Meldung (Unterscheidung
+  ausdrücklich so gewollt); Verbindung klappt → Link auf die Adresse und Hinweis, dass die Einheit neu startet.
+  Umsetzungsidee: AP und STA parallel, AP wechselt dabei auf den Kanal des Routers. Wortlaut am Gerät abstimmen.
 
 ### Vorab-Prüfungen Sammeltermin – SK1.3b-Rest, SK2.2b (21.11.2026, TOWER, selbst; Firmware `8da12a2` auf allen drei)
 
