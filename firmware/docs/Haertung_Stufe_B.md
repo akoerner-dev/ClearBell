@@ -115,6 +115,10 @@ Danach 24 h Normalbetrieb aller drei, bevor Stufe B als fertig gilt.
 TLS-Negativtest gebrannt** – Test nachholen, bevor an AU-1 weiter gehärtet wird. Offen: HB.8 Werksreset verschlüsselt,
 HB.9 Anti-Rollback-Bootloader.
 
+**Stand 24.11.2026:** HB.8 vollständig: Werksreset an IN-2 im verschlüsselten Zustand mit dem echten Taster,
+erneute Einrichtung und Neukopplung bestanden (Testprotokoll „Sammeltermin Teil 2“). Offen bleibt HB.9
+Anti-Rollback-Bootloader.
+
 **Stand 21.11.2026:** TLS-Negativtest an AU-1 und IN-1 nachgeholt und bestanden, nachdem FW-B-26 (keine Prüfung der
 Gültigkeitsdaten) behoben war (Testprotokoll „TLS-Negativtest“). Die Vorbedingung aus R35 ist damit nachträglich
 erfüllt; weitere Härtungsschritte an AU-1 sind von dieser Seite her frei (eFuses weiter nur mit Freigabe je Board).

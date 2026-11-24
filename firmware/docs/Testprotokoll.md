@@ -38,13 +38,13 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 | ~~SK1.3c~~ | ✓ 22.11. mit dem Meister (Abschnitt „Sammeltermin Teil 1“ unten) | – | – |
 | ~~SK1.2c~~ | ✓ 22.11. mit dem Meister; Zwischenstufe „mdns“ nicht einzeln belegt (Abschnitt „Sammeltermin Teil 1“ unten) | – | – |
 | ~~SK2.1b~~ | ✓ 15.11. (Abschnitt „Gerätetests Sicherheitskatalog“ unten) | – | – |
-| SK2.1c-Rest | IN-2 (+ Admin-PowerShell am TOWER); Handy-Teil ✓ 22.11. (Abschnitt „Sammeltermin Teil 1“ unten) | **offen nur noch:** Schließen nach 35 min (Log, geht ohne Meister), Werkszustand über den automatischen Zugangspunkt → 403, Einrichtungsmodus + Route. Ursprüngliche Zeile: an IN-2 per Konsole falsches WLAN eintragen (`setup-wifi Falsch 12345678`, Neustart) → nach 5 min Zugangspunkt „ClearBell-…“ mit dem Handy (Etikett-Code) öffnen; Einrichtungsseite ansehen, Werkszustand per Konsole-`curl` versuchen; mit eigenem Passwort wiederholen; richtiges WLAN eintragen. Danach Einrichtungsmodus (Taster 2 × 5 s) und vom TOWER `route add 192.168.4.1 mask 255.255.255.255 <IP von IN-2>`, dann `curl http://192.168.4.1/setup/info` | nur WLAN-Feld aktiv, Hinweis „WLAN verloren“; Werkszustand 403; mit eigenem Passwort fragt der Zugangspunkt nach der Anmeldung; nach 35 min ohne WLAN geht er zu (Log); richtiges WLAN → verbunden, Klingeltaste/Name unverändert. Route über das Heimnetz → 401 (Anmeldung), Log „NOT from the access point net“ |
+| SK2.1c-Rest | IN-2 + Handy; Handy-Teil ✓ 22.11., Route und 35-min-Schließen ✓ 24.11. (Abschnitte „Sammeltermin Teil 1/2“ unten) | **offen nur noch:** Werkszustand über den automatischen Zugangspunkt → 403 (Handy im Zugangspunkt). Ursprüngliche Zeile: an IN-2 per Konsole falsches WLAN eintragen (`setup-wifi Falsch 12345678`, Neustart) → nach 5 min Zugangspunkt „ClearBell-…“ mit dem Handy (Etikett-Code) öffnen; Einrichtungsseite ansehen, Werkszustand per Konsole-`curl` versuchen; mit eigenem Passwort wiederholen; richtiges WLAN eintragen. Danach Einrichtungsmodus (Taster 2 × 5 s) und vom TOWER `route add 192.168.4.1 mask 255.255.255.255 <IP von IN-2>`, dann `curl http://192.168.4.1/setup/info` | nur WLAN-Feld aktiv, Hinweis „WLAN verloren“; Werkszustand 403; mit eigenem Passwort fragt der Zugangspunkt nach der Anmeldung; nach 35 min ohne WLAN geht er zu (Log); richtiges WLAN → verbunden, Klingeltaste/Name unverändert. Route über das Heimnetz → 401 (Anmeldung), Log „NOT from the access point net“ |
 | ~~SK2.2b~~ | ✓ 21.11. mit `button-sim` statt Taster (Abschnitt „Vorab-Prüfungen Sammeltermin“ unten) | – | – |
 | ~~SK2.3b-Rest~~ | ✓ 22.11. mit dem Meister, Befunde FW-B-27, FW-B-28 (Abschnitt „Sammeltermin Teil 1“ unten) | – | – |
-| SK2.4b-Rest | IN-2 + Handy, **mit dem Meister** (ändert das Gerätepasswort) | vom TOWER 5× falsches Passwort, sofort danach am Handy anmelden; in der Wartung Passwortwechsel mit dem Gerätecode in Vierergruppen mit Strich, neues Passwort mit 9 Zeichen, dann mit ≥ 10; danach `cb.py anlage-webpasswort IN-2` | Handy sofort angemeldet, TOWER 429; 9 Zeichen abgelehnt, Wechsel mit Strichen klappt |
+| ~~SK2.4b-Rest~~ | ✓ 24.11. mit dem Meister (Abschnitt „Sammeltermin Teil 2“ unten) | – | – |
 | ~~TLS.10~~ | ✓ 21.11. (Abschnitt „TLS-Negativtest“ unten) | – | – |
 | ~~TLS.11~~ | ✓ 21.11. (Abschnitt „TLS-Negativtest“ unten) | – | – |
-| SK1.1b | IN-2 + AU-1 + Handy, **mit dem Meister** (löscht das OG-Handy) | an AU-1 in der Wartung die OG-Kopplung entfernen → `ring og` → danach neu koppeln (Gerätecode IN-2) → `ring og` | Meldung „… N Handy(s) dieser Wohnung gelöscht“; keine Push am Handy, AU-1 `remote` OG 0, IN-2 listet kein Handy mehr; nach Neukopplung weiter 0 und keine Neustart-Push an das alte Topic; Handy neu hinzufügen → wieder Push |
+| ~~SK1.1b~~ | ✓ 24.11. mit dem Meister, zusammen mit HB.8-Rest; Befunde FW-B-32 bis FW-B-34 (Abschnitt „Sammeltermin Teil 2“ unten) | – | – |
 
 **Reihenfolge (Meister 10.11.2026):** zuerst diese Handprüfungen; der 72-h-Test läuft ganz zum Schluss mit beiden
 Einheiten im Gehäuse.
@@ -171,6 +171,45 @@ Wünsche und Entscheidungen des Meisters (22.11.2026):
   falsch → „Falsche Anmeldedaten“, Formular bleibt, neuer Versuch; WLAN nicht gefunden → eigene Meldung (Unterscheidung
   ausdrücklich so gewollt); Verbindung klappt → Link auf die Adresse und Hinweis, dass die Einheit neu startet.
   Umsetzungsidee: AP und STA parallel, AP wechselt dabei auf den Kanal des Routers. Wortlaut am Gerät abstimmen.
+
+### Sammeltermin Teil 2 – SK1.1b + HB.8-Rest, SK2.4b-Rest, SK2.1c-Rest (24.11.2026 morgens, TOWER, mit dem Meister; Firmware mit FW-B-26 auf allen drei)
+
+Vorab 05:35 alle drei online, Adressen wie nach SK1.2c, Kopplungen „session confirmed“, Lautstärke 15 %, AU-1 `remote`
+EG 1 / OG 1. Vor dem Werksreset `nvs-liste` von IN-2 gesichert (41 Einträge, verschlüsselt). Wartung an AU-1 und
+IN-2 per `button-sim long`, Werksreset mit dem echten Taster.
+
+| Zeile | Board | Ergebnis |
+|---|---|---|
+| SK1.1b (bis Entkoppeln) | AU-1 + IN-2 + Handy | ✓ Meister entfernt in der Wartung von AU-1 die OG-Kopplung (Meldung laut Code „Kopplung entfernt – N Handy(s) dieser Wohnung gelöscht – Neustart“, Wortlaut nicht mitgeschrieben); AU-1 startet neu (Start 105, software), Neustart-Push nur an das EG-Topic; `remote` 1 Handy (EG 1, **OG 0**). `ring og` → „FAILED - flat did not answer“, Push-Zähler unverändert, keine Push am Handy. IN-2 listet das alte Handy weiter und hält AU-1 für erreichbar – so gebaut (VK-01: die Inneneinheit leert ihre Liste beim Annehmen einer **neuen** Kopplung); ≈ 2 min später Ausfallmeldung von IN-2 an das alte OG-Topic → FW-B-32 |
+| HB.8-Rest | IN-2 (verschlüsselt, Schlüssel in eFuse) | ✓ Meister am echten Taster: 5 s → Wartung, 5 s → Einrichtung, 15 s → „FACTORY RESET done - device code and firmware stay“, 5 Werkstöne zurück, Neustart (Start 50): „storage encrypted (key efuse)“, „NOT set up - no WiFi configured“, Zugangspunkt an, LED rot/grün. Lautstärke nach dem Reset 75 % (Werkswert) → vor jedem Ton auf 15 % gestellt. Neueinrichtung am Handy über den Zugangspunkt: WLAN, OG, Name → Neustart, `WiFi up`, Rolle OG, 0 Kopplungen, Türprotokoll leer. Eigenes Statusseiten-Passwort gelöscht → Werkzeug mit `anlage-webpasswort IN-2 label` zurückgestellt. Danach Seite 192.168.4.1 nicht mehr erreichbar, Adresse unbekannt (bekannte Lücke, SW-Entscheid_Adresse_in_Erfolgsmeldung) |
+| SK1.1b (Rest) | AU-1 + IN-2 + Handy | ✓ Neukopplung OG an AU-1 mit dem Gerätecode → IN-2 „paired with outdoor unit … as OG“, beide Neustart, Sitzung bestätigt, Name an AU-1 übergeben; **IN-2 listet kein Handy mehr**, AU-1 OG 0; Neustart-Push von AU-1 nur an das EG-Topic (an das alte OG-Topic nichts). Seite zeigte nach „Koppeln“ weiter den ungekoppelten Zustand → FW-B-33. Handy neu hinzugefügt: Testnachrichten kamen erst nicht an (IN-2 `pushes ok 6`, auf dem aktuellen Topic lagen die Nachrichten – Handy hatte ein altes, gleich benanntes Abo) → FW-B-34; nach Löschen der alten Abos und „Link“ → Test ✓. `ring og` → IN-2 quittiert nach 89 ms, Push mit „Tür öffnen“ am Handy ✓ |
+| SK2.4b-Rest | IN-2 + Handy + TOWER | ✓ 5 falsche Passwörter vom TOWER je 401, richtiges direkt danach 429 „30 s warten“; Handy lädt die Seite in der Sperre normal (Sperre je Absender). `web`: 1 Sperre; Sperre verlängert sich durch Anfragen nicht (Code `DigestAuth::check`). Passwortwechsel in der Wartung mit dem Gerätecode **mit Strichen**: neues Passwort mit 9 Zeichen abgelehnt, mit ≥ 10 Zeichen übernommen; Meister trug es mit `anlage-webpasswort IN-2` ein, `cb.py status` ✓ |
+| SK2.1c-Rest (Route) | IN-2 im Einrichtungsmodus + TOWER | ✓ **mit Abweichung:** Route 192.168.4.1 → IN-2 (Heimnetz) per Admin-PowerShell; Ping über die Route antwortet, HTTP nicht (TCP-Zeitüberschreitung nach 20 s, IN-2 loggt nichts), Gegenprobe direkt an die Heimnetzadresse 401. Der Netzstapel schickt Antworten mit Absender 192.168.4.1 über den Zugangspunkt hinaus, die SYN-ACK erreicht den TOWER nie – der Weg scheitert schon unterhalb der Firmware. Die Firmware-Prüfung (401 + „NOT from the access point net“) ist so nicht erreichbar und bleibt durch PC-Tests belegt (greift bei überlappendem Heimnetz). Route danach gelöscht |
+| SK2.1c-Rest (35 min) | IN-2 | ✓ selbst: `setup-wifi Falsch …`, Neustart, 44 min Mitschrift; WLAN-Versuche alle 60 s (reason 201), 300,6 s „access point … on“, 2100,6 s „automatic access point closed after 30 min (R30) - button for more“ (35 min nach dem Start ohne WLAN). Richtiges WLAN aus der Anlagendatei per Konsole (ohne `setup-role`), Neustart: `WiFi up`, Außeneinheit erreichbar, Rolle/Name, Kopplung, Handy „andre“ und 15 % unverändert. **Offen:** Werkszustand über den automatischen Zugangspunkt → 403 (braucht ein Handy im Zugangspunkt, TOWER ohne WLAN-Adapter) |
+
+Befunde 24.11.2026 (noch nicht behoben):
+- **FW-B-32_Ausfallmeldung_nach_Entkoppeln:** Nach dem Entfernen der Kopplung an der Außeneinheit erfährt die
+  Inneneinheit nichts davon; ihre Pakete werden verworfen, nach ≈ 2 min meldet sie „Außeneinheit nicht erreichbar“ an
+  die Handys der gerade entkoppelten Wohnung (am Handy angekommen). Lösung offen: Außeneinheit teilt die Trennung vor
+  dem Schlüsselwechsel mit (Inneneinheit leert Handys, schaltet die Ausfallmeldung ab), oder keine Ausfallmeldung,
+  solange die Außeneinheit erreichbar antwortet, aber die Pakete ablehnt; dazu Abschiedsnachricht (FW-B-34, Punkt 4).
+- **FW-B-33_Seite_nach_Koppeln_nicht_neu:** Nach „Koppeln“ zeigt die Seite nur die Meldung und weiter den
+  ungekoppelten Zustand; erst Neuladen von Hand zeigt die Kopplung. Passwortwechsel und Update laden selbst neu
+  (2,5 s / 25 s). Gleiches Muster wie FW-B-28 und SW-Entscheid_Adresse_in_Erfolgsmeldung – gemeinsam umsetzen.
+- **FW-B-34_Handy_Abo_nicht_idiotensicher:** Jedes Hinzufügen erzeugt Schlüssel und Topic neu, alte Links sind tot;
+  in ntfy heißen alte und neue Abos gleich („ClearBell <Wohnungsname>“). Der Meister hatte ein altes Abo, die
+  Testnachricht kam scheinbar nie an. Vom Meister gebilligte Lösungsideen (ein Paket mit FW-B-28/FW-B-33):
+  1. Bestätigung vom Handy: Testnachricht mit Knopf „Ja, angekommen“ (ntfy-Aktion über das Befehls-Topic wie
+     „Tür öffnen“); Seite zeigt „wartet auf Bestätigung“, bis er gedrückt ist – einziger Beweis über die ganze Kette.
+  2. Erneutes Hinzufügen desselben Namens zeigt den bestehenden Link statt einen neuen Schlüssel; neu nur über
+     „Entfernen“.
+  3. Abo-Anzeigename unterscheidbar (Handyname und Datum oder kurzes Prüfzeichen, auf Seite und in ntfy gleich).
+  4. Abschiedsnachricht an alte Topics beim Entfernen, Entkoppeln und vor dem Werksreset: „Dieses Abo ist ungültig –
+     bitte in ntfy löschen“.
+- **Unauffällig, notiert:** Werksreset `nvs_erase_key fail: upd_fault NOT_FOUND` (Eintrag nie gesetzt); nach dem
+  Start `nvs_get_blob len fail: log NOT_FOUND` (Türprotokoll leer). Der Browser des Meisters schickte die
+  Digest-Anmeldung an AU-1 nach deren Neustart unbemerkt weiter (keine Abfrage) – Gegenprobe ohne Anmeldung 401, also
+  Browserverhalten, kein Fehler.
 
 ### Vorab-Prüfungen Sammeltermin – SK1.3b-Rest, SK2.2b (21.11.2026, TOWER, selbst; Firmware `8da12a2` auf allen drei)
 
