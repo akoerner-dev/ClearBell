@@ -45,6 +45,13 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 | ~~TLS.10~~ | ✓ 21.11. (Abschnitt „TLS-Negativtest“ unten) | – | – |
 | ~~TLS.11~~ | ✓ 21.11. (Abschnitt „TLS-Negativtest“ unten) | – | – |
 | ~~SK1.1b~~ | ✓ 24.11. mit dem Meister, zusammen mit HB.8-Rest; Befunde FW-B-32 bis FW-B-34 (Abschnitt „Sammeltermin Teil 2“ unten) | – | – |
+| FW-B-27+28_LED_und_Ton | IN-2, Auge + Ohr | in der Wartung auf der Statusseite einen erfundenen Update-Schlüssel vormerken, nicht drücken; dann erneut vormerken und kurz den Boot-Taster drücken; danach `update-owner clear` | LED blinkt doppelt grün (kein Rot); nach 60 s Fehlerton, Seite meldet „Nicht bestätigt“; mit Druck Bestätigungston, Seite meldet „Bestätigt“ ohne Neuladen (per Log und Seite am 24.11. belegt, Auge/Ohr offen) |
+| FW-B-29_Router_Neustart | IN-1 + Handy | Router neu starten (wie SK1.2c) | am Handy **eine** Meldung „Klingel wieder erreichbar – Das WLAN war etwa N min weg …“, kein einzelnes „Außeneinheit wieder da“ |
+| FW-B-30_Anmeldefenster | IN-2 + Handy, eigenes Passwort gesetzt | automatischen Zugangspunkt öffnen (falsches WLAN, 5 min), mit dem Handy verbinden | das Fenster „Im Netzwerk anmelden“ zeigt die Hilfeseite „ClearBell: Anmeldung nötig“ mit dem Hinweis auf **http://192.168.4.1** im Browser (Body per PC am 24.11. belegt) |
+| SW-Entscheid_WLAN-Probe | IN-2 + Handy im Zugangspunkt (zusammen mit SK2.1c-Rest Werkszustand-403) | auf der Einrichtungsseite nacheinander: falsches Passwort, erfundener WLAN-Name, richtiges WLAN | „Falsche Anmeldedaten …“ und „WLAN … nicht gefunden …“ getrennt, Formular bleibt; richtig → „Verbunden …“ mit der Adresse als Link, Neustart nach 45 s, danach Link im Heim-WLAN erreichbar. Beobachten: Handy verliert den Zugangspunkt beim Kanalwechsel kurz und verbindet von selbst neu |
+| FW-B-32+33_Entkoppeln | AU-1 + IN-2 + Handy (löscht das OG-Handy – nur mit dem Meister) | in der Wartung von AU-1 die OG-Kopplung entfernen, dann neu koppeln (wie SK1.1b) | Meldung „Die Inneneinheit weiß Bescheid …“; IN-2 loggt „the outdoor unit removed this pairing“, startet neu, **keine** Ausfallmeldung nach 2 min; altes Abo bekommt „ClearBell: Abo ungültig“; Seite lädt nach Entfernen und nach Koppeln von selbst neu |
+| FW-B-34_Handy_Bestaetigung | IN-2 + echtes Handy | nach der Neukopplung Handy hinzufügen, Link öffnen, „Test“, in der Nachricht „Ja, angekommen“ tippen; danach denselben Namen noch einmal hinzufügen | Abo heißt in ntfy „ClearBell <Wohnung> · <Handy> <Kennung>“ wie auf der Seite; Seite zeigt „✓ Test bestätigt“; zweites Hinzufügen zeigt denselben Link (PC-Handy am 24.11. belegt) |
+| FW-B-34_Abschied_Werksreset | IN-2 + Handy (nur zusammen mit einem ohnehin geplanten Werksreset) | Werksreset per Taster | vor dem Löschen kommt „ClearBell: Abo ungültig“ am Handy an; Werksreset danach wie HB.8 |
 
 **Reihenfolge (Meister 10.11.2026):** zuerst diese Handprüfungen; der 72-h-Test läuft ganz zum Schluss mit beiden
 Einheiten im Gehäuse.
@@ -140,7 +147,7 @@ SK1.1b + HB.8-Rest und SK2.4b-Rest stehen weiter in der Sammelliste oben.
 | SK1.2c | AU-1, IN-1 | ✓ DHCP-Bereich geändert → keine neuen Adressen; Router-Neustart → beide `WiFi down`, kein Neustart der Boards, Rückzug bis 60 s; zurück mit neuen Adressen und Kanal 3 → 8; AU-1 „EG reachable“ nach 7,8 s, IN-1 „AUSSEN reachable“ nach 3,9 s; danach `net` beide „learned“. Zwischenstufe „mdns“ lief zwischen zwei Abfragen ab (nicht einzeln belegt). IN-1-Ausfallmeldung → FW-B-29 |
 | 8.15 (Nachtrag) | IN-2 + Handy | ✓ `clearbell-<Gerätenummer>.local` öffnet am Android-Handy (Chrome) die Statusseite, auch aus einem anderen WLAN des Heimnetzes; TOWER löst den Namen über den Systemresolver auf (`Resolve-DnsName` fragt nur DNS und scheitert) |
 
-Befunde 22.11.2026 (noch nicht behoben):
+Befunde 22.11.2026 (behoben 24.11. im Code, Abschnitt „Behebung FW-B-27 bis FW-B-34“ oben; Handprüfungen in der Sammelliste):
 - **FW-B-27_Vormerkung_blinkt_wie_Fehler:** Das Bestätigungsblinken schaltet Rot und Grün gleichzeitig, Grün nur mit
   dem LED-Abgleich (40 %) → wirkt rot/orange. Es hat denselben 100-ms-Takt wie das rote Fehlerblinken, ist für Nutzer
   also kaum von „Fehler“ zu unterscheiden. Lösung offen (anderes Muster bzw. mehr Grün für Gelb).
@@ -172,6 +179,27 @@ Wünsche und Entscheidungen des Meisters (22.11.2026):
   ausdrücklich so gewollt); Verbindung klappt → Link auf die Adresse und Hinweis, dass die Einheit neu startet.
   Umsetzungsidee: AP und STA parallel, AP wechselt dabei auf den Kanal des Routers. Wortlaut am Gerät abstimmen.
 
+### Behebung FW-B-27 bis FW-B-34 und SW-Entscheid_Adresse_in_Erfolgsmeldung (24.11.2026, TOWER, selbst)
+
+Auf Zuruf des Meisters („dann mach jetzt erstmal die Befunde“) umgesetzt, 181 PC-Tests grün (neu: Abo-Kennung gegen
+Python-Referenz, Bestätigungsnachricht, Zuordnung der WLAN-Fehlergründe), beide Images ohne Warnung, alle drei Boards per
+USB geflasht (je 4 × „Hash of data verified“), danach online, gekoppelt, 15 %. Was jeweils geändert wurde:
+
+| Befund | Lösung | Geprüft am 24.11. |
+|---|---|---|
+| FW-B-27_Vormerkung_blinkt_wie_Fehler | Bestätigungsblinken jetzt **doppelt grün** (100 an, 100 aus, 100 an, 700 aus), ohne Rot | Code; Auge offen (Sammelliste) |
+| FW-B-28_Bestaetigung_ohne_Rueckmeldung | Druck → Bestätigungston (Fehlerton, wenn Speichern scheitert), Ablauf nach 60 s → Fehlerton; Ergebnis `update.owner_result` + Zähler im JSON; die Seite fragt alle 2 s nach, solange etwas wartet, und meldet „Bestätigt“ / „Nicht bestätigt“ / „verworfen“ | IN-2 mit erfundener Kennung: vorgemerkt → nach 60 s Log „EXPIRED“, JSON `expired`; erneut vorgemerkt + `button-sim short` → „CONFIRMED … applied“, JSON `applied`; Schlüssel wieder entfernt („owner key none“) |
+| FW-B-29_Ausfallmeldung_ohne_eigenes_WLAN | War das eigene WLAN während des Ausfalls weg, gibt es keine Ausfallmeldung (sie konnte nicht raus), sondern danach **eine** Meldung „Das WLAN war etwa N min weg … Jetzt ist wieder alles erreichbar“ | Code; Router-Neustart offen (Sammelliste) |
+| FW-B-30_Anmeldung_im_Captive-Portal_unmoeglich | Jede 401 hat jetzt eine kleine HTML-Seite (UTF-8) mit Benutzer, Passwort und der Anleitung, im Browser **http://192.168.4.1** zu öffnen | PC: `GET /` ohne Anmeldung → 401, `text/html; charset=utf-8`, Anleitung enthalten; Handy-Fenster offen |
+| FW-B-31_Chrome_macht_https_draus | in der Firmware nicht lösbar, bis R29_HTTPS_mit_Werkszertifikat; die 401-Seite und die Einrichtungsmeldungen schreiben `http://` jetzt ausdrücklich aus | – |
+| FW-B-32_Ausfallmeldung_nach_Entkoppeln | Neues Ereignis `Unpaired` (5, außen → innen, mit dem alten Schlüssel): die Außeneinheit meldet die Trennung vor dem Löschen (auch, wenn eine **andere** Inneneinheit die Wohnung übernimmt); die Inneneinheit schaltet die Ausfallmeldung ab, löscht Handys und Kopplung und startet neu. Unerreichbar → Seite sagt es | Code; Probe mit dem Meister (löscht das OG-Handy) |
+| FW-B-33_Seite_nach_Koppeln_nicht_neu | Nach „Koppeln“ und „Entfernen“ zählt die Seite herunter und lädt nach ≈ 19 s selbst neu | Vorschau ohne Board: kein Skriptfehler; Gerät offen |
+| FW-B-34_Handy_Abo_nicht_idiotensicher | (1) Test-Push mit Knopf „Ja, angekommen“ (POST `CBOK <8 hex>` an das Befehls-Topic des Handys); die Inneneinheit fragt das Topic bis 5 min alle 5 s ab, die Seite zeigt „wartet“ / „✓ bestätigt“ / „keine Bestätigung“; die Außeneinheit verwirft diese Nachrichten still. (2) Gleicher Name erneut → bestehender Link, kein neuer Schlüssel. (3) Abo-Name „ClearBell <Wohnung> · <Handy> <Kennung>“, Kennung 3 Zeichen aus dem Schlüssel, auch auf der Seite. (4) Abschiedsnachricht „ClearBell: Abo ungültig“ beim Entfernen eines Handys, beim Entkoppeln (von der Außeneinheit) und vor dem Werksreset (Löschen wartet bis 10 s, Neustarts bis 8 s auf ausstehende Pushes) | IN-2 mit PC-Handy `pctest`: zweimal hinzugefügt → gleicher Link, gleiche Kennung, Name in ntfy wie auf der Seite; Test-Push mit Knopf „Ja, angekommen“ (POST, `CBOK`); ohne Tippen nach 6 s weiter „waiting“, nach dem POST „ok“ nach ≈ 4 s; Entfernen → „ClearBell: Abo ungültig“ auf dem Topic; AU-1 `remote`: 1 Befehl, alle Ablehnungszähler 0 |
+| SW-Entscheid_Adresse_in_Erfolgsmeldung | Über den Zugangspunkt wird das WLAN zuerst **probiert** (Zugangspunkt und Station gleichzeitig, `cb_net` gibt die Station so lange ab); gespeichert wird nur ein funktionierendes. `/setup/result` liefert „Falsche Anmeldedaten“ (Grund 2/15/202/204), „nicht gefunden“ (201/210–212) oder „Verbunden“ mit der echten Adresse als Link; Neustart 45 s danach. Vom Heimnetz aus (Einrichtungsmodus) bleibt es beim Speichern + Neustart | Vorschau ohne Board: Ablauf „verbinde …“ → Link, kein Skriptfehler; Gerät offen (Sammelliste, zusammen mit Werkszustand-403) |
+
+Bewusst nicht geändert: Nach einem Werksreset der Inneneinheit behält die Außeneinheit die Handys dieser Wohnung bis
+zur Neukopplung (VK-01 wie bisher); die Abschiedsnachricht sagt dem Handy trotzdem, dass das Abo ungültig ist.
+
 ### Sammeltermin Teil 2 – SK1.1b + HB.8-Rest, SK2.4b-Rest, SK2.1c-Rest (24.11.2026 morgens, TOWER, mit dem Meister; Firmware mit FW-B-26 auf allen drei)
 
 Vorab 05:35 alle drei online, Adressen wie nach SK1.2c, Kopplungen „session confirmed“, Lautstärke 15 %, AU-1 `remote`
@@ -187,7 +215,7 @@ IN-2 per `button-sim long`, Werksreset mit dem echten Taster.
 | SK2.1c-Rest (Route) | IN-2 im Einrichtungsmodus + TOWER | ✓ **mit Abweichung:** Route 192.168.4.1 → IN-2 (Heimnetz) per Admin-PowerShell; Ping über die Route antwortet, HTTP nicht (TCP-Zeitüberschreitung nach 20 s, IN-2 loggt nichts), Gegenprobe direkt an die Heimnetzadresse 401. Der Netzstapel schickt Antworten mit Absender 192.168.4.1 über den Zugangspunkt hinaus, die SYN-ACK erreicht den TOWER nie – der Weg scheitert schon unterhalb der Firmware. Die Firmware-Prüfung (401 + „NOT from the access point net“) ist so nicht erreichbar und bleibt durch PC-Tests belegt (greift bei überlappendem Heimnetz). Route danach gelöscht |
 | SK2.1c-Rest (35 min) | IN-2 | ✓ selbst: `setup-wifi Falsch …`, Neustart, 44 min Mitschrift; WLAN-Versuche alle 60 s (reason 201), 300,6 s „access point … on“, 2100,6 s „automatic access point closed after 30 min (R30) - button for more“ (35 min nach dem Start ohne WLAN). Richtiges WLAN aus der Anlagendatei per Konsole (ohne `setup-role`), Neustart: `WiFi up`, Außeneinheit erreichbar, Rolle/Name, Kopplung, Handy „andre“ und 15 % unverändert. **Offen:** Werkszustand über den automatischen Zugangspunkt → 403 (braucht ein Handy im Zugangspunkt, TOWER ohne WLAN-Adapter) |
 
-Befunde 24.11.2026 (noch nicht behoben):
+Befunde 24.11.2026 (behoben 24.11. im Code, Abschnitt „Behebung FW-B-27 bis FW-B-34“ oben; Handprüfungen in der Sammelliste):
 - **FW-B-32_Ausfallmeldung_nach_Entkoppeln:** Nach dem Entfernen der Kopplung an der Außeneinheit erfährt die
   Inneneinheit nichts davon; ihre Pakete werden verworfen, nach ≈ 2 min meldet sie „Außeneinheit nicht erreichbar“ an
   die Handys der gerade entkoppelten Wohnung (am Handy angekommen). Lösung offen: Außeneinheit teilt die Trennung vor

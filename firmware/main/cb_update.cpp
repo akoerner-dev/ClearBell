@@ -13,6 +13,7 @@
 #include <atomic>
 #include <cstring>
 
+#include "cb_audio.h"
 #include "cb_config.h"
 #include "cb_console.h"
 #include "cb_log.h"
@@ -412,6 +413,16 @@ bool cb_update_set_owner_key(const char *hex, char *msg, size_t n) {
 namespace {
 cb::OwnerConfirm owner_confirm;
 portMUX_TYPE owner_lock = portMUX_INITIALIZER_UNLOCKED;  // web task arms, loop confirms
+// FW-B-28: how the last waiting change ended - the page shows it (it polls while something waits) and the unit
+// plays the confirmation or the error tone. seq counts up with every ending, so the page sees a new result.
+const char *owner_result = "";  // "applied" | "failed" | "expired" | "dropped"
+uint32_t owner_result_seq = 0;
+void owner_end(const char *result) {
+  taskENTER_CRITICAL(&owner_lock);
+  owner_result = result;
+  owner_result_seq++;
+  taskEXIT_CRITICAL(&owner_lock);
+}
 }  // namespace
 
 bool cb_update_owner_request(const char *key, int only, char *msg, size_t n) {
@@ -451,7 +462,7 @@ bool cb_update_owner_request(const char *key, int only, char *msg, size_t n) {
   if (c.set_key) snprintf(what, sizeof what, remove ? "eigenen Schlüssel entfernen" : "eigener Schlüssel %s", fp);
   else snprintf(what, sizeof what, "%s", c.only ? "nur eigener Schlüssel" : "Herstellerschlüssel wieder annehmen");
   snprintf(msg, n, "Vorgemerkt: %s%s. Jetzt innerhalb von 60 s KURZ den Boot-Taster dieser Einheit drücken "
-           "(LED blinkt schnell gelb) – sonst verfällt es.", what, c.set_key && c.set_only ? " + „nur eigener“" : "");
+           "(LED blinkt doppelt grün) – sonst verfällt es.", what, c.set_key && c.set_only ? " + „nur eigener“" : "");
   cb_log("update: owner change ARMED (%s) - waits 60 s for a short press of the boot button (R32)", what);
   return true;
 }
@@ -477,6 +488,14 @@ void cb_update_owner_confirm() {
   if (done && c.set_only) done = cb_update_set_owner_only(c.only, msg, sizeof msg);
   cb_log("update: owner change CONFIRMED by the boot button - %s", done ? "applied" : "FAILED");
   memset(&c, 0, sizeof c);
+  owner_end(done ? "applied" : "failed");
+  cb_audio_play(done ? cb::Sound::Success : cb::Sound::Error);  // FW-B-28: the press is answered at once
+}
+
+void cb_update_owner_expired() {
+  cb_log("update: waiting owner change EXPIRED (no press of the boot button within 60 s)");
+  owner_end("expired");
+  cb_audio_play(cb::Sound::Error);
 }
 
 void cb_update_owner_cancel() {
@@ -484,7 +503,10 @@ void cb_update_owner_cancel() {
   bool was = owner_confirm.pending(millis());
   owner_confirm.cancel();
   taskEXIT_CRITICAL(&owner_lock);
-  if (was) cb_log("update: waiting owner change dropped (maintenance left)");
+  if (was) {
+    cb_log("update: waiting owner change dropped (maintenance left)");
+    owner_end("dropped");
+  }
 }
 
 bool cb_update_set_owner_only(bool on, char *msg, size_t n) {
@@ -525,7 +547,11 @@ void cb_update_json(cb::Json &j) {
   uint32_t now = millis();
   taskENTER_CRITICAL(&owner_lock);
   uint32_t left = owner_confirm.left_ms(now);
+  const char *res = owner_result;
+  uint32_t seq = owner_result_seq;
   taskEXIT_CRITICAL(&owner_lock);
   j.kv("owner_pending_s", (unsigned long)((left + 999) / 1000));
+  j.kv("owner_result", res);  // FW-B-28
+  j.kv("owner_result_seq", (unsigned long)seq);
   j.end_obj();
 }

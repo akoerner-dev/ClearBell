@@ -11,10 +11,12 @@
 
 #include "cb_config.h"
 #include "cb_console.h"
+#include "cb_crypto.h"
 #include "cb_link.h"
 #include "cb_log.h"
 #include "cb_modes.h"
 #include "cb_net.h"
+#include "cb_pairing_logic.h"
 #include "cb_provisioning.h"
 #include "cb_remote_logic.h"
 #include "cb_system.h"
@@ -118,6 +120,7 @@ struct Push {
 };
 QueueHandle_t push_q = nullptr;
 std::atomic<uint32_t> pushes_ok{0}, pushes_failed{0};
+std::atomic<int> outstanding{0};  // queued or being sent (cb_remote_idle)
 
 const char *tag_name(Tag t) {
   switch (t) {
@@ -150,7 +153,7 @@ bool publish(const Push &p) {
     j.begin_arr();
     j.begin_obj();
     j.kv("action", "http");
-    j.kv("label", "Tür öffnen");
+    j.kv("label", p.tag == Tag::Test ? "Ja, angekommen" : "Tür öffnen");  // FW-B-34: test push confirms
     j.kv("url", p.url);
     j.kv("method", "POST");
     j.kv("body", p.body);
@@ -195,6 +198,7 @@ void tx_task(void *) {
     if (ok) pushes_ok++;
     else pushes_failed++;
     memset(p.body, 0, sizeof p.body);
+    outstanding--;
   }
 }
 
@@ -218,8 +222,116 @@ void queue_push(const char *topic, Tag tag, uint8_t prio, const char *title, con
   p.tag = tag;
   p.keep = keep;
   p.queued_ms = millis();
-  if (xQueueSend(push_q, &p, 0) != pdTRUE) pushes_failed++;
+  outstanding++;
+  if (xQueueSend(push_q, &p, 0) != pdTRUE) {
+    outstanding--;
+    pushes_failed++;
+  }
 }
+
+// FW-B-34 (4): an ntfy subscription whose topic will never get a message again is told so once - otherwise it stays
+// in the app with the same name as the new one, and a test seems never to arrive (Sammeltermin 24.11.2026).
+constexpr const char *kFarewellTitle = "ClearBell: Abo ungültig";
+const char *farewell_text(const char *why, char *out) {
+  snprintf(out, 160, "Dieses Abo bekommt keine Klingel-Nachrichten mehr (%s). Bitte in der ntfy-App löschen.", why);
+  return out;
+}
+
+// Farewell to the phones stored in provisioning (any task): flat 0 = all, else only that flat.
+void farewell_stored(uint8_t flat, const char *why) {
+  const CbProvisioning &p = cb_prov();
+  char m[160];
+  farewell_text(why, m);
+  for (int i = 0; i < CbProvisioning::kPhoneSlots; i++) {
+    char push[cb::kTopicLen + 1], c[cb::kTopicLen + 1];
+    if (!p.phone_id[i][0] || (flat && p.phone_flat[i] != flat)) continue;
+    if (cb::phone_topics(p.phone_key[i], push, c)) queue_push(push, Tag::Warning, 3, kFarewellTitle, m);
+  }
+}
+
+#if !CB_IS_OUTDOOR
+// ---- FW-B-34 (1): test push with "Ja, angekommen" - the indoor unit polls the phone's command topic ----------------
+constexpr uint32_t kConfirmWaitMs = 5UL * 60 * 1000;
+constexpr uint32_t kConfirmPollMs = 5000;
+portMUX_TYPE confirm_lock = portMUX_INITIALIZER_UNLOCKED;
+struct Confirm {
+  char id[cb::kPhoneIdMax + 1];
+  char cmd[cb::kTopicLen + 1];
+  char nonce[cb::kConfirmNonceHex + 1];
+  uint32_t started_ms;
+  CbConfirm state;
+} confirm = {};
+std::atomic<bool> confirm_task_on{false};
+
+bool confirm_poll_once(const char *cmd, const char *nonce) {
+  static char url[96];
+  snprintf(url, sizeof url, "%s/%s/json?poll=1&since=10m", kServer, cmd);
+  esp_http_client_config_t cfg = {};
+  cfg.url = url;
+  cfg.method = HTTP_METHOD_GET;
+  cfg.timeout_ms = 8000;
+  cfg.buffer_size = 1024;
+  tls_settings(cfg);
+  esp_http_client_handle_t c = esp_http_client_init(&cfg);
+  if (!c) return false;
+  bool found = false;
+  if (esp_http_client_open(c, 0) == ESP_OK) {
+    esp_http_client_fetch_headers(c);
+    if (esp_http_client_get_status_code(c) == 200) {
+      static char line[1024];
+      size_t len = 0;
+      char buf[256];
+      int n;
+      while (!found && (n = esp_http_client_read(c, buf, sizeof buf)) > 0) {
+        for (int i = 0; i < n && !found; i++) {
+          if (buf[i] == '\n') {
+            line[len] = 0;
+            char msg[64];
+            if (len && cb::json_get_string(line, "message", msg, sizeof msg) && cb::confirm_matches(msg, nonce))
+              found = true;
+            len = 0;
+          } else if (len + 1 < sizeof line) {
+            line[len++] = buf[i];
+          } else {
+            len = 0;
+          }
+        }
+      }
+    }
+    esp_http_client_close(c);
+  }
+  esp_http_client_cleanup(c);
+  return found;
+}
+
+void confirm_task(void *) {
+  for (;;) {
+    vTaskDelay(pdMS_TO_TICKS(kConfirmPollMs));
+    char cmd[cb::kTopicLen + 1], nonce[cb::kConfirmNonceHex + 1];
+    taskENTER_CRITICAL(&confirm_lock);
+    bool waiting = confirm.state == CbConfirm::Waiting;
+    bool late = waiting && millis() - confirm.started_ms > kConfirmWaitMs;
+    if (late) confirm.state = CbConfirm::Timeout;
+    memcpy(cmd, confirm.cmd, sizeof cmd);
+    memcpy(nonce, confirm.nonce, sizeof nonce);
+    taskEXIT_CRITICAL(&confirm_lock);
+    if (late) cb_log("remote: test push of phone '%s' NOT confirmed within 5 min", confirm.id);
+    if (!waiting || late) break;
+    if (!cb_net_wifi_up() || !clock_set()) continue;
+    if (!confirm_poll_once(cmd, nonce)) continue;
+    taskENTER_CRITICAL(&confirm_lock);
+    bool still = confirm.state == CbConfirm::Waiting && !strcmp(confirm.nonce, nonce);
+    if (still) confirm.state = CbConfirm::Ok;
+    taskEXIT_CRITICAL(&confirm_lock);
+    if (still) {
+      cb_log("remote: phone '%s' confirmed the test push (\"Ja, angekommen\") - the whole chain works", confirm.id);
+      break;
+    }
+  }
+  confirm_task_on = false;
+  vTaskDelete(nullptr);
+}
+#endif
 
 #if CB_IS_OUTDOOR
 // Log label only (EG = key at the bottom, OG = top); buyers see cb_prov_flat_name() (FW-B-21)
@@ -405,6 +517,8 @@ constexpr uint32_t kStartQuietMs = 180000;  // after a start of THIS unit: give 
 bool watching = false;
 uint32_t down_since = 0;
 bool alerted = false;
+bool own_wifi_lost = false;  // FW-B-29: during this outage the unit's own WiFi was gone too
+bool unpaired = false;       // FW-B-32: the outdoor unit said goodbye - no outage notice any more
 uint32_t alerts = 0;
 
 void push_own(Tag tag, uint8_t prio, const char *title, const char *msg) {
@@ -469,12 +583,15 @@ void cb_remote_poll() {
   uint8_t drop = drop_flats.exchange(0);  // VK-01: set by the web task when a pairing went
   for (uint8_t f : {(uint8_t)cb::UnitId::EG, (uint8_t)cb::UnitId::OG}) {
     if (!(drop & (1u << f))) continue;
+    char m[160];
+    push_flat(f, Tag::Warning, 3, kFarewellTitle, farewell_text("die Kopplung der Wohnung wurde entfernt", m));
     int n = auth.remove_flat(f);
     if (n) topics_changed();
     cb_log("remote: pairing of %s gone - %d phone(s) and their tokens dropped", flat_name(f), n);
   }
   Cmd c;
   if (xQueueReceive(cmd_q, &c, 0) != pdTRUE) return;  // one per pass: a flood cannot starve the loop
+  if (cb::is_confirm_message(c.msg)) return;  // FW-B-34: "Ja, angekommen" of a test push - for the indoor unit
   int slot = -1;
   cb::RemoteResult r = auth.check(c.topic, c.msg, millis(), &slot);
   cmd_result[(int)r]++;
@@ -511,11 +628,12 @@ void cb_remote_poll() {
   snprintf(m, sizeof m, "Die Haustür wurde per App geöffnet (Handy %.8s).", phone);
   push_flat(flat, Tag::Door, 3, "Tür per App geöffnet", m);
 #else
-  if (!watching || millis() < kStartQuietMs) return;
+  if (!watching || unpaired || millis() < kStartQuietMs) return;
   uint32_t now = millis();
   if (!cb_net_peer_reachable(cb::UnitId::Outdoor)) {
     if (!down_since) down_since = now;
-    if (!alerted && now - down_since >= kOutageMs) {
+    if (!cb_net_wifi_up()) own_wifi_lost = true;  // FW-B-29: this unit itself has no WiFi (router restart?)
+    if (!alerted && !own_wifi_lost && now - down_since >= kOutageMs) {
       alerted = true;
       alerts++;
       cb_log("remote: outdoor unit unreachable (about %lu s since the last contact) - notice to the phones",
@@ -525,14 +643,25 @@ void cb_remote_poll() {
                "kommt so lange nicht an.");
     }
   } else {
+    unsigned long min = (unsigned long)((now - down_since + kDetectLagMs + 30000) / 60000);
     if (alerted) {
       char m[120];
-      snprintf(m, sizeof m, "Die Klingel an der Haustür ist wieder erreichbar (Ausfall etwa %lu min).",
-               (unsigned long)((now - down_since + kDetectLagMs + 30000) / 60000));
+      snprintf(m, sizeof m, "Die Klingel an der Haustür ist wieder erreichbar (Ausfall etwa %lu min).", min);
       push_own(Tag::Ok, 3, "Außeneinheit wieder da", m);
       cb_log("remote: outdoor unit back after about %lu s", (unsigned long)((now - down_since + kDetectLagMs) / 1000));
+    } else if (own_wifi_lost && down_since && now - down_since >= kOutageMs) {
+      // FW-B-29: while this unit had no WiFi no notice could go out (it was dropped before). Now one notice that says
+      // what happened, instead of a lone "wieder erreichbar" without the "nicht erreichbar" before it.
+      char m[160];
+      snprintf(m, sizeof m, "Das WLAN war etwa %lu min weg (Router neu gestartet?). In der Zeit kam Klingeln "
+               "nicht an. Jetzt ist wieder alles erreichbar.", min);
+      push_own(Tag::Ok, 3, "Klingel wieder erreichbar", m);
+      alerts++;
+      cb_log("remote: WiFi of this unit was gone, outdoor unit back after about %lu s - one notice afterwards",
+             (unsigned long)((now - down_since + kDetectLagMs) / 1000));
     }
     alerted = false;
+    own_wifi_lost = false;
     down_since = 0;
   }
 #endif
@@ -595,11 +724,84 @@ bool cb_remote_phone_remove(const char *id, uint8_t flat) {
 #endif
 }
 
-void cb_remote_welcome(const char *key_hex) {
+bool cb_remote_test(const char *id, const char *key_hex) {
   char push[cb::kTopicLen + 1], c[cb::kTopicLen + 1];
-  if (!cb::phone_topics(key_hex, push, c)) return;
+  if (!cb::phone_topics(key_hex, push, c)) return false;
+#if !CB_IS_OUTDOOR
+  // FW-B-34 (1): the button sends "CBOK <nonce>" to the phone's command topic; a new test replaces a waiting one
+  uint8_t r[cb::kConfirmNonceHex / 2];
+  cb::random_bytes(r, sizeof r);
+  char nonce[cb::kConfirmNonceHex + 1], url[64], body[24];
+  cb::to_hex_lower(r, sizeof r, nonce);
+  snprintf(url, sizeof url, "%s/%s", kServer, c);
+  snprintf(body, sizeof body, "%s %s", cb::kConfirmScheme, nonce);
+  taskENTER_CRITICAL(&confirm_lock);
+  snprintf(confirm.id, sizeof confirm.id, "%s", id);
+  memcpy(confirm.cmd, c, sizeof confirm.cmd);
+  memcpy(confirm.nonce, nonce, sizeof confirm.nonce);
+  confirm.started_ms = millis();
+  confirm.state = CbConfirm::Waiting;
+  taskEXIT_CRITICAL(&confirm_lock);
   queue_push(push, Tag::Test, 3, "ClearBell Test",
-             "Dieses Handy bekommt die Nachrichten der Klingel. Bei einem Klingeln kommt hier der Knopf „Tür öffnen“.");
+             "Dieses Handy bekommt die Nachrichten der Klingel. Bitte „Ja, angekommen“ tippen – dann zeigt die "
+             "Statusseite, dass alles funktioniert.", false, url, body);
+  bool expected = false;
+  if (confirm_task_on.compare_exchange_strong(expected, true) &&
+      xTaskCreatePinnedToCore(confirm_task, "ntfy_ok", 8192, nullptr, 1, nullptr, 0) != pdPASS)
+    confirm_task_on = false;
+  cb_log("remote: test push to phone '%s' - waiting up to 5 min for \"Ja, angekommen\"", id);
+#else
+  (void)id;
+  queue_push(push, Tag::Test, 3, "ClearBell Test", "Testnachricht der Außeneinheit.");
+#endif
+  return true;
+}
+
+CbConfirm cb_remote_confirm_state(char id[cb::kPhoneIdMax + 1], uint32_t *left_s) {
+#if !CB_IS_OUTDOOR
+  taskENTER_CRITICAL(&confirm_lock);
+  CbConfirm st = confirm.state;
+  memcpy(id, confirm.id, cb::kPhoneIdMax + 1);
+  uint32_t el = millis() - confirm.started_ms;
+  if (st == CbConfirm::Waiting && el > kConfirmWaitMs + 2 * kConfirmPollMs) st = CbConfirm::Timeout;  // poller gone
+  taskEXIT_CRITICAL(&confirm_lock);
+  if (left_s) *left_s = st == CbConfirm::Waiting && el < kConfirmWaitMs ? (kConfirmWaitMs - el + 999) / 1000 : 0;
+  return st;
+#else
+  id[0] = 0;
+  if (left_s) *left_s = 0;
+  return CbConfirm::None;
+#endif
+}
+
+void cb_remote_confirm_forget(const char *id) {
+#if !CB_IS_OUTDOOR
+  taskENTER_CRITICAL(&confirm_lock);
+  if (!strcmp(confirm.id, id)) confirm.state = CbConfirm::None;
+  taskEXIT_CRITICAL(&confirm_lock);
+#else
+  (void)id;
+#endif
+}
+
+void cb_remote_farewell(const char *key_hex, const char *why) {
+  char push[cb::kTopicLen + 1], c[cb::kTopicLen + 1], m[160];
+  if (cb::phone_topics(key_hex, push, c)) queue_push(push, Tag::Warning, 3, kFarewellTitle, farewell_text(why, m));
+}
+
+void cb_remote_farewell_all(const char *why) {
+  start_sender();  // a unit without phones loaded may not have started it
+  farewell_stored(0, why);
+}
+
+bool cb_remote_idle() {
+  return outstanding.load() <= 0;
+}
+
+void cb_remote_unpaired() {
+#if !CB_IS_OUTDOOR
+  unpaired = true;  // FW-B-32: no outage notice to phones that are gone
+#endif
 }
 
 void cb_remote_json(cb::Json &j) {

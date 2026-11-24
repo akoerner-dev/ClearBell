@@ -84,11 +84,15 @@ void cb_modes_poll() {
   if (ev == cb::ButtonEvent::Long) cb_log("boot button held %lu s", (unsigned long)(cb::kLongHoldMs / 1000));
   // R32: an owner-key change from the status page waits for a short press (only in maintenance by the button)
   bool waiting = cb_update_owner_waiting();
+  bool cancelled = false;
   if (waiting && (machine.mode() != cb::Mode::Maintenance || machine.maintenance_by_event())) {
     cb_update_owner_cancel();
     waiting = false;
+    cancelled = true;
   }
   machine.set_confirm_pending(waiting);
+  // FW-B-28: it stopped waiting without a press (the press clears confirm_shown below) and was not dropped
+  if (confirm_shown && !waiting && !cancelled) cb_update_owner_expired();
   if (waiting != confirm_shown) {
     confirm_shown = waiting;
     show_mode_led();

@@ -53,7 +53,7 @@ Schwere: **A** = verhindert den Verkauf, **B** = muss vor dem Verkauf geändert 
 | 8 Statusseite | Webseite ✓, Gerätepasswort je Gerät ✓, **eigenes Passwort ✓ (08.11.2026)** | – | Passwort ändern in der Wartung (verschlüsselt übertragen); Rückkehr zum Etikett-Passwort per leerem Feld oder Werksreset |
 | 8 Wartung | Wartung **nur über den Boot-Taster im Gehäuse** – für die Außeneinheit heißt das: Gehäuse öffnen | B | Wartung der Außeneinheit zusätzlich **von einer gekoppelten Inneneinheit aus** freigeben (dort Taster = physische Anwesenheit in der Wohnung); Hardwarefrage siehe Abschnitt 5. **Seit R31 (14.11.2026) nur Töne, Update und Pulslänge – Koppeln und Entfernen bleiben am Taster der Außeneinheit** |
 | 8 Statusseite | eigenes Passwort ohne Mindestlänge (4 Zeichen), Login-Sperre für das ganze Gerät: ein Fremder im WLAN konnte alle aussperren | B | seit R33 (14.11.2026): mindestens 10 Zeichen (bereits gespeicherte kürzere gelten weiter), Sperre je Absender |
-| 10 Updates | eigener Update-Schlüssel und „nur eigener“ ließen sich ohne Anwesenheit setzen | B | seit R32 (14.11.2026): auf der Seite nur vorgemerkt, wirksam erst mit kurzem Druck auf den Boot-Taster der Einheit innerhalb von 60 s (LED blinkt schnell gelb) |
+| 10 Updates | eigener Update-Schlüssel und „nur eigener“ ließen sich ohne Anwesenheit setzen | B | seit R32 (14.11.2026): auf der Seite nur vorgemerkt, wirksam erst mit kurzem Druck auf den Boot-Taster der Einheit innerhalb von 60 s (LED blinkt doppelt grün, seit FW-B-27) |
 | 9 Fern-Öffnen | Topics und Handy-Schlüssel nur per PC; Link braucht die Kurzbefehl-ID vom Handy | **A** | Handy hinzufügen auf der Webseite der **eigenen Inneneinheit**: zwei Links/QR – ntfy abonnieren, Kurzbefehl importieren (mit Schlüssel und festem Link, ohne Abtippen). **Seit R27 (12.11.2026): nur noch ein ntfy-Link, kein Kurzbefehl** |
 | 9 Fern-Öffnen | Wer Handys verwaltet: heute die Anlagendatei. Die Außeneinheit gehört beiden Haushalten | B | Handys verwaltet **jeder Haushalt an seiner Inneneinheit**; sie gibt den Schlüssel verschlüsselt über die gekoppelte Verbindung an die Außeneinheit |
 | 9 Fern-Öffnen | fest `ntfy.sh` | C | Server als Einstellung (eigener ntfy-Server möglich); Hinweis im Datenschutztext: Klingelzeit läuft über den Dienst |
@@ -99,7 +99,7 @@ Etikett drucken: Gerätenummer, Gerätecode, QR-Code. Sonst nichts – kein WLAN
 5. **Fertig.** Klingeln, Türtaste, Push funktionieren. Später: Töne tauschen, Pulslänge, Updates – alles in der Wartung
    auf der Webseite (an der Außeneinheit auch von einer Inneneinheit aus freigebbar, R31). Setzt der Besitzer einen
    eigenen Update-Schlüssel oder „nur eigener“, merkt die Seite das nur vor; dann innerhalb von 60 s den Boot-Taster
-   der Einheit kurz drücken (LED blinkt schnell gelb), erst dann gilt es (R32).
+   der Einheit kurz drücken (LED blinkt doppelt grün, Bestätigungston), erst dann gilt es (R32).
 
 **Passwort der Statusseite:** ein eigenes Passwort hat mindestens 10 Zeichen (R33); falsche Eingaben sperren nur das
 Gerät des Eingebenden, nicht alle.

@@ -25,6 +25,7 @@
 
 #include "cb_json.h"
 #include "cb_protocol.h"
+#include "cb_remote_logic.h"
 
 void cb_remote_begin();                    // after cb_net_begin
 void cb_remote_poll();                     // from loop(): outdoor checks received commands; indoor watches the link
@@ -36,5 +37,19 @@ bool cb_remote_phone_remove(const char *id, uint8_t flat);
 // VK-01: the pairing of `flat` was removed or replaced - drop all its phones and tokens at once. Any task; the loop
 // does the work (the RemoteAuth belongs to it). Outdoor only.
 void cb_remote_drop_flat(uint8_t flat);
-// Indoor: tell a phone that it was set up (first push = proof the subscription works).
-void cb_remote_welcome(const char *key_hex);
+// Test push to one phone (status page "Test"). Indoor (FW-B-34, 1): the push carries the button "Ja, angekommen"; the
+// unit then polls the phone's command topic for up to 5 min - cb_remote_confirm_state() says how it went. A new test
+// replaces a waiting one. Web task. False for an invalid key.
+bool cb_remote_test(const char *id, const char *key_hex);
+enum class CbConfirm : uint8_t { None, Waiting, Ok, Timeout };
+CbConfirm cb_remote_confirm_state(char id[cb::kPhoneIdMax + 1], uint32_t *left_s);
+void cb_remote_confirm_forget(const char *id);  // phone removed: its result is no longer shown
+// FW-B-34 (4): "this subscription is invalid - delete it in ntfy" to one phone (removed) or to every stored phone
+// (before the factory reset). why: German, e.g. "Handy entfernt". Any task. The outdoor unit says it to the phones of
+// a flat by itself when that flat's pairing goes (cb_remote_drop_flat).
+void cb_remote_farewell(const char *key_hex, const char *why);
+void cb_remote_farewell_all(const char *why);
+// No push waiting or being sent - a planned restart waits for this (at most a few seconds, cb_setup).
+bool cb_remote_idle();
+// Indoor, FW-B-32: the outdoor unit removed our pairing - no outage notices any more.
+void cb_remote_unpaired();

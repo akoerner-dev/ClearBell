@@ -30,6 +30,33 @@ namespace {
 // everybody. Only the web server task uses it, so it needs no lock.
 cb::FailGuard pair_guard;
 std::atomic<bool> maint_request{false};  // web task -> loop (indoor: send the event)
+#if CB_IS_OUTDOOR
+// FW-B-32: before a pairing goes, the outdoor unit tells that indoor unit (web task -> loop -> event -> result).
+enum Bye : int { kByeIdle, kByeQueued, kByeSent, kByeOk, kByeFailed };
+std::atomic<int> bye_state{kByeIdle};
+std::atomic<uint8_t> bye_flat{0};
+
+// Web task. True if the indoor unit acknowledged within ~2.5 s.
+bool say_goodbye(cb::UnitId flat) {
+  int idle = kByeIdle;
+  if (!bye_state.compare_exchange_strong(idle, kByeQueued)) return false;
+  bye_flat = (uint8_t)flat;
+  bool ok = false;
+  for (int i = 0; i < 30; i++) {  // the event needs < 1.2 s incl. retries
+    int s = bye_state.load();
+    if (s == kByeOk || s == kByeFailed) {
+      ok = s == kByeOk;
+      break;
+    }
+    vTaskDelay(pdMS_TO_TICKS(100));
+  }
+  bye_state = kByeIdle;
+  cb_log("pairing: %s told about the removal - %s", cb::unit_name(flat), ok ? "acknowledged" : "NO answer");
+  return ok;
+}
+#else
+std::atomic<bool> bye_received{false};  // FW-B-32: event from the loop, handled in cb_pairing_poll
+#endif
 #if !CB_IS_OUTDOOR
 // Indoor: the flat name still has to reach the outdoor unit (FW-B-21) - after every start and every change.
 constexpr uint32_t kNameRetryMs = 30000;
@@ -230,6 +257,8 @@ esp_err_t h_pair_start(httpd_req_t *req) {
   // The confirmation proves the indoor unit really holds the key and serves this flat (constant time, RV-60).
   if (!ok || !cb::ct_equal(c, expect, 32))
     return reply(req, "502 Bad Gateway", false, "Bestätigung der Inneneinheit ungültig - nicht gekoppelt");
+  // FW-B-32: another indoor unit served this flat until now - tell it, so it stops its outage notice
+  if (p.has_key[(int)flat] && strcmp(p.peer_serial[(int)flat], id) != 0) say_goodbye(flat);
   // VK-01: the phones of the old pairing go FIRST (safe direction if the power fails in between), also from the
   // running RemoteAuth - the restart is 3 s away, no old token may work meanwhile.
   int dropped = cb_prov_phones_forget_flat((uint8_t)flat);
@@ -239,10 +268,10 @@ esp_err_t h_pair_start(httpd_req_t *req) {
   cb_log("pairing: %s paired with indoor unit %s - restarting", cb::unit_name(flat), id);
   if (dropped > 0)
     snprintf(msg, sizeof msg, "%s gekoppelt (Inneneinheit %s). %d bisherige(s) Handy(s) dieser Wohnung gelöscht – "
-             "an der Inneneinheit neu hinzufügen. Beide Einheiten starten neu.", cb::flat_key_label((uint8_t)flat), id,
-             dropped);
+             "an der Inneneinheit neu hinzufügen. Beide Einheiten starten neu, die Seite lädt gleich neu.",
+             cb::flat_key_label((uint8_t)flat), id, dropped);
   else
-    snprintf(msg, sizeof msg, "%s gekoppelt (Inneneinheit %s). Beide Einheiten starten neu.",
+    snprintf(msg, sizeof msg, "%s gekoppelt (Inneneinheit %s). Beide Einheiten starten neu, die Seite lädt gleich neu.",
              cb::flat_key_label((uint8_t)flat), id);
   cb_setup_reboot_in(3000);
   return reply(req, "200 OK", true, msg);
@@ -256,12 +285,17 @@ esp_err_t h_pair_remove(httpd_req_t *req) {
   if (!read_body(req, body, sizeof body) || !cb::form_get(body, "flat", f, sizeof f) || (strcmp(f, "eg") && strcmp(f, "og")))
     return reply(req, "400 Bad Request", false, "Wohnung fehlt");
   cb::UnitId flat = !strcmp(f, "eg") ? cb::UnitId::EG : cb::UnitId::OG;
+  bool told = say_goodbye(flat);  // FW-B-32: while the old key still works
   int dropped = cb_prov_phones_forget_flat((uint8_t)flat);  // VK-01: the flat's phones go with its pairing
-  cb_remote_drop_flat((uint8_t)flat);
+  cb_remote_drop_flat((uint8_t)flat);  // ... with a farewell push to each of them (FW-B-34, 4)
   cb_prov_remove_link(flat);
   cb_setup_reboot_in(2000);
-  char msg[120];
-  snprintf(msg, sizeof msg, "Kopplung entfernt – %d Handy(s) dieser Wohnung gelöscht – Neustart", dropped < 0 ? 0 : dropped);
+  char msg[300];
+  snprintf(msg, sizeof msg, "Kopplung entfernt – %d Handy(s) dieser Wohnung gelöscht – Neustart, die Seite lädt gleich "
+           "neu. %s", dropped < 0 ? 0 : dropped,
+           told ? "Die Inneneinheit weiß Bescheid und ist jetzt ungekoppelt."
+                : "Die Inneneinheit war nicht erreichbar: sie meldet sich vielleicht noch als „nicht erreichbar“ – "
+                  "dort neu koppeln oder Werkszustand.");
   return reply(req, "200 OK", true, msg);
 }
 
@@ -305,6 +339,22 @@ void cb_pairing_register(httpd_handle_t s) {
 }
 
 void cb_pairing_poll() {
+#if CB_IS_OUTDOOR
+  if (bye_state.load() == kByeQueued) {
+    bye_state = kByeSent;
+    if (!cb_net_send_event((cb::UnitId)bye_flat.load(), cb::EventCode::Unpaired, nullptr, 0)) bye_state = kByeFailed;
+  }
+#else
+  if (bye_received.exchange(false)) {
+    // FW-B-32: the outdoor unit removed our pairing. Its phones got the farewell from the outdoor unit (it held them
+    // too); here they and the link go, then a restart (mDNS "paired", LED, no outage notice).
+    cb_remote_unpaired();
+    int n = cb_prov_phones_forget_flat((uint8_t)cb_prov().role);
+    cb_prov_remove_link(cb::UnitId::Outdoor);
+    cb_log("pairing: the outdoor unit removed this pairing - %d phone(s) and the link dropped, restarting", n < 0 ? 0 : n);
+    cb_setup_reboot_in(3000);
+  }
+#endif
   if (maint_request.exchange(false)) {  // indoor: the web task asked, the loop owns the protocol engine
     bool ok = cb_net_send_event(cb::UnitId::Outdoor, cb::EventCode::MaintenanceRequest, nullptr, 0);
     cb_log("pairing: maintenance request to the outdoor unit %s", ok ? "sent" : "FAILED (not reachable?)");
@@ -327,7 +377,9 @@ void cb_pairing_poll() {
 }
 
 void cb_pairing_on_event_result(cb::UnitId, cb::EventCode code, bool ok) {
-#if !CB_IS_OUTDOOR
+#if CB_IS_OUTDOOR
+  if (code == cb::EventCode::Unpaired && bye_state.load() == kByeSent) bye_state = ok ? kByeOk : kByeFailed;
+#else
   if (code != cb::EventCode::FlatName || !name_in_flight) return;
   name_in_flight = false;
   if (ok) {
@@ -336,8 +388,6 @@ void cb_pairing_on_event_result(cb::UnitId, cb::EventCode code, bool ok) {
     name_pending = true;
     name_next_try = millis() + kNameRetryMs;
   }
-#else
-  (void)code, (void)ok;
 #endif
 }
 
@@ -383,6 +433,7 @@ void cb_pairing_on_event(cb::UnitId from, cb::EventCode code, const uint8_t *dat
     else if (changed) cb_log("pairing: %s is now called '%s'", cb::unit_name(from), cb_prov_flat_name(from));
   }
 #else
-  (void)from, (void)code, (void)data, (void)len;
+  (void)data, (void)len;
+  if (code == cb::EventCode::Unpaired && from == cb::UnitId::Outdoor) bye_received = true;
 #endif
 }

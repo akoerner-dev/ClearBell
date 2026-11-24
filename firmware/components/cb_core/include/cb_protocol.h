@@ -67,6 +67,8 @@ enum class EventCode : uint8_t {
   PhoneRemove = 3,         // indoor -> outdoor: phone id (10c)
   FlatName = 4,            // indoor -> outdoor: the flat's own name, UTF-8 without terminator, 0..40 bytes, 0 = none
                            // (FW-B-21). Sent after every start and after a change; the link decides the flat.
+  Unpaired = 5,            // outdoor -> indoor: this pairing is being removed (FW-B-32), no payload. Sent with the old
+                           // key just before the outdoor unit forgets it; the indoor unit drops its phones and link.
 };
 // Every answer names the session AND seq of the message it answers. That ties it to one message of one
 // boot of the asking unit, so a recorded answer from an earlier boot (where seq numbers repeat) can never

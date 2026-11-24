@@ -4,8 +4,10 @@
 //   1. A unit that is not set up opens the WiFi "ClearBell-<unit number>", WPA2 password = device code from the
 //      label. The label's QR code joins it directly (WIFI:T:WPA;S:...;P:...;;). Phones then show the setup page by
 //      themselves (captive portal: every DNS name answers 192.168.4.1), otherwise http://192.168.4.1.
-//   2. Choose the home WiFi from the list, password, indoor also the flat (EG/OG) -> "Speichern". The unit reboots,
-//      joins the WiFi and is reachable at http://clearbell-<unit number>.local.
+//   2. Choose the home WiFi from the list, password, indoor also the flat (EG/OG) -> "Speichern". Over the access point
+//      the unit first TRIES the WiFi (access point + station at once) and the page shows "Falsche Anmeldedaten", "nicht
+//      gefunden" or the real address as a link (SW-Entscheid_Adresse_in_Erfolgsmeldung, /setup/result); only a working
+//      WiFi is stored, the restart follows 45 s later. Reachable at http://clearbell-<unit number>.local as well.
 //
 // The access point is also opened
 //   - in setup mode (boot button 5 s twice) - e.g. to change the WiFi; closes after 30 min or a short press,

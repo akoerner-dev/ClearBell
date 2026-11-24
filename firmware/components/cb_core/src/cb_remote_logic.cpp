@@ -73,6 +73,48 @@ const char *remote_result_name(RemoteResult r) {
   return "?";
 }
 
+bool phone_abo_code(const char *key_hex, char out[kAboCodeLen + 1]) {
+  if (!key_hex || strlen(key_hex) != kPhoneKeyHex || !is_hex_lower(key_hex, kPhoneKeyHex)) return false;
+  static const char alpha[] = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";  // 32 characters, no 0/O, 1/I
+  uint8_t mac[kMacLen];
+  const char *label = "CBT1|abo";
+  Slice part = {reinterpret_cast<const uint8_t *>(label), strlen(label)};
+  if (!hmac_sha256(reinterpret_cast<const uint8_t *>(key_hex), kPhoneKeyHex, &part, 1, mac)) return false;
+  for (size_t i = 0; i < kAboCodeLen; i++) out[i] = alpha[mac[i] & 31];
+  out[kAboCodeLen] = 0;
+  return true;
+}
+
+namespace {
+// Skips leading white space, checks "CBOK " and returns the rest without trailing white space in rest[].
+bool confirm_rest(const char *msg, char *rest, size_t cap) {
+  if (!msg) return false;
+  while (*msg == ' ' || *msg == '\n' || *msg == '\r' || *msg == '\t') msg++;
+  size_t sl = strlen(kConfirmScheme);
+  if (strncmp(msg, kConfirmScheme, sl) != 0 || msg[sl] != ' ') return false;
+  msg += sl + 1;
+  size_t n = strlen(msg);
+  while (n && (msg[n - 1] == ' ' || msg[n - 1] == '\n' || msg[n - 1] == '\r' || msg[n - 1] == '\t')) n--;
+  if (n >= cap) return false;
+  memcpy(rest, msg, n);
+  rest[n] = 0;
+  return true;
+}
+}  // namespace
+
+bool is_confirm_message(const char *msg) {
+  if (!msg) return false;
+  while (*msg == ' ' || *msg == '\n' || *msg == '\r' || *msg == '\t') msg++;
+  size_t sl = strlen(kConfirmScheme);
+  return strncmp(msg, kConfirmScheme, sl) == 0 && msg[sl] == ' ';
+}
+
+bool confirm_matches(const char *msg, const char *nonce) {
+  char rest[kConfirmNonceHex + 2];
+  if (!nonce || strlen(nonce) != kConfirmNonceHex || !is_hex_lower(nonce, kConfirmNonceHex)) return false;
+  return confirm_rest(msg, rest, sizeof rest) && strcmp(rest, nonce) == 0;
+}
+
 bool valid_phone_id(const char *s) {
   if (!s) return false;
   size_t n = strlen(s);

@@ -102,8 +102,8 @@ void cb_led_poll() {
   switch (current) {
     case CbLed::MaintenanceBlink:
     case CbLed::SetupAlternate: phase = (t / 500) % 2; break;
-    case CbLed::ErrorFast:
-    case CbLed::ConfirmBlink: phase = (t / 100) % 2; break;
+    case CbLed::ErrorFast: phase = (t / 100) % 2; break;
+    case CbLed::ConfirmBlink: phase = (int)((t % 1000) / 100); break;  // FW-B-27: 10 steps of 100 ms per second
     default: break;
   }
   if (current == shown && phase == last_phase) return;
@@ -117,6 +117,8 @@ void cb_led_poll() {
     case CbLed::MaintenanceBlink: out(false, phase == 0); break;
     case CbLed::SetupAlternate: out(phase == 0, phase != 0); break;
     case CbLed::ErrorFast: out(phase == 0, false); break;
-    case CbLed::ConfirmBlink: out(phase == 0, phase == 0); break;
+    // FW-B-27: green double flash (on 100, off 100, on 100, off 700 ms) - no red at all, so it never reads as
+    // "fault" (red fast) and differs from maintenance (green 1 Hz) by its rhythm
+    case CbLed::ConfirmBlink: out(false, phase == 0 || phase == 2); break;
   }
 }

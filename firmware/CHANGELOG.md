@@ -5,6 +5,23 @@ Versionen nach SemVer; `version.txt` ist die Quelle. Solange die Portierung läu
 
 ## 0.2.0-dev (in Arbeit)
 
+### Befunde aus dem Sammeltermin (24.11.2026, FW-B-27 bis FW-B-34)
+
+- **Handys (FW-B-34):** Die Test-Nachricht hat einen Knopf „Ja, angekommen“; die Statusseite zeigt, ob er gedrückt
+  wurde (der einzige Beweis über die ganze Kette). Derselbe Handyname noch einmal ergibt den bestehenden Link statt
+  eines neuen Schlüssels. Das Abo heißt in ntfy „ClearBell <Wohnung> · <Handy> <Kennung>“, die Kennung steht auch auf
+  der Seite. Ungültig gewordene Abos (Handy entfernt, Kopplung entfernt, Werksreset) bekommen eine
+  Abschiedsnachricht.
+- **Entkoppeln (FW-B-32):** Die Außeneinheit sagt der Inneneinheit vorher Bescheid (neues Ereignis `Unpaired`); die
+  meldet danach keinen Ausfall mehr an die gelöschten Handys.
+- **Rückmeldungen (FW-B-28, FW-B-33):** Bestätigung eines Update-Schlüssels mit Ton und Meldung auf der Seite; die
+  Seite lädt nach Koppeln und Entfernen selbst neu.
+- **Einrichtung (SW-Entscheid_Adresse_in_Erfolgsmeldung):** Über den Zugangspunkt wird das WLAN erst probiert; falsches
+  Passwort und „nicht gefunden“ werden getrennt gemeldet, bei Erfolg zeigt die Seite die echte Adresse als Link.
+- **FW-B-27:** Das Warten auf den Boot-Taster blinkt doppelt grün statt rot-gelb. **FW-B-29:** Nach einem WLAN-Ausfall
+  der Inneneinheit selbst kommt eine zusammenfassende Meldung statt eines einzelnen „wieder erreichbar“.
+  **FW-B-30:** Die Anmeldeaufforderung (401) ist eine kleine Hilfeseite für das Anmeldefenster des Handys.
+
 ### TLS-Negativtest (21.11.2026, R35, SA 10.3)
 
 - **FW-B-26:** Zertifikate werden jetzt auch gegen ihre Gültigkeitsdaten geprüft (`CONFIG_MBEDTLS_HAVE_TIME_DATE`);
@@ -22,7 +39,8 @@ Versionen nach SemVer; `version.txt` ist die Quelle. Solange die Portierung läu
   Boot-Taster an der Außeneinheit oder in der Einrichtung. Die Wartung, die eine Inneneinheit öffnet, erlaubt nur
   Töne, Update und Pulslänge; die Statusseite zeigt das an.
 - **VK-04 (R32):** Eigener Update-Schlüssel und „nur eigener“ werden auf der Statusseite nur vorgemerkt und erst mit
-  einem kurzen Druck auf den Boot-Taster der Einheit innerhalb von 60 s wirksam (LED blinkt schnell gelb).
+  einem kurzen Druck auf den Boot-Taster der Einheit innerhalb von 60 s wirksam (LED blinkt schnell gelb; seit
+  FW-B-27 doppelt grün).
 - **VK-05 (R33):** Eigenes Passwort mindestens 10 Zeichen (gespeicherte kürzere gelten weiter); falsche Passwörter
   sperren nur noch ihren Absender, mit steigender Sperrzeit, kaputte Anfragen zählen nicht; Passwortwechsel nimmt den
   Etikett-Code auch mit Strichen oder klein geschrieben.

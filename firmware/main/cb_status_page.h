@@ -182,6 +182,10 @@ function settings(d,maint){
     b.onclick=async()=>{toast(await post('/settings',{vol:v}));load(true)};seg.append(b)}
   const tb=btn('Probeton','play','sec');tb.onclick=async()=>toast(await post('/settings',{tone:'1'}));c.append(seg,tb);
   return c}
+// FW-B-33: pairing and unpairing restart the unit - the page waits for it and reloads by itself (like the password
+// change and the update do), instead of showing the old state until the buyer reloads by hand.
+function reloadAfterRestart(){paused=true;let n=15;const tick=()=>{byId('err').textContent='Die Einheit startet neu – Seite lädt in '+n+' s neu …';
+  if(n--<=0)location.reload();else setTimeout(tick,1000)};setTimeout(tick,4000)}
 function pairing(p,maint,R,full){
   const c=card('link','Kopplung'),l=$('div','list');
   const item=(av,title,sub,state,txt)=>{const it=$('div','item');it.append($('span','av',av));const g=$('div','grow');g.append($('b','',title),$('span','',sub));
@@ -199,7 +203,7 @@ function pairing(p,maint,R,full){
     return c}
   for(const f of ['og','eg']){const ok=p[f+'_paired'],F=f.toUpperCase();
     const it=item(f==='og'?'↑':'↓',ok?flat(F):KEY[F],ok?KEY[F]+(p[f]?' · Nr. '+p[f]:''):'',ok?'c-ok':'c-mute',ok?'gekoppelt':'frei');
-    if(full&&ok){const b=btn('Entfernen','','danger sm');b.onclick=async()=>{if(confirm('Kopplung „'+flat(F)+'“ ('+KEY[F]+') wirklich entfernen?')){toast(await post('/pair/remove',{flat:f}));load(true)}};it.append(b)}}
+    if(full&&ok){const b=btn('Entfernen','','danger sm');b.onclick=async()=>{if(confirm('Kopplung „'+flat(F)+'“ ('+KEY[F]+') wirklich entfernen?')){const r=await post('/pair/remove',{flat:f});toast(r);if(r.ok)reloadAfterRestart()}};it.append(b)}}
   c.append(l);
   // R31: pairing - also the first one - only in maintenance opened by the button of the outdoor unit, or in setup
   if(!full){c.append($('p','mute',maint?'Koppeln geht nicht in der Wartung von innen: Boot-Taster an der Außeneinheit 5 s halten.':'Koppeln und Entfernen nur in der Wartung der Außeneinheit (Boot-Taster dort 5 s halten) – auch die erste Kopplung einer Wohnung.'));return c}
@@ -210,7 +214,7 @@ function pairing(p,maint,R,full){
       for(const u of r.units){const it=$('div');it.style.padding='12px 0';it.style.borderTop='1px solid var(--line)';
         it.append($('b','',u.name+' · '+u.key+' · Nr. '+u.id+(u.paired?' · schon gekoppelt':'')));
         const row=$('div','row');const code=$('input');code.placeholder='Gerätecode vom Etikett';code.autocomplete='off';code.spellcheck=false;
-        const k=btn('Koppeln','link');k.onclick=async()=>{k.disabled=true;const r=await post('/pair/start',{ip:u.ip,id:u.id,flat:u.flat,code:code.value});toast(r);k.disabled=false};
+        const k=btn('Koppeln','link');k.onclick=async()=>{k.disabled=true;const r=await post('/pair/start',{ip:u.ip,id:u.id,flat:u.flat,code:code.value});toast(r);if(r.ok)reloadAfterRestart();else k.disabled=false};
         row.append(code,k);it.append(row);list.append(it)}}
     catch(e){list.replaceChildren($('p','bad','Suche fehlgeschlagen.'))}b.disabled=false};
   c.append(b,list,$('p','mute','Gerätecode vom Etikett der Inneneinheit eingeben. Eine bestehende Kopplung wird dabei ersetzt; die Handys dieser Wohnung werden gelöscht.'));
@@ -220,14 +224,28 @@ function pairing(p,maint,R,full){
 // adding the same phone again would make a new key and spoil the first link.
 let lastLink=null;
 function linkOut(out,r){out.replaceChildren();if(!r.ok)return;const a=$('a','step','1 · ntfy: Nachrichten abonnieren'+(r.id?' ('+r.id+')':''));a.href=r.ntfy;a.prepend(ic('send'));
-  out.append(a,$('p','mute','Auf DEM Handy öffnen, das die Nachrichten bekommen soll. Vorher nur die App „ntfy“ installieren (Play Store, F-Droid oder App Store).'));
-  if(r.id){const t=btn('2 · Test an '+r.id+' senden','bell','sec');t.onclick=async()=>toast(await post('/phone/test',{name:r.id}));
-    out.append(t,$('p','mute','Kommt keine Test-Nachricht: den Link oben noch einmal öffnen und erneut testen – das Handy nicht neu hinzufügen.'))}}
+  out.append(a,$('p','mute','Auf DEM Handy öffnen, das die Nachrichten bekommen soll. Vorher nur die App „ntfy“ installieren (Play Store, F-Droid oder App Store).'+
+    (r.abo?' In ntfy heißt das Abo „ClearBell … · '+r.id+' '+r.abo+'“ – ältere Abos mit anderer Kennung bitte löschen.':'')));
+  if(r.id){const t=btn('2 · Test an '+r.id+' senden','bell','sec');t.onclick=()=>sendTest(r.id);
+    out.append(t,$('p','mute','Auf dem Handy in der Test-Nachricht „Ja, angekommen“ tippen – erst dann ist alles bestätigt. Kommt nichts: den Link oben noch einmal öffnen und erneut testen – das Handy nicht neu hinzufügen.'))}}
+// FW-B-34 (1): the test push carries "Ja, angekommen"; the unit watches for it up to 5 min. In maintenance the page
+// does not refresh by itself, so it asks every 3 s while a test waits and updates only that line.
+let confWatch=0;
+function confText(c){return c.state==='waiting'?['warn','Test gesendet – wartet auf „Ja, angekommen“ am Handy (noch '+c.left_s+' s)']:
+  c.state==='ok'?['ok','✓ Test bestätigt – Nachrichten kommen an']:
+  ['bad','Keine Bestätigung. In ntfy alte Abos „ClearBell … · '+c.id+'“ mit anderer Kennung löschen, „Link“ neu öffnen, erneut testen.']}
+function watchConf(){clearInterval(confWatch);confWatch=setInterval(async()=>{try{const r=await fetch('/status.json',{cache:'no-store'});if(!r.ok)return;
+  const c=((await r.json()).phones||{}).confirm;const e=byId('conf');if(!c){clearInterval(confWatch);confWatch=0;return}
+  if(e){const t=confText(c);e.className=t[0];e.textContent=t[1]}if(c.state!=='waiting'){clearInterval(confWatch);confWatch=0;if(!e)load(true)}}catch(e){}},3000)}
+async function sendTest(id){const r=await post('/phone/test',{name:id});toast(r);if(r.ok){await load(true);watchConf()}}
 function phones(ph,maint){
   const c=card('phone','Handys'),l=$('div','list'),out=$('div');const nokey=ph.nokey||[];
   for(const id of ph.list){const it=$('div','item');it.append($('span','av',id.slice(0,2).toUpperCase()));const g=$('div','grow');
-    g.append($('b','',id),$('span',nokey.includes(id)?'bad':'',nokey.includes(id)?'neu hinzufügen (alte Einrichtung)':'bekommt Klingel-Nachrichten'));it.append(g);
-    if(!nokey.includes(id)){const t=btn('Test','','sec sm');t.onclick=async()=>toast(await post('/phone/test',{name:id}));it.append(t)}
+    const abo=(ph.abo||{})[id];
+    g.append($('b','',id+(abo?' · '+abo:'')),$('span',nokey.includes(id)?'bad':'',nokey.includes(id)?'neu hinzufügen (alte Einrichtung)':'bekommt Klingel-Nachrichten'));
+    const cf=ph.confirm;if(cf&&cf.id===id){const t=confText(cf);const e=$('span',t[0],t[1]);e.id='conf';e.style.display='block';g.append(e);if(cf.state==='waiting'&&maint&&!confWatch)watchConf()}
+    it.append(g);
+    if(!nokey.includes(id)){const t=btn('Test','','sec sm');t.onclick=()=>sendTest(id);it.append(t)}
     if(maint){if(!nokey.includes(id)){const k=btn('Link','','sec sm');k.onclick=async()=>{const r=await post('/phone/link',{name:id});toast(r);if(r.ok)lastLink=r;linkOut(out,r)};it.append(k)}
       const b=btn('Entfernen','','danger sm');b.onclick=async()=>{if(confirm('Handy '+id+' entfernen? Es bekommt dann keine Nachrichten mehr und kann die Tür nicht öffnen.')){toast(await post('/phone/remove',{name:id}));load(true)}};it.append(b)}
     l.append(it)}
@@ -290,21 +308,33 @@ function maintCard(d){
     const s=btn('Speichern');s.onclick=async()=>toast(await post('/settings',{led:i.value}));row.append(i,s);
     b.append(row,$('p','mute','5–100 % (Standard 40). Grün und Rot sollen gleich hell wirken – am besten mit der Front davor.'))}));
   c.append(fold('pw','Passwort der Statusseite · '+(st.own_password?'eigenes':'Gerätecode'),b=>pwform(b,st.own_password)));
-  if(d.update&&d.update.keys)c.append(fold('keys','Update-Schlüssel · '+(d.update.keys.owner_only?'nur eigener':d.update.keys.owner?'Hersteller und eigener':'Hersteller'),b=>keyform(b,d.update.keys,d.update.owner_pending_s)));
+  if(d.update&&d.update.keys)c.append(fold('keys','Update-Schlüssel · '+(d.update.keys.owner_only?'nur eigener':d.update.keys.owner?'Hersteller und eigener':'Hersteller'),b=>keyform(b,d.update.keys,d.update)));
   c.append(fold('fw','Firmware aktualisieren · '+d.system.version,b=>fwform(b,d.system.image)));
   paused=true;return c}
-function keyform(s,k,pend){
+// FW-B-28: while a change waits for the boot button, the page asks the unit every 2 s (also in maintenance, where it
+// does not refresh by itself) and says how it ended: confirmed, failed, expired or dropped.
+let ownerWatch=0;
+const OWNER={applied:[true,'Bestätigt – die Änderung am Update-Schlüssel ist übernommen.'],failed:[false,'Taster gedrückt, aber Speichern fehlgeschlagen.'],
+ expired:[false,'Nicht bestätigt – 60 s ohne Druck auf den Boot-Taster, es wurde nichts geändert.'],dropped:[false,'Wartung beendet – die Änderung wurde verworfen.']};
+function watchOwner(seq){clearInterval(ownerWatch);ownerWatch=setInterval(async()=>{try{const r=await fetch('/status.json',{cache:'no-store'});if(!r.ok)return;
+  const u=(await r.json()).update||{};const e=byId('ownpend');
+  if(u.owner_pending_s>0){if(e)e.textContent='Wartet auf den Boot-Taster: noch '+u.owner_pending_s+' s – kurz drücken, sonst verfällt die Änderung.';return}
+  if(u.owner_result_seq===seq)return;clearInterval(ownerWatch);ownerWatch=0;const m=OWNER[u.owner_result]||[false,'Wartezeit vorbei.'];
+  toast({ok:m[0],message:m[1]});load(true)}catch(e){}},2000)}
+function keyform(s,k,u){const pend=u.owner_pending_s;
+  const arm=async data=>{const r=await post('/settings',data);toast(r);if(r.ok)watchOwner(u.owner_result_seq);load(true)};
+  if(pend&&!ownerWatch)watchOwner(u.owner_result_seq);
   const off=k.owner_only?' (abgeschaltet)':'';kv(s,'Hersteller, Hauptschlüssel',k.main+off,k.owner_only?'mute':'');
   kv(s,'Hersteller, Ersatzschlüssel',k.spare+off,k.owner_only?'mute':'');kv(s,'eigener Schlüssel',k.owner||'keiner');
   const i=$('input');i.placeholder='Kennung des eigenen Schlüssels (64 Hex-Zeichen)';i.autocomplete='off';i.maxLength=64;
   const b=btn('Eigenen Schlüssel speichern','','sec');
-  b.onclick=async()=>{if(!confirm(i.value?'Eigenen Update-Schlüssel eintragen?':'Eigenen Update-Schlüssel entfernen?'))return;toast(await post('/settings',{ownerkey:i.value||'-'}));load(true)};
+  b.onclick=async()=>{if(!confirm(i.value?'Eigenen Update-Schlüssel eintragen?':'Eigenen Update-Schlüssel entfernen?'))return;arm({ownerkey:i.value||'-'})};
   s.append(i,b);
   if(k.owner){const c=btn(k.owner_only?'Herstellerschlüssel wieder annehmen':'Nur noch eigenen Schlüssel annehmen','','sec');
     c.onclick=async()=>{if(!confirm(k.owner_only?'Updates des Herstellers wieder annehmen?':'Updates des Herstellers nicht mehr annehmen? Danach installiert diese Einheit nur noch Dateien, die mit Ihrem eigenen Schlüssel signiert sind.'))return;
-      toast(await post('/settings',{owneronly:k.owner_only?'0':'1'}));load(true)};s.append(c)}
-  s.append($('p','mute','Nur nötig, wenn Sie Firmware selbst bauen und signieren. Kennung: „cb.py besitzer-schluessel“ oder „espsecure.py digest_sbv2_public_key“. Leer speichern entfernt den eigenen Schlüssel; der Werksreset ebenfalls. Jede Änderung hier wird erst wirksam, wenn Sie danach innerhalb von 60 s kurz den Boot-Taster dieser Einheit drücken (die LED blinkt dann schnell gelb).'));
-  if(pend)s.append($('p','bad','Wartet auf den Boot-Taster: noch '+pend+' s – kurz drücken, sonst verfällt die Änderung.'))}
+      arm({owneronly:k.owner_only?'0':'1'})};s.append(c)}
+  s.append($('p','mute','Nur nötig, wenn Sie Firmware selbst bauen und signieren. Kennung: „cb.py besitzer-schluessel“ oder „espsecure.py digest_sbv2_public_key“. Leer speichern entfernt den eigenen Schlüssel; der Werksreset ebenfalls. Jede Änderung hier wird erst wirksam, wenn Sie danach innerhalb von 60 s kurz den Boot-Taster dieser Einheit drücken (die LED blinkt dann doppelt grün; die Einheit antwortet mit dem Bestätigungs- oder dem Fehlerton).'));
+  if(pend){const w=$('p','bad','Wartet auf den Boot-Taster: noch '+pend+' s – kurz drücken, sonst verfällt die Änderung.');w.id='ownpend';s.append(w)}}
 // MD5 (RFC 1321) for the password change: the new password never crosses the WiFi in clear text (cb_http_auth.h).
 function md5(str){const K=[],S=[7,12,17,22,5,9,14,20,4,11,16,23,6,10,15,21];for(let i=0;i<64;i++)K[i]=Math.floor(Math.abs(Math.sin(i+1))*4294967296)|0;
   const b=Array.from(str,c=>c.charCodeAt(0)&255),n=b.length;b.push(128);while(b.length%64!==56)b.push(0);

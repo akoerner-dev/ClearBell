@@ -27,6 +27,9 @@ void cb_net_begin();  // only call with valid provisioning
 void cb_net_poll();   // from loop()
 
 bool cb_net_wifi_up();
+// The setup page tries a new WiFi over the access point (cb_setup): while paused the station is left alone and counts as
+// down; resuming connects to the stored WiFi again at once. Loop only.
+void cb_net_pause_wifi(bool pause);
 bool cb_net_peer_reachable(cb::UnitId peer);
 // Outdoor: start ringing at a flat. false = failed at once (no WiFi, no free slot) -> error tone at once.
 bool cb_net_ring(cb::UnitId flat);

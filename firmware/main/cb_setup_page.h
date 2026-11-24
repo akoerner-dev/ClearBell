@@ -30,7 +30,7 @@ button.sec{background:var(--soft);color:var(--fg)}button.danger{background:var(-
 .radio input{width:auto;margin:0;accent-color:var(--acc)}.radio label:has(input:checked){border-color:var(--acc);background:var(--acc-soft)}
 .state{display:flex;gap:12px;align-items:flex-start}.state .i{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;flex:none}
 #out:empty,#rout:empty{display:none}#out,#rout{margin:12px 0 0;padding:10px 12px;border-radius:12px;font-size:14px}
-#out.ok,#rout.ok{background:var(--ok-soft)}#out.bad,#rout.bad{background:var(--bad-soft)}
+#out.ok,#rout.ok{background:var(--ok-soft)}#out.mute{background:var(--soft)}#out a{color:var(--acc);font-weight:650;word-break:break-all}#out.bad,#rout.bad{background:var(--bad-soft)}
 :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 </style></head><body><main>
 <div class="top"><div class="logo" id="logo"></div><div><h1>ClearBell einrichten</h1><div id="who">…</div></div></div>
@@ -56,7 +56,8 @@ const ic=n=>{const s=document.createElementNS('http://www.w3.org/2000/svg','svg'
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e};
 async function post(url,data){try{const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-ClearBell':'1'},body:new URLSearchParams(data)});return await r.json()}
   catch(e){return {ok:false,message:'Keine Verbindung zur Einheit.'}}}
-async function info(){const i=await (await fetch('/setup/info',{cache:'no-store'})).json();
+let serial='';
+async function info(){const i=await (await fetch('/setup/info',{cache:'no-store'})).json();serial=i.serial;
   $('who').textContent=(i.image==='aussen'?'Außeneinheit':'Inneneinheit')+' · Gerätenummer '+i.serial;
   $('rolebox').hidden=i.image!=='innen';
   if(i.role_key){const r=document.querySelector('input[name=role][value='+i.role_key+']');if(r)r.checked=true;$('fname').value=i.flat_name}
@@ -76,9 +77,23 @@ $('scanb').onclick=async()=>{const sb=$('scanb');sb.disabled=true;sb.lastChild.t
       d.onclick=()=>{$('ssid').value=w.ssid;$('pass').focus()};n.append(d)}
     if(!r.networks.length)n.append(el('p','mute','Keine Netze gefunden.'))}catch(e){n.append(el('p','bad','Suche fehlgeschlagen.'))}
   sb.disabled=false;sb.lastChild.textContent='WLAN-Netze suchen'};
-$('save').onclick=async()=>{const role=document.querySelector('input[name=role]:checked');
+// SW-Entscheid_Adresse_in_Erfolgsmeldung: over the access point the unit TRIES the WiFi first and reports wrong password /
+// not found / the real address. While it connects, the access point changes to the router's channel - the phone loses
+// it for a few seconds, so failed requests are simply repeated (up to 90 s).
+function result(msg,cls,url){const o=$('out');o.className=cls;o.replaceChildren(el('span','',msg));
+  if(url){const a=el('a','',url);a.href=url;o.append(el('br'),el('b','','Adresse: '),a)}}
+async function follow(){const t0=Date.now();
+  while(Date.now()-t0<90000){await new Promise(r=>setTimeout(r,1500));
+    try{const r=await (await fetch('/setup/result',{cache:'no-store'})).json();
+      if(r.state==='running'){result(r.message+' ('+Math.round((Date.now()-t0)/1000)+' s)','mute');continue}
+      if(r.state==='connected'){result(r.message,'ok',r.url);return}
+      result(r.message,'bad');$('save').disabled=false;return}
+    catch(e){result('Verbindung zur Einheit kurz weg (sie wechselt den Funkkanal) – frage weiter nach …','mute')}}
+  result('Keine Antwort mehr von der Einheit. Wenn das Handy inzwischen im Heim-WLAN ist: http://clearbell-'+serial+'.local versuchen.','bad');$('save').disabled=false}
+$('save').onclick=async()=>{const role=document.querySelector('input[name=role]:checked');$('save').disabled=true;
   const r=await post('/setup/save',{ssid:$('ssid').value,pass:$('pass').value,role:role?role.value:'',name:$('fname').value});
-  $('out').textContent=r.message;$('out').className=r.ok?'ok':'bad'};
+  $('out').textContent=r.message;$('out').className=r.ok?'ok':'bad';
+  if(r.ok&&r.trial){$('out').className='mute';follow()}else if(!r.ok)$('save').disabled=false};
 $('reset').onclick=async()=>{if(!confirm('Wirklich alles löschen und auf Werkszustand zurücksetzen?'))return;
   const r=await post('/setup/reset',{confirm:'JA'});$('rout').textContent=r.message;$('rout').className=r.ok?'ok':'bad'};
 $('logo').append(ic('bell'));info();

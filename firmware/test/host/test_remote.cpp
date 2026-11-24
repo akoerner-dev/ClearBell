@@ -244,3 +244,38 @@ TEST(remote_remove_flat_drops_all_phones_of_that_flat) {
   CHECK_EQ(a.remove_flat(OG), 0);                          // idempotent
   CHECK_EQ(a.remove_flat(1), 0);                           // the outdoor id is no flat
 }
+
+TEST(remote_abo_code_matches_python_reference) {
+  // python: alphabet "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"[b & 31] for the first 3 bytes of
+  //         hmac.new(key.encode(), b"CBT1|abo", sha256).digest()
+  char c[kAboCodeLen + 1];
+  CHECK(phone_abo_code(kKeyH1, c));
+  CHECK(strcmp(c, "SDE") == 0);
+  CHECK(phone_abo_code(kKeyH2, c));
+  CHECK(strcmp(c, "MWE") == 0);
+  CHECK(!phone_abo_code("abc", c));
+  CHECK(!phone_abo_code(nullptr, c));
+}
+
+TEST(remote_confirm_message_fw_b_34) {
+  CHECK(confirm_matches("CBOK 0a1b2c3d", "0a1b2c3d"));
+  CHECK(confirm_matches(" CBOK 0a1b2c3d\n", "0a1b2c3d"));   // ntfy / phones may add white space
+  CHECK(!confirm_matches("CBOK 0a1b2c3e", "0a1b2c3d"));      // other test
+  CHECK(!confirm_matches("CBOK 0a1b2c3d9", "0a1b2c3d"));     // longer
+  CHECK(!confirm_matches("CBOK0a1b2c3d", "0a1b2c3d"));
+  CHECK(!confirm_matches("CBR2 0a1b2c3d", "0a1b2c3d"));
+  CHECK(!confirm_matches("CBOK 0a1b2c3d", "0A1B2C3D"));      // the nonce is lower-case hex
+  CHECK(!confirm_matches(nullptr, "0a1b2c3d"));
+  CHECK(is_confirm_message("CBOK 0a1b2c3d"));
+  CHECK(is_confirm_message("\nCBOK x"));
+  CHECK(!is_confirm_message("CBR2 0123"));
+  CHECK(!is_confirm_message("CBOKAY"));
+  CHECK(!is_confirm_message(nullptr));
+  // the outdoor unit's check refuses it anyway (scheme) - it must only not count it as an attack
+  RemoteAuth a;
+  CHECK(a.set_phone(0, "H1", kKeyH1, EG));
+  int slot = -1;
+  char push[kTopicLen + 1], c[kTopicLen + 1];
+  CHECK(phone_topics(kKeyH1, push, c));
+  CHECK(a.check(c, "CBOK 0a1b2c3d", 1000, &slot) != RemoteResult::Ok);
+}

@@ -59,6 +59,16 @@ inline bool pmf_required(PmfLearned l) { return l != PmfLearned::No; }
 // State after one connection attempt that was made with pmf_required(l).
 PmfLearned pmf_after_attempt(PmfLearned l, bool connected, uint8_t reason);
 
+// ---- WiFi trial on the setup page (SW-Entscheid_Adresse_in_Erfolgsmeldung, 22.11.2026) ---------------------------
+// Over the access point the entered WiFi is TRIED first (access point and station at the same time); only a working
+// one is stored. The page then shows the unit's real address as a link. The buyer wants the two failures told apart:
+// wrong password -> "Falsche Anmeldedaten", form stays; network not found -> its own message.
+enum class WifiTrial : uint8_t { Running, Connected, WrongPassword, NotFound, Failed };
+constexpr uint32_t kWifiTrialMs = 25000;         // no IP within this time -> Failed
+constexpr uint32_t kWifiTrialRebootMs = 45000;   // after success: time to read the address, then the restart
+// Verdict for a disconnect reason (ESP-IDF wifi_err_reason_t) during the trial.
+WifiTrial wifi_trial_verdict(uint8_t reason);
+
 // ---- Flat names (FW-B-21) --------------------------------------------------------------------------------------
 // Internally the two flats stay the two bell keys of the outdoor unit: UnitId EG (2) = key at the BOTTOM, OG (3) =
 // key at the TOP (the usual order on a door panel: upper flat, upper key; mounting decides, the wire numbers stay).

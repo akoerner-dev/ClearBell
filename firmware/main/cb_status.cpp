@@ -39,6 +39,20 @@
 namespace {
 
 constexpr const char *kUser = "clearbell";
+
+// FW-B-30: body of every 401. Plain, small, no script (the CSP forbids nothing here, there is nothing to forbid).
+constexpr const char *kLoginHelpPage =
+    "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" "
+    "content=\"width=device-width,initial-scale=1\"><title>ClearBell – Anmeldung</title></head>"
+    "<body style=\"font:16px/1.5 system-ui,sans-serif;max-width:32em;margin:2em auto;padding:0 1em\">"
+    "<h1 style=\"font-size:1.3em\">ClearBell: Anmeldung nötig</h1>"
+    "<p>Benutzer <b>clearbell</b>, Passwort: das Passwort der Statusseite (ohne eigenes Passwort der Gerätecode "
+    "vom Etikett).</p>"
+    "<p><b>Kein Anmeldefenster?</b> Das kleine Fenster „Im Netzwerk anmelden“ kann keine Passwörter abfragen. "
+    "Bitte dieses Fenster schließen, mit dem WLAN der Einheit verbunden bleiben, den Browser (Chrome, Safari, "
+    "Firefox) öffnen und genau <b>http://192.168.4.1</b> eingeben – mit <b>http://</b> davor.</p>"
+    "<p>Im Heimnetz: <b>http://</b> und die Adresse der Einheit, z. B. http://clearbell-…local.</p>"
+    "</body></html>";
 constexpr size_t kMaxUpload = 1024 * 1024;  // 1 MB = 11 s mono at 44.1 kHz; the ring tone has 0.3 MB
 constexpr size_t kFsReserve = 32 * 1024;    // keep this much of LittleFS free
 constexpr const char *kTmpFile = "/upload.tmp";
@@ -227,7 +241,11 @@ bool authorize(httpd_req_t *req) {
   auth.challenge(now_s(), r == cb::AuthResult::Stale, www_auth, sizeof www_auth);
   httpd_resp_set_status(req, "401 Unauthorized");
   httpd_resp_set_hdr(req, "WWW-Authenticate", www_auth);
-  httpd_resp_sendstr(req, "Anmeldung noetig: Benutzer clearbell, Geraetepasswort der Einheit.\n");
+  // FW-B-30: the login window of a phone that joined the access point ("In ClearBell-... anmelden", captive portal)
+  // cannot ask for a Digest password and shows only this body - so the body says what to do. Browsers that can ask
+  // show their own dialog and never this text.
+  httpd_resp_set_type(req, "text/html; charset=utf-8");
+  httpd_resp_sendstr(req, kLoginHelpPage);
   return false;
 }
 

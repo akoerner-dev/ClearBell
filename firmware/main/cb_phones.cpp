@@ -93,18 +93,22 @@ esp_err_t link_reply(httpd_req_t *req, const char *msg, const char *id, const ch
   char push[cb::kTopicLen + 1], cmd[cb::kTopicLen + 1];
   if (!cb::phone_topics(key_hex, push, cmd))
     return answer(req, "409 Conflict", false, "Für dieses Handy fehlt der Schlüssel – bitte entfernen und neu hinzufügen.");
-  char ntfy[220], web[80], display[64], enc[160];
-  // FW-B-21: the subscription carries the flat's own name ("ClearBell Familie Müller")
-  snprintf(display, sizeof display, "ClearBell %s", cb_prov_flat_name(cb_prov().role));
+  char ntfy[420], web[80], display[96], enc[300], abo[cb::kAboCodeLen + 1];
+  // FW-B-21: the subscription carries the flat's own name; FW-B-34 (3): plus phone and check mark, so an old
+  // subscription of the same phone (other key, other mark) can be told apart in the app: "ClearBell Familie Müller
+  // · Anna SDE"
+  if (!cb::phone_abo_code(key_hex, abo)) abo[0] = 0;
+  snprintf(display, sizeof display, "ClearBell %s · %s %s", cb_prov_flat_name(cb_prov().role), id, abo);
   if (!cb::url_encode(display, enc, sizeof enc)) snprintf(enc, sizeof enc, "ClearBell");
   snprintf(ntfy, sizeof ntfy, "ntfy://ntfy.sh/%s?display=%s", push, enc);
   snprintf(web, sizeof web, "https://ntfy.sh/%s", push);
-  char b[600];
+  char b[800];
   cb::Json j(b, sizeof b);
   j.begin_obj();
   j.kv("ok", true);
   j.kv("message", msg);
   j.kv("id", id);  // FW-B-23: the page offers "Test" for exactly this phone next to the link
+  j.kv("abo", abo);
   j.kv("ntfy", ntfy);
   j.kv("web", web);
   j.end_obj();
@@ -124,8 +128,14 @@ esp_err_t h_add(httpd_req_t *req) {
   if (!read_name(req, id)) return answer(req, "400 Bad Request", false, "Name: 1–8 Zeichen, Buchstaben, Ziffern, Bindestrich");
   int n = 0;
   for (int i = 0; i < CbProvisioning::kPhoneSlots; i++) n += cb_prov().phone_id[i][0] && cb_prov().phone_flat[i] == own_flat();
-  if (find_phone(id) < 0 && n >= cb::kPhonesPerFlat)
+  int have = find_phone(id);
+  if (have < 0 && n >= cb::kPhonesPerFlat)
     return answer(req, "409 Conflict", false, "schon 4 Handys – erst eines entfernen");
+  // FW-B-34 (2): the same name again keeps the key - a new key would make the first link (maybe already
+  // subscribed) silently useless. A new key only via "Entfernen" and adding again.
+  if (have >= 0 && cb_prov().phone_key[have][0])
+    return link_reply(req, "Dieses Handy gibt es schon – hier sein bestehender Link (der Schlüssel bleibt gleich). "
+                      "Neu einrichten nur über „Entfernen“ und neu hinzufügen.", id, cb_prov().phone_key[have]);
 
   uint8_t key[32], nonce[cb::kPairNonceLen] = {}, payload[47] = {};
   cb::random_bytes(key, sizeof key);
@@ -163,8 +173,8 @@ esp_err_t h_test(httpd_req_t *req) {
   if (slot < 0) return answer(req, "404 Not Found", false, "Handy nicht gefunden");
   if (!cb_prov().phone_key[slot][0])
     return answer(req, "409 Conflict", false, "Für dieses Handy fehlt der Schlüssel – bitte entfernen und neu hinzufügen.");
-  cb_remote_welcome(cb_prov().phone_key[slot]);
-  return answer(req, "200 OK", true, "Test-Nachricht ist unterwegs – kommt sie auf dem Handy an?");
+  cb_remote_test(id, cb_prov().phone_key[slot]);
+  return answer(req, "200 OK", true, "Test-Nachricht ist unterwegs – auf dem Handy „Ja, angekommen“ tippen.");
 }
 
 esp_err_t h_remove(httpd_req_t *req) {
@@ -177,6 +187,9 @@ esp_err_t h_remove(httpd_req_t *req) {
   memcpy(payload, id, strlen(id));
   if (!run_event(cb::EventCode::PhoneRemove, payload, sizeof payload))
     return answer(req, "504 Gateway Timeout", false, "Außeneinheit hat nicht bestätigt – erreichbar?");
+  int slot = find_phone(id);
+  if (slot >= 0 && cb_prov().phone_key[slot][0]) cb_remote_farewell(cb_prov().phone_key[slot], "Handy entfernt");  // FW-B-34 (4)
+  cb_remote_confirm_forget(id);
   cb_prov_phone_forget(id, own_flat());
   cb_log("phones: phone '%s' removed - its topics are dropped from now on", id);
   return answer(req, "200 OK", true, "Handy entfernt – es bekommt keine Nachrichten mehr und kann die Tür nicht öffnen.");
@@ -268,5 +281,26 @@ void cb_phones_json(cb::Json &j) {
   for (int i = 0; i < CbProvisioning::kPhoneSlots; i++)
     if (p.phone_id[i][0] && !p.phone_key[i][0]) j.str(p.phone_id[i]);
   j.end_arr();
+#if !CB_IS_OUTDOOR
+  j.key("abo");  // FW-B-34 (3): check mark per phone, the same as in the ntfy subscription name
+  j.begin_obj();
+  for (int i = 0; i < CbProvisioning::kPhoneSlots; i++) {
+    char abo[cb::kAboCodeLen + 1];
+    if (p.phone_id[i][0] && p.phone_flat[i] == (uint8_t)p.role && cb::phone_abo_code(p.phone_key[i], abo))
+      j.kv(p.phone_id[i], abo);
+  }
+  j.end_obj();
+  char cid[cb::kPhoneIdMax + 1];
+  uint32_t left = 0;
+  CbConfirm st = cb_remote_confirm_state(cid, &left);
+  if (st != CbConfirm::None) {  // FW-B-34 (1): the last test push and whether the phone answered
+    j.key("confirm");
+    j.begin_obj();
+    j.kv("id", cid);
+    j.kv("state", st == CbConfirm::Waiting ? "waiting" : st == CbConfirm::Ok ? "ok" : "timeout");
+    j.kv("left_s", (unsigned long)left);
+    j.end_obj();
+  }
+#endif
   j.end_obj();
 }

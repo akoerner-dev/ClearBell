@@ -49,6 +49,23 @@ const char *remote_result_name(RemoteResult r);
 bool phone_topics(const char *key_hex, char push[kTopicLen + 1], char cmd[kTopicLen + 1]);
 bool valid_phone_id(const char *id);
 
+// FW-B-34 (3): short check mark of a phone's subscription, 3 characters of [2-9A-HJ-NP-Z] derived from its key
+// (HMAC label "CBT1|abo"). Shown on the status page AND in the ntfy subscription name ("ClearBell <flat> · Anna
+// K7Q"), so an old subscription of the same phone (other key) is recognisable in the app. Reveals nothing usable
+// about the topics. False for an invalid key.
+constexpr size_t kAboCodeLen = 3;
+bool phone_abo_code(const char *key_hex, char out[kAboCodeLen + 1]);
+
+// FW-B-34 (1): the test push carries a button "Ja, angekommen" that POSTs "CBOK <8 hex>" to the phone's command
+// topic. The indoor unit polls that topic and so learns that the whole chain works. The outdoor unit reads the same
+// topics for door commands and must drop these messages silently (no counter, no log line per message).
+constexpr const char *kConfirmScheme = "CBOK";
+constexpr size_t kConfirmNonceHex = 8;
+// True if msg (surrounding whitespace allowed) is "CBOK <nonce>" for exactly this nonce (8 lower-case hex).
+bool confirm_matches(const char *msg, const char *nonce);
+// True for any "CBOK ..." message (outdoor: ignore).
+bool is_confirm_message(const char *msg);
+
 class RemoteAuth {
  public:
   // flat: the UnitId value of EG (2) or OG (3). Same id in the same flat = replaced (new phone of the same person).

@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <DNSServer.h>
 #include <WiFi.h>
+#include <esp_wifi.h>
 #include <lwip/sockets.h>
 
 #include <atomic>
@@ -18,6 +19,7 @@
 #include "cb_modes.h"
 #include "cb_net.h"
 #include "cb_provisioning.h"
+#include "cb_remote.h"
 #include "cb_setup_logic.h"
 #include "cb_setup_page.h"
 #include "cb_status.h"
@@ -34,6 +36,100 @@ bool ap_forced = false;          // console setup-ap on
 uint32_t wifi_lost_since = 0;    // 0 = WiFi up
 std::atomic<uint32_t> reboot_at{0};
 char ap_ssid[24];
+// Factory reset: farewell pushes first (FW-B-34, 4), the erase follows in the loop once they are out (max. 10 s)
+std::atomic<bool> factory_pending{false};
+uint32_t factory_since = 0;
+constexpr uint32_t kFarewellWaitMs = 10000;
+constexpr uint32_t kRebootPushWaitMs = 8000;  // a planned restart waits this long at most for pushes still going out
+
+// ---- WiFi trial (SW-Entscheid_Adresse_in_Erfolgsmeldung) -------------------------------------------------------------
+// The web task fills the request, the loop runs the trial; the WiFi event task only notes what happened.
+portMUX_TYPE trial_lock = portMUX_INITIALIZER_UNLOCKED;
+std::atomic<bool> trial_request{false};
+std::atomic<int> trial_state{-1};  // -1 = none yet, else (int)cb::WifiTrial
+char trial_ssid[40], trial_pass[72], trial_ip[16];  // same sizes as the form fields (checked: <= 32 / 63)
+uint32_t trial_started = 0;
+std::atomic<bool> trial_got_ip{false};
+std::atomic<int> trial_reason{0};  // last disconnect reason, 0 = none
+
+void wipe(char *b, size_t n) {
+  volatile char *v = b;
+  while (n--) *v++ = 0;
+}
+
+void on_trial_event(arduino_event_id_t e, arduino_event_info_t info) {
+  if (trial_state.load() != (int)cb::WifiTrial::Running || trial_request.load()) return;
+  if (e == ARDUINO_EVENT_WIFI_STA_GOT_IP) trial_got_ip = true;
+  else if (e == ARDUINO_EVENT_WIFI_STA_DISCONNECTED && info.wifi_sta_disconnected.reason != 8)  // 8 = our own disconnect
+    trial_reason = info.wifi_sta_disconnected.reason ? info.wifi_sta_disconnected.reason : 255;
+}
+
+void trial_start() {
+  char ssid[40], pass[72];
+  taskENTER_CRITICAL(&trial_lock);
+  memcpy(ssid, trial_ssid, sizeof ssid);
+  memcpy(pass, trial_pass, sizeof pass);
+  taskEXIT_CRITICAL(&trial_lock);
+  cb_net_pause_wifi(true);
+  WiFi.setAutoReconnect(false);
+  WiFi.mode(WIFI_AP_STA);
+  esp_wifi_set_country_code("DE", false);
+  WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
+  WiFi.disconnect(false, false);
+  trial_got_ip = false;
+  trial_reason = 0;
+  trial_ip[0] = 0;
+  trial_started = millis();
+  // The access point moves to the router's channel when the station connects - the phone reconnects to it by
+  // itself, the page keeps asking for the result meanwhile.
+  WiFi.begin(ssid, pass[0] ? pass : nullptr);
+  wipe(pass, sizeof pass);
+  cb_log("setup: trying WiFi '%s' (access point stays on)", ssid);
+}
+
+void trial_end(cb::WifiTrial v, uint8_t reason) {
+  uint32_t now = millis();
+  if (v == cb::WifiTrial::Connected) {
+    snprintf(trial_ip, sizeof trial_ip, "%s", WiFi.localIP().toString().c_str());
+    char ssid[40], pass[72];
+    taskENTER_CRITICAL(&trial_lock);
+    memcpy(ssid, trial_ssid, sizeof ssid);
+    memcpy(pass, trial_pass, sizeof pass);
+    taskEXIT_CRITICAL(&trial_lock);
+    bool saved = cb_prov_set_wifi(ssid, pass);
+    wipe(pass, sizeof pass);
+    if (!saved) {
+      cb_log("setup: WiFi '%s' works, but saving FAILED", ssid);
+      v = cb::WifiTrial::Failed;
+    } else {
+      cb_log("setup: WiFi '%s' works (IP %s, %lu ms) - saved, restart in %lu s", ssid, trial_ip,
+             (unsigned long)(now - trial_started), (unsigned long)(cb::kWifiTrialRebootMs / 1000));
+      cb_setup_reboot_in(cb::kWifiTrialRebootMs);
+    }
+  }
+  if (v != cb::WifiTrial::Connected) {
+    WiFi.disconnect(false, false);
+    cb_log("setup: WiFi trial failed - %s (reason %u)",
+           v == cb::WifiTrial::WrongPassword ? "wrong password"
+           : v == cb::WifiTrial::NotFound    ? "network not found"
+                                             : "no connection",
+           (unsigned)reason);
+    cb_net_pause_wifi(false);
+  }
+  taskENTER_CRITICAL(&trial_lock);
+  wipe(trial_pass, sizeof trial_pass);
+  taskEXIT_CRITICAL(&trial_lock);
+  trial_state = (int)v;
+}
+
+void trial_poll(uint32_t now) {
+  if (trial_request.exchange(false)) trial_start();
+  if (trial_state.load() != (int)cb::WifiTrial::Running) return;
+  if (trial_got_ip.load()) return trial_end(cb::WifiTrial::Connected, 0);
+  int r = trial_reason.exchange(0);
+  if (r) return trial_end(cb::wifi_trial_verdict((uint8_t)r), (uint8_t)r);
+  if (now - trial_started > cb::kWifiTrialMs) trial_end(cb::WifiTrial::Failed, 0);
+}
 
 void start_ap() {
   const CbProvisioning &p = cb_prov();
@@ -56,6 +152,7 @@ void start_ap() {
 }
 
 void stop_ap() {
+  if (trial_state.load() == (int)cb::WifiTrial::Running) return;  // the trial needs the access point
   dns.stop();
   WiFi.softAPdisconnect(true);
   if (cb_prov().valid) WiFi.mode(WIFI_STA);
@@ -210,6 +307,30 @@ esp_err_t h_save(httpd_req_t *req) {
 #else
   (void)role, (void)raw, (void)name;
 #endif
+  // SW-Entscheid_Adresse_in_Erfolgsmeldung: over the access point the WiFi is tried first; the page asks
+  // /setup/result and shows wrong password / not found / the real address. From the home network (setup mode) the
+  // trial would cut the page off its own connection - there it is stored and the unit restarts as before.
+  if (cb_setup_from_ap(req)) {
+    if (trial_state.load() == (int)cb::WifiTrial::Running || trial_request.load())
+      return reply(req, "409 Conflict", false, "Es läuft schon ein Verbindungsversuch – bitte kurz warten.");
+    taskENTER_CRITICAL(&trial_lock);
+    snprintf(trial_ssid, sizeof trial_ssid, "%s", ssid);
+    snprintf(trial_pass, sizeof trial_pass, "%s", pass);
+    taskEXIT_CRITICAL(&trial_lock);
+    wipe(pass, sizeof pass);
+    trial_request = true;  // the loop starts the attempt; the page polls /setup/result at once
+    trial_state = (int)cb::WifiTrial::Running;
+    char m[200];
+    snprintf(m, sizeof m, "Verbinde mit „%s“ … (bis zu 30 s; die Verbindung zum Handy kann kurz abreißen)", ssid);
+    char buf[300];
+    cb::Json j(buf, sizeof buf);
+    j.begin_obj();
+    j.kv("ok", true);
+    j.kv("trial", true);
+    j.kv("message", m);
+    j.end_obj();
+    return send_json(req, "200 OK", j);
+  }
   if (!cb_prov_set_wifi(ssid, pass)) return reply(req, "500 Internal Server Error", false, "Speichern fehlgeschlagen");
   cb_log("setup: WiFi '%s' saved over the setup page - rebooting", ssid);
   char msg[160];
@@ -217,6 +338,54 @@ esp_err_t h_save(httpd_req_t *req) {
            "http://clearbell-%s.local", ssid, cb_prov().serial);
   cb_setup_reboot_in(3000);
   return reply(req, "200 OK", true, msg);
+}
+
+// SW-Entscheid_Adresse_in_Erfolgsmeldung: how the WiFi trial went. German messages, the wording the buyer asked for.
+esp_err_t h_result(httpd_req_t *req) {
+  if (!cb_status_authorize(req)) return ESP_OK;
+  int st = trial_state.load();
+  char ssid[40], m[300], url[40] = "";
+  taskENTER_CRITICAL(&trial_lock);
+  memcpy(ssid, trial_ssid, sizeof ssid);
+  taskEXIT_CRITICAL(&trial_lock);
+  const char *state = "none";
+  m[0] = 0;
+  switch (st) {
+    case (int)cb::WifiTrial::Running:
+      state = "running";
+      snprintf(m, sizeof m, "Verbinde mit „%s“ …", ssid);
+      break;
+    case (int)cb::WifiTrial::Connected:
+      state = "connected";
+      snprintf(url, sizeof url, "http://%s", trial_ip);
+      snprintf(m, sizeof m, "Verbunden mit „%s“. Die Einheit startet in %lu s neu. Danach im Heim-WLAN öffnen: %s "
+               "(oder http://clearbell-%s.local). Das Handy dazu wieder ins Heim-WLAN wechseln.", ssid,
+               (unsigned long)(cb::kWifiTrialRebootMs / 1000), url, cb_prov().serial);
+      break;
+    case (int)cb::WifiTrial::WrongPassword:
+      state = "wrong_password";
+      snprintf(m, sizeof m, "Falsche Anmeldedaten: „%s“ hat das Passwort nicht angenommen. Bitte prüfen und neu "
+               "versuchen.", ssid);
+      break;
+    case (int)cb::WifiTrial::NotFound:
+      state = "not_found";
+      snprintf(m, sizeof m, "WLAN „%s“ nicht gefunden: Namen prüfen (Groß-/Kleinschreibung), und ob der Router in "
+               "Reichweite ist und 2,4 GHz anbietet.", ssid);
+      break;
+    case (int)cb::WifiTrial::Failed:
+      state = "failed";
+      snprintf(m, sizeof m, "Keine Verbindung mit „%s“ zustande gekommen. Bitte neu versuchen.", ssid);
+      break;
+  }
+  char buf[480];
+  cb::Json j(buf, sizeof buf);
+  j.begin_obj();
+  j.kv("state", state);
+  j.kv("ok", st == (int)cb::WifiTrial::Connected);
+  j.kv("message", m);
+  j.kv("url", url);
+  j.end_obj();
+  return send_json(req, "200 OK", j);
 }
 
 esp_err_t h_reset(httpd_req_t *req) {
@@ -305,18 +474,27 @@ void cb_setup_begin() {
                  cmd_setup_name);
   cb_console_add("wifi-scan", "list the WiFi networks in range (incl. setup access points)", cmd_wifi_scan);
   cb_console_add("setup-ap", "setup-ap on|auto - TEST: force the setup access point", cmd_setup_ap);
+  WiFi.onEvent(on_trial_event);  // SW-Entscheid: the WiFi trial listens itself (cb_net may not run yet)
   if (!cb_prov().valid) start_ap();  // first setup: also brings up the network stack for the web server
   wifi_lost_since = millis();
 }
 
 void cb_setup_poll() {
   uint32_t now = millis();
+  if (factory_pending.load() && (cb_remote_idle() || now - factory_since > kFarewellWaitMs)) {
+    factory_pending = false;
+    cb_prov_factory_reset();
+    cb_audio_restore_factory_tones();
+    cb_setup_reboot_in(1500);
+  }
   uint32_t r = reboot_at.load();
-  if (r && (int32_t)(now - r) >= 0) {
+  // a farewell or restart notice still on its way may delay the restart a few seconds (FW-B-34, 4)
+  if (r && (int32_t)(now - r) >= 0 && (cb_remote_idle() || (int32_t)(now - r) >= (int32_t)kRebootPushWaitMs)) {
     cb_log("setup: rebooting");
     delay(50);
     esp_restart();
   }
+  trial_poll(now);
   bool up = cb_prov().valid && cb_net_wifi_up();
   if (up) wifi_lost_since = 0;
   else if (!wifi_lost_since) wifi_lost_since = now ? now : 1;
@@ -337,6 +515,8 @@ void cb_setup_register(httpd_handle_t s) {
   httpd_uri_t scan = {"/setup/scan", HTTP_GET, h_scan, nullptr};
   httpd_uri_t save = {"/setup/save", HTTP_POST, h_save, nullptr};
   httpd_uri_t reset = {"/setup/reset", HTTP_POST, h_reset, nullptr};
+  httpd_uri_t result = {"/setup/result", HTTP_GET, h_result, nullptr};
+  httpd_register_uri_handler(s, &result);
   httpd_register_uri_handler(s, &info);
   httpd_register_uri_handler(s, &scan);
   httpd_register_uri_handler(s, &save);
@@ -361,9 +541,11 @@ bool cb_setup_ap_auto() {
 }
 
 void cb_setup_factory_reset() {
-  cb_prov_factory_reset();
-  cb_audio_restore_factory_tones();
-  cb_setup_reboot_in(1500);
+  if (factory_pending.exchange(true)) return;
+  factory_since = millis();
+  cb_remote_farewell_all("die Einheit wurde auf Werkszustand gesetzt");  // FW-B-34 (4), before the keys are gone
+  cb_log("setup: factory reset - farewell to the stored phones first (max. %lu s)",
+         (unsigned long)(kFarewellWaitMs / 1000));
 }
 
 void cb_setup_reboot_in(uint32_t ms) {

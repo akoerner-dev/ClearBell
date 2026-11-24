@@ -175,6 +175,23 @@ PmfLearned pmf_after_attempt(PmfLearned l, bool connected, uint8_t reason) {
   return reason == kReasonNoCompatibleSecurity ? PmfLearned::No : PmfLearned::Unknown;
 }
 
+WifiTrial wifi_trial_verdict(uint8_t reason) {
+  switch (reason) {
+    case 2:    // AUTH_EXPIRE
+    case 15:   // 4WAY_HANDSHAKE_TIMEOUT - the usual answer to a wrong WPA2 password
+    case 202:  // AUTH_FAIL
+    case 204:  // HANDSHAKE_TIMEOUT
+      return WifiTrial::WrongPassword;
+    case 201:  // NO_AP_FOUND
+    case 210:  // NO_AP_FOUND_W_COMPATIBLE_SECURITY
+    case 211:  // NO_AP_FOUND_IN_AUTHMODE_THRESHOLD
+    case 212:  // NO_AP_FOUND_IN_RSSI_THRESHOLD
+      return WifiTrial::NotFound;
+    default:
+      return WifiTrial::Failed;
+  }
+}
+
 const char *flat_key_label(uint8_t flat) {
   return flat == 2 ? "Taste unten" : flat == 3 ? "Taste oben" : "";
 }

@@ -54,5 +54,6 @@ bool cb_update_owner_request(const char *key, int only, char *msg, size_t n);
 bool cb_update_owner_waiting();   // something waits for the button (cb_modes: LED pattern, short press = confirm)
 void cb_update_owner_confirm();   // the button was pressed: apply the waiting change. Loop only.
 void cb_update_owner_cancel();    // maintenance left: forget it. Loop only.
+void cb_update_owner_expired();   // FW-B-28: the 60 s ran out without a press - log, error tone. Loop only.
 
 void cb_update_json(cb::Json &j);

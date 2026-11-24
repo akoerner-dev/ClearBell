@@ -5,6 +5,9 @@
 //     "ntfy: Nachrichten abonnieren"  ntfy://ntfy.sh/<push topic of this phone> - the ntfy app subscribes; ring
 //     pushes arrive there with a "Tür öffnen" button that sends the token to the phone's command topic itself.
 //   "Test" sends a push to that phone, "Link" shows the link again, "Entfernen" drops the phone at once (lost phone).
+//   FW-B-34: the test push has a button "Ja, angekommen" and the page shows whether it was pressed; the same name added
+//   again gives the existing link (no new key); the subscription is named "ClearBell <flat> · <phone> <check mark>";
+//   a removed phone gets a farewell push ("Abo ungültig").
 //
 // Why on the indoor unit: each household manages its own phones (the outdoor unit belongs to both). The key is
 // generated here and travels to the outdoor unit inside an authenticated Event, encrypted with the link key

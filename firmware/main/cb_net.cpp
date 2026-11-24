@@ -56,6 +56,7 @@ uint8_t last_reason = 0;
 bool mdns_started = false;
 bool sntp_started = false;
 int sleep_override = -1;  // console 'sleep': -1 = automatic, 0 = off, 1 = on
+bool wifi_paused = false;  // the setup page tries another WiFi (cb_setup): hands off the station meanwhile
 bool sleep_now = false;
 
 // ---- Peers --------------------------------------------------------------------------------------------
@@ -313,6 +314,10 @@ void apply_sleep() {
 
 void handle_wifi(uint32_t now) {
   WifiMsg m;
+  if (wifi_paused) {  // events of the trial connection belong to cb_setup
+    while (xQueueReceive(wifi_queue, &m, 0) == pdTRUE) {}
+    return;
+  }
   while (xQueueReceive(wifi_queue, &m, 0) == pdTRUE) {
     if (m.ev == WifiEv::GotIp) {
       learn_pmf(true, 0);
@@ -604,6 +609,22 @@ void cb_net_json(cb::Json &j) {
 
 bool cb_net_wifi_up() {
   return wifi_state == WifiState::Up;
+}
+
+void cb_net_pause_wifi(bool pause) {
+  if (!wifi_queue || pause == wifi_paused) return;  // not started (unit not set up): nothing to hand over
+  wifi_paused = pause;
+  uint32_t now = millis();
+  if (pause) {
+    if (wifi_state == WifiState::Up) engine.set_network(false, now);
+    wifi_state = WifiState::Waiting;
+    cb_log("net: WiFi handed to the setup page (trial of a new WiFi)");
+  } else {
+    wifi_state = WifiState::Waiting;  // back to the stored WiFi at once
+    next_attempt = now;
+    backoff = kBackoffMinMs;
+    cb_log("net: WiFi back from the setup page - connecting to the stored WiFi");
+  }
 }
 
 bool cb_net_peer_reachable(UnitId peer) {

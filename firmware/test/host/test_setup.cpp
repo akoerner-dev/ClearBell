@@ -181,3 +181,15 @@ TEST(pmf_is_learned_once_per_wifi) {
   CHECK(pmf_after_attempt(PmfLearned::Yes, false, 210) == PmfLearned::Yes);      // fake router without PMF: stay
   CHECK(pmf_after_attempt(PmfLearned::No, true, 0) == PmfLearned::No);
 }
+
+TEST(wifi_trial_verdict_tells_password_from_not_found) {
+  CHECK(wifi_trial_verdict(15) == WifiTrial::WrongPassword);   // 4-way handshake timeout (wrong WPA2 password)
+  CHECK(wifi_trial_verdict(202) == WifiTrial::WrongPassword);
+  CHECK(wifi_trial_verdict(204) == WifiTrial::WrongPassword);
+  CHECK(wifi_trial_verdict(2) == WifiTrial::WrongPassword);
+  CHECK(wifi_trial_verdict(201) == WifiTrial::NotFound);       // name not in range
+  CHECK(wifi_trial_verdict(210) == WifiTrial::NotFound);
+  CHECK(wifi_trial_verdict(8) == WifiTrial::Failed);           // ASSOC_LEAVE etc.: neither
+  CHECK(wifi_trial_verdict(0) == WifiTrial::Failed);
+  CHECK(kWifiTrialRebootMs > kWifiTrialMs);
+}
