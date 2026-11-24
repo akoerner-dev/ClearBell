@@ -80,13 +80,13 @@ $('scanb').onclick=async()=>{const sb=$('scanb');sb.disabled=true;sb.lastChild.t
 // SW-Entscheid_Adresse_in_Erfolgsmeldung: over the access point the unit TRIES the WiFi first and reports wrong password /
 // not found / the real address. While it connects, the access point changes to the router's channel - the phone loses
 // it for a few seconds, so failed requests are simply repeated (up to 90 s).
-function result(msg,cls,url){const o=$('out');o.className=cls;o.replaceChildren(el('span','',msg));
-  if(url){const a=el('a','',url);a.href=url;o.append(el('br'),el('b','','Adresse: '),a)}}
+function result(msg,cls,url,url2){const o=$('out');o.className=cls;o.replaceChildren(el('span','',msg));
+  for(const [k,u] of [['Adresse: ',url],['Name: ',url2]])if(u){const a=el('a','',u);a.href=u;o.append(el('br'),el('b','',k),a)}}
 async function follow(){const t0=Date.now();
   while(Date.now()-t0<90000){await new Promise(r=>setTimeout(r,1500));
     try{const r=await (await fetch('/setup/result',{cache:'no-store'})).json();
       if(r.state==='running'){result(r.message+' ('+Math.round((Date.now()-t0)/1000)+' s)','mute');continue}
-      if(r.state==='connected'){result(r.message,'ok',r.url);return}
+      if(r.state==='connected'){result(r.message,'ok',r.url,r.url2);return}
       result(r.message,'bad');$('save').disabled=false;return}
     catch(e){result('Verbindung zur Einheit kurz weg (sie wechselt den Funkkanal) – frage weiter nach …','mute')}}
   result('Keine Antwort mehr von der Einheit. Wenn das Handy inzwischen im Heim-WLAN ist: http://clearbell-'+serial+'.local versuchen.','bad');$('save').disabled=false}

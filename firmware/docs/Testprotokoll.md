@@ -38,17 +38,18 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 | ~~SK1.3c~~ | ✓ 22.11. mit dem Meister (Abschnitt „Sammeltermin Teil 1“ unten) | – | – |
 | ~~SK1.2c~~ | ✓ 22.11. mit dem Meister; Zwischenstufe „mdns“ nicht einzeln belegt (Abschnitt „Sammeltermin Teil 1“ unten) | – | – |
 | ~~SK2.1b~~ | ✓ 15.11. (Abschnitt „Gerätetests Sicherheitskatalog“ unten) | – | – |
-| SK2.1c-Rest | IN-2 + Handy; Handy-Teil ✓ 22.11., Route und 35-min-Schließen ✓ 24.11. (Abschnitte „Sammeltermin Teil 1/2“ unten) | **offen nur noch:** Werkszustand über den automatischen Zugangspunkt → 403 (Handy im Zugangspunkt). Ursprüngliche Zeile: an IN-2 per Konsole falsches WLAN eintragen (`setup-wifi Falsch 12345678`, Neustart) → nach 5 min Zugangspunkt „ClearBell-…“ mit dem Handy (Etikett-Code) öffnen; Einrichtungsseite ansehen, Werkszustand per Konsole-`curl` versuchen; mit eigenem Passwort wiederholen; richtiges WLAN eintragen. Danach Einrichtungsmodus (Taster 2 × 5 s) und vom TOWER `route add 192.168.4.1 mask 255.255.255.255 <IP von IN-2>`, dann `curl http://192.168.4.1/setup/info` | nur WLAN-Feld aktiv, Hinweis „WLAN verloren“; Werkszustand 403; mit eigenem Passwort fragt der Zugangspunkt nach der Anmeldung; nach 35 min ohne WLAN geht er zu (Log); richtiges WLAN → verbunden, Klingeltaste/Name unverändert. Route über das Heimnetz → 401 (Anmeldung), Log „NOT from the access point net“ |
+| ~~SK2.1c-Rest~~ | ✓ 22./24.11.; Werkszustand-403 am 24.11. abends über den gesperrten Knopf belegt (Abschnitt „Sammeltermin Teil 3“ unten) | – | – |
 | ~~SK2.2b~~ | ✓ 21.11. mit `button-sim` statt Taster (Abschnitt „Vorab-Prüfungen Sammeltermin“ unten) | – | – |
 | ~~SK2.3b-Rest~~ | ✓ 22.11. mit dem Meister, Befunde FW-B-27, FW-B-28 (Abschnitt „Sammeltermin Teil 1“ unten) | – | – |
 | ~~SK2.4b-Rest~~ | ✓ 24.11. mit dem Meister (Abschnitt „Sammeltermin Teil 2“ unten) | – | – |
 | ~~TLS.10~~ | ✓ 21.11. (Abschnitt „TLS-Negativtest“ unten) | – | – |
 | ~~TLS.11~~ | ✓ 21.11. (Abschnitt „TLS-Negativtest“ unten) | – | – |
 | ~~SK1.1b~~ | ✓ 24.11. mit dem Meister, zusammen mit HB.8-Rest; Befunde FW-B-32 bis FW-B-34 (Abschnitt „Sammeltermin Teil 2“ unten) | – | – |
-| FW-B-27+28_LED_und_Ton | IN-2, Auge + Ohr | in der Wartung auf der Statusseite einen erfundenen Update-Schlüssel vormerken, nicht drücken; dann erneut vormerken und kurz den Boot-Taster drücken; danach `update-owner clear` | LED blinkt doppelt grün (kein Rot); nach 60 s Fehlerton, Seite meldet „Nicht bestätigt“; mit Druck Bestätigungston, Seite meldet „Bestätigt“ ohne Neuladen (per Log und Seite am 24.11. belegt, Auge/Ohr offen) |
+| ~~FW-B-27+28_LED_und_Ton~~ | ✓ 24.11. abends mit dem Meister (Abschnitt „Sammeltermin Teil 3“ unten) | – | – |
 | FW-B-29_Router_Neustart | IN-1 + Handy | Router neu starten (wie SK1.2c) | am Handy **eine** Meldung „Klingel wieder erreichbar – Das WLAN war etwa N min weg …“, kein einzelnes „Außeneinheit wieder da“ |
-| FW-B-30_Anmeldefenster | IN-2 + Handy, eigenes Passwort gesetzt | automatischen Zugangspunkt öffnen (falsches WLAN, 5 min), mit dem Handy verbinden | das Fenster „Im Netzwerk anmelden“ zeigt die Hilfeseite „ClearBell: Anmeldung nötig“ mit dem Hinweis auf **http://192.168.4.1** im Browser (Body per PC am 24.11. belegt) |
-| SW-Entscheid_WLAN-Probe | IN-2 + Handy im Zugangspunkt (zusammen mit SK2.1c-Rest Werkszustand-403) | auf der Einrichtungsseite nacheinander: falsches Passwort, erfundener WLAN-Name, richtiges WLAN | „Falsche Anmeldedaten …“ und „WLAN … nicht gefunden …“ getrennt, Formular bleibt; richtig → „Verbunden …“ mit der Adresse als Link, Neustart nach 45 s, danach Link im Heim-WLAN erreichbar. Beobachten: Handy verliert den Zugangspunkt beim Kanalwechsel kurz und verbindet von selbst neu |
+| ~~FW-B-30_Anmeldefenster~~ | ✓ 24.11. abends mit dem Meister (Abschnitt „Sammeltermin Teil 3“ unten) | – | – |
+| ~~SW-Entscheid_WLAN-Probe~~ | ✓ 24.11. abends mit dem Meister im dritten Anlauf, nach Behebung FW-B-35/FW-B-36 (Abschnitt „Sammeltermin Teil 3“ unten) | – | – |
+| WLAN-Probe_Name_als_zweiter_Link | IN-2 + Handy im Zugangspunkt (beim nächsten ohnehin nötigen Zugangspunkt, z. B. FW-B-34_Abschied_Werksreset) | richtiges WLAN eintragen | Erfolgsmeldung zeigt „Adresse: http://…“ und darunter „Name: http://clearbell-….local“; der Name geht nach dem Neustart im Heim-WLAN auf (Vorschau ohne Board am 24.11. belegt) |
 | FW-B-32+33_Entkoppeln | AU-1 + IN-2 + Handy (löscht das OG-Handy – nur mit dem Meister) | in der Wartung von AU-1 die OG-Kopplung entfernen, dann neu koppeln (wie SK1.1b) | Meldung „Die Inneneinheit weiß Bescheid …“; IN-2 loggt „the outdoor unit removed this pairing“, startet neu, **keine** Ausfallmeldung nach 2 min; altes Abo bekommt „ClearBell: Abo ungültig“; Seite lädt nach Entfernen und nach Koppeln von selbst neu |
 | FW-B-34_Handy_Bestaetigung | IN-2 + echtes Handy | nach der Neukopplung Handy hinzufügen, Link öffnen, „Test“, in der Nachricht „Ja, angekommen“ tippen; danach denselben Namen noch einmal hinzufügen | Abo heißt in ntfy „ClearBell <Wohnung> · <Handy> <Kennung>“ wie auf der Seite; Seite zeigt „✓ Test bestätigt“; zweites Hinzufügen zeigt denselben Link (PC-Handy am 24.11. belegt) |
 | FW-B-34_Abschied_Werksreset | IN-2 + Handy (nur zusammen mit einem ohnehin geplanten Werksreset) | Werksreset per Taster | vor dem Löschen kommt „ClearBell: Abo ungültig“ am Handy an; Werksreset danach wie HB.8 |
@@ -178,6 +179,37 @@ Wünsche und Entscheidungen des Meisters (22.11.2026):
   falsch → „Falsche Anmeldedaten“, Formular bleibt, neuer Versuch; WLAN nicht gefunden → eigene Meldung (Unterscheidung
   ausdrücklich so gewollt); Verbindung klappt → Link auf die Adresse und Hinweis, dass die Einheit neu startet.
   Umsetzungsidee: AP und STA parallel, AP wechselt dabei auf den Kanal des Routers. Wortlaut am Gerät abstimmen.
+
+### Sammeltermin Teil 3 – WLAN-Probe, Anmeldefenster, Werkszustand-403, LED und Ton (24.11.2026 abends, TOWER, mit dem Meister; Firmware `d319cdf` auf allen drei, IN-2 ab dem zweiten Anlauf mit FW-B-35/FW-B-36)
+
+Vorab alle drei online, Lautstärke 15 %. IN-2 per Konsole `setup-wifi Falsch 12345678` und `reboot`; der
+automatische Zugangspunkt kam in allen drei Anläufen nach 300,6 s. Handy des Meisters im Zugangspunkt.
+
+| Zeile | Board | Ergebnis |
+|---|---|---|
+| SW-Entscheid_WLAN-Probe, 1. Anlauf | IN-2 (`d319cdf`) | ✗ Probe mit dem richtigen WLAN endet 1 ms nach dem Start „no connection (reason 36)“ → **FW-B-35** |
+| SW-Entscheid_WLAN-Probe, 2. Anlauf | IN-2 (+ FW-B-35) | ✗ alle Proben (falsches Passwort, erfundener Name, richtiges WLAN, insgesamt 6) enden 2 ms nach dem Start „no connection (reason 0)“; Seite jedes Mal „Keine Verbindung … zustande gekommen“ → **FW-B-36** |
+| FW-B-30_Anmeldefenster | IN-2 + Handy | ✓ das Fenster „Im Netzwerk anmelden“ zeigt die Hilfeseite (Meister) |
+| SK2.1c-Rest Werkszustand-403 | IN-2 + Handy | ✓ auf der Einrichtungsseite im automatischen Zugangspunkt ist „Auf Werkszustand zurücksetzen“ gesperrt (`may_reset` falsch, gleiche Prüfung `mode_access` wie die 403-Antwort, PC-Tests). Den Knopf per Adresszeile freizuschalten und so die 403 selbst auszulösen, wurde nicht gemacht (bei einem Fehler wäre IN-2 gelöscht gewesen) |
+| SW-Entscheid_WLAN-Probe, 3. Anlauf | IN-2 (+ FW-B-35/36) + Handy | ✓ falsches Passwort zweimal „wrong password (reason 202)“ nach ≈ 3 s; erfundener Name „network not found (reason 201)“ nach 2 s; richtiges WLAN „works“ nach 6,9 s, gespeichert, Neustart genau 45 s danach, `WiFi up` mit derselben Adresse, Rolle, Kopplung und 15 % unverändert. Meister: „Das passt soweit.“ Ob das Handy beim Kanalwechsel den Zugangspunkt kurz verlor: nicht gemeldet |
+| FW-B-27+28_LED_und_Ton, 1. Versuch | IN-2 in der Wartung | – Schlüssel vom TOWER vorgemerkt: Log/`status.json` zählen 60 → 0, dann „expired“; die geöffnete Seite des Meisters wusste nichts von der Vormerkung (sie verfolgt nur selbst abgeschickte oder beim Laden laufende) – Prüfablauf ungeeignet, kein Befund |
+| FW-B-27+28_LED_und_Ton | IN-2 in der Wartung, Meister an der Seite | ✓ erfundener Schlüssel auf der Seite gespeichert: LED doppelt grün, nach 60 s Fehlerton, Seite „Nicht bestätigt“ (Log „ARMED“ → 60 s → „EXPIRED“); zweites Mal mit kurzem Druck: Bestätigungston, Seite „Bestätigt“ (Log „CONFIRMED by the boot button – applied“ 2,8 s nach dem Vormerken). Danach `update-owner clear`, `update-keys`: kein eigener Schlüssel |
+
+Befunde und Behebung (am Termin, IN-2 geflasht):
+- **FW-B-35_WLAN-Probe_Grund_36:** `WiFi.begin()` bricht den laufenden Versuch mit dem gespeicherten (falschen) WLAN
+  ab; das liefert sofort eine Trennung mit Grund 36 (STA_LEAVING), die als Ergebnis der Probe gezählt wurde. Jetzt
+  gelten 8 und 36 als eigenes Verlassen (`cb_setup.cpp`, `on_trial_event`).
+- **FW-B-36_WLAN-Probe_Zeitueberlauf:** `trial_poll(now)` verglich mit `trial_started`, das `trial_start()` erst nach
+  `now` setzte; die vorzeichenlose Differenz lief über, die Probe galt sofort als abgelaufen (Grund 0). Jetzt beginnt
+  die Prüfung erst im nächsten Durchlauf. Im 1. Anlauf hatte FW-B-35 diesen Fehler verdeckt.
+- **Frage des Meisters:** Woher kennt die Einheit bei der Erstinbetriebnahme ihre Adresse? Antwort: aus der Probe
+  selbst (DHCP über die Station, Log „works (IP …)“); nach dem Neustart vergibt der Router meist dieselbe, aber nicht
+  garantiert. Daher zeigt die Erfolgsmeldung jetzt zusätzlich den Namen `clearbell-<Gerätenummer>.local` als zweiten
+  Link (`url2`); Vorschau ohne Board ohne Skriptfehler, Handprüfung in der Sammelliste
+  (WLAN-Probe_Name_als_zweiter_Link).
+
+Nicht mehr gemacht (Sitzungsende 22:40): FW-B-32+33_Entkoppeln, FW-B-34_Handy_Bestaetigung, FW-B-29_Router_Neustart
+– offen in der Sammelliste.
 
 ### Behebung FW-B-27 bis FW-B-34 und SW-Entscheid_Adresse_in_Erfolgsmeldung (24.11.2026, TOWER, selbst)
 

@@ -60,8 +60,12 @@ void wipe(char *b, size_t n) {
 void on_trial_event(arduino_event_id_t e, arduino_event_info_t info) {
   if (trial_state.load() != (int)cb::WifiTrial::Running || trial_request.load()) return;
   if (e == ARDUINO_EVENT_WIFI_STA_GOT_IP) trial_got_ip = true;
-  else if (e == ARDUINO_EVENT_WIFI_STA_DISCONNECTED && info.wifi_sta_disconnected.reason != 8)  // 8 = our own disconnect
-    trial_reason = info.wifi_sta_disconnected.reason ? info.wifi_sta_disconnected.reason : 255;
+  else if (e == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
+    // 8 (ASSOC_LEAVE) and 36 (STA_LEAVING) are our own leave: aborting the attempt on the stored WiFi delivers 36
+    // right after WiFi.begin() - that is not the verdict on the new WiFi (Sammeltermin Teil 3, 24.11.)
+    uint8_t r = info.wifi_sta_disconnected.reason;
+    if (r != 8 && r != 36) trial_reason = r ? r : 255;
+  }
 }
 
 void trial_start() {
@@ -123,7 +127,9 @@ void trial_end(cb::WifiTrial v, uint8_t reason) {
 }
 
 void trial_poll(uint32_t now) {
-  if (trial_request.exchange(false)) trial_start();
+  // `now` was taken before trial_start() set trial_started: comparing in this round would wrap around and end the
+  // trial at once as "timed out" (Sammeltermin Teil 3, 24.11.) - so the first check waits for the next round
+  if (trial_request.exchange(false)) return trial_start();
   if (trial_state.load() != (int)cb::WifiTrial::Running) return;
   if (trial_got_ip.load()) return trial_end(cb::WifiTrial::Connected, 0);
   int r = trial_reason.exchange(0);
@@ -344,7 +350,7 @@ esp_err_t h_save(httpd_req_t *req) {
 esp_err_t h_result(httpd_req_t *req) {
   if (!cb_status_authorize(req)) return ESP_OK;
   int st = trial_state.load();
-  char ssid[40], m[300], url[40] = "";
+  char ssid[40], m[300], url[40] = "", url2[48] = "";
   taskENTER_CRITICAL(&trial_lock);
   memcpy(ssid, trial_ssid, sizeof ssid);
   taskEXIT_CRITICAL(&trial_lock);
@@ -357,10 +363,13 @@ esp_err_t h_result(httpd_req_t *req) {
       break;
     case (int)cb::WifiTrial::Connected:
       state = "connected";
+      // The address is the one the router gave during the trial; after the restart most routers give the same one
+      // again, but not all - so the name (mDNS, independent of the address) comes as a second link
       snprintf(url, sizeof url, "http://%s", trial_ip);
-      snprintf(m, sizeof m, "Verbunden mit „%s“. Die Einheit startet in %lu s neu. Danach im Heim-WLAN öffnen: %s "
-               "(oder http://clearbell-%s.local). Das Handy dazu wieder ins Heim-WLAN wechseln.", ssid,
-               (unsigned long)(cb::kWifiTrialRebootMs / 1000), url, cb_prov().serial);
+      snprintf(url2, sizeof url2, "http://clearbell-%s.local", cb_prov().serial);
+      snprintf(m, sizeof m, "Verbunden mit „%s“. Die Einheit startet in %lu s neu. Danach das Handy wieder ins "
+               "Heim-WLAN wechseln und die Adresse öffnen; falls sie nicht geht, den Namen darunter.", ssid,
+               (unsigned long)(cb::kWifiTrialRebootMs / 1000));
       break;
     case (int)cb::WifiTrial::WrongPassword:
       state = "wrong_password";
@@ -384,6 +393,7 @@ esp_err_t h_result(httpd_req_t *req) {
   j.kv("ok", st == (int)cb::WifiTrial::Connected);
   j.kv("message", m);
   j.kv("url", url);
+  j.kv("url2", url2);
   j.end_obj();
   return send_json(req, "200 OK", j);
 }

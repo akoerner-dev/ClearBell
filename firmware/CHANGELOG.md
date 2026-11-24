@@ -5,6 +5,14 @@ Versionen nach SemVer; `version.txt` ist die Quelle. Solange die Portierung läu
 
 ## 0.2.0-dev (in Arbeit)
 
+### Sammeltermin Teil 3 (24.11.2026 abends, FW-B-35, FW-B-36)
+
+- **WLAN-Probe (FW-B-35, FW-B-36):** Die Probe über den Zugangspunkt brach bisher sofort ab – erst am eigenen
+  Abbruch des laufenden Verbindungsversuchs (Grund 36), danach an einem Zeitvergleich, der rückwärts lief. Jetzt
+  werden falsches Passwort, „nicht gefunden“ und „verbunden“ wirklich unterschieden.
+- **Erfolgsmeldung:** Neben der Adresse steht der Name `clearbell-<Gerätenummer>.local` als zweiter Link, falls der
+  Router nach dem Neustart eine andere Adresse vergibt.
+
 ### Befunde aus dem Sammeltermin (24.11.2026, FW-B-27 bis FW-B-34)
 
 - **Handys (FW-B-34):** Die Test-Nachricht hat einen Knopf „Ja, angekommen“; die Statusseite zeigt, ob er gedrückt
