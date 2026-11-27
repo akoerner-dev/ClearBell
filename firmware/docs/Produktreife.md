@@ -144,6 +144,6 @@ Die heutigen Ergebnisse bleiben gültig; die Schritte 10a–c bauen darauf auf.
 - **Boot-Taster der Inneneinheit:** Ist er im fertigen Gehäuse ohne Werkzeug erreichbar (Loch für eine Büroklammer)?
   Davon hängt ab, ob Wartung/Einrichtung innen „ohne Öffnen“ geht.
 - ~~**Boot-Taster der Außeneinheit:**~~ entschieden 15.11.2026 (R31): bleibt im Gehäuse, kein Zugang von außen. Eine
-  spätere Neukopplung verlangt das Öffnen des Außengehäuses; in die Käuferanleitung aufnehmen.
+  spätere Neukopplung verlangt das Öffnen des Außengehäuses; in die Käuferanleitung aufnehmen. (gesammelt in `Bedienungsanleitung_Merkliste.md`)
 - **Ein Code oder zwei:** Ich schlage **einen** Gerätecode für Einrichtungs-WLAN und Statusseite vor (einfacher für den
   Käufer); das Statusseiten-Passwort kann der Käufer danach selbst ändern.

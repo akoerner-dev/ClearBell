@@ -46,13 +46,13 @@ bzw. `COM4`. Nach dem Termin die Ergebnisse in die jeweilige Zeile unten eintrag
 | ~~TLS.11~~ | ✓ 21.11. (Abschnitt „TLS-Negativtest“ unten) | – | – |
 | ~~SK1.1b~~ | ✓ 24.11. mit dem Meister, zusammen mit HB.8-Rest; Befunde FW-B-32 bis FW-B-34 (Abschnitt „Sammeltermin Teil 2“ unten) | – | – |
 | ~~FW-B-27+28_LED_und_Ton~~ | ✓ 24.11. abends mit dem Meister (Abschnitt „Sammeltermin Teil 3“ unten) | – | – |
-| FW-B-29_Router_Neustart | IN-1 + Handy | Router neu starten (wie SK1.2c) | am Handy **eine** Meldung „Klingel wieder erreichbar – Das WLAN war etwa N min weg …“, kein einzelnes „Außeneinheit wieder da“ |
+| ~~FW-B-29_Router_Neustart~~ | ✓ 27.11. mit dem Meister, IN-1 und IN-2 (Abschnitt „Sammeltermin Teil 4“ unten) | – | – |
 | ~~FW-B-30_Anmeldefenster~~ | ✓ 24.11. abends mit dem Meister (Abschnitt „Sammeltermin Teil 3“ unten) | – | – |
 | ~~SW-Entscheid_WLAN-Probe~~ | ✓ 24.11. abends mit dem Meister im dritten Anlauf, nach Behebung FW-B-35/FW-B-36 (Abschnitt „Sammeltermin Teil 3“ unten) | – | – |
-| WLAN-Probe_Name_als_zweiter_Link | IN-2 + Handy im Zugangspunkt (beim nächsten ohnehin nötigen Zugangspunkt, z. B. FW-B-34_Abschied_Werksreset) | richtiges WLAN eintragen | Erfolgsmeldung zeigt „Adresse: http://…“ und darunter „Name: http://clearbell-….local“; der Name geht nach dem Neustart im Heim-WLAN auf (Vorschau ohne Board am 24.11. belegt) |
-| FW-B-32+33_Entkoppeln | AU-1 + IN-2 + Handy (löscht das OG-Handy – nur mit dem Meister) | in der Wartung von AU-1 die OG-Kopplung entfernen, dann neu koppeln (wie SK1.1b) | Meldung „Die Inneneinheit weiß Bescheid …“; IN-2 loggt „the outdoor unit removed this pairing“, startet neu, **keine** Ausfallmeldung nach 2 min; altes Abo bekommt „ClearBell: Abo ungültig“; Seite lädt nach Entfernen und nach Koppeln von selbst neu |
-| FW-B-34_Handy_Bestaetigung | IN-2 + echtes Handy | nach der Neukopplung Handy hinzufügen, Link öffnen, „Test“, in der Nachricht „Ja, angekommen“ tippen; danach denselben Namen noch einmal hinzufügen | Abo heißt in ntfy „ClearBell <Wohnung> · <Handy> <Kennung>“ wie auf der Seite; Seite zeigt „✓ Test bestätigt“; zweites Hinzufügen zeigt denselben Link (PC-Handy am 24.11. belegt) |
-| FW-B-34_Abschied_Werksreset | IN-2 + Handy (nur zusammen mit einem ohnehin geplanten Werksreset) | Werksreset per Taster | vor dem Löschen kommt „ClearBell: Abo ungültig“ am Handy an; Werksreset danach wie HB.8 |
+| ~~WLAN-Probe_Name_als_zweiter_Link~~ | ✓ 27.11. mit dem Meister nach Werksreset IN-2 (Abschnitt „Sammeltermin Teil 4“ unten) | – | – |
+| ~~FW-B-32+33_Entkoppeln~~ | ✓ 27.11. mit dem Meister (Abschnitt „Sammeltermin Teil 4“ unten) | – | – |
+| ~~FW-B-34_Handy_Bestaetigung~~ | ✓ 27.11. mit dem Meister (Abschnitt „Sammeltermin Teil 4“ unten) | – | – |
+| ~~FW-B-34_Abschied_Werksreset~~ | ✓ 27.11. mit dem Meister (Abschnitt „Sammeltermin Teil 4“ unten) | – | – |
 
 **Reihenfolge (Meister 10.11.2026):** zuerst diese Handprüfungen; der 72-h-Test läuft ganz zum Schluss mit beiden
 Einheiten im Gehäuse.
@@ -179,6 +179,36 @@ Wünsche und Entscheidungen des Meisters (22.11.2026):
   falsch → „Falsche Anmeldedaten“, Formular bleibt, neuer Versuch; WLAN nicht gefunden → eigene Meldung (Unterscheidung
   ausdrücklich so gewollt); Verbindung klappt → Link auf die Adresse und Hinweis, dass die Einheit neu startet.
   Umsetzungsidee: AP und STA parallel, AP wechselt dabei auf den Kanal des Routers. Wortlaut am Gerät abstimmen.
+
+### Sammeltermin Teil 4 – Router-Neustart, Entkoppeln, Handy-Bestätigung, Werksreset mit WLAN-Probe (27.11.2026 morgens, TOWER, mit dem Meister; ab 05:47 alle drei auf `e65c8e4`)
+
+Vorab alle drei online, gekoppelt, Lautstärke 15 %. Der Meister ist an IN-1 (EG) und IN-2 (OG) je mit einem Handy
+eingetragen. Der Router-Neustart lief noch auf dem alten Stand (AU-1/IN-1 `d319cdf`); danach alle drei neu gebaut
+und per USB geflasht (je 4 × „Hash of data verified“), online, gekoppelt, Selbsttest ok, kein Coredump.
+
+| Zeile | Board | Ergebnis |
+|---|---|---|
+| FW-B-29_Router_Neustart | IN-1 + IN-2 + Handy | ✓ Router neu gestartet; am Handy je Inneneinheit **eine** Meldung „✅ Klingel wieder erreichbar – Das WLAN war etwa 4 min weg (Router neu ge…“, keine Ausfallmeldung, kein einzelnes „Außeneinheit wieder da“. `remote.outage` an IN-1 und IN-2 je 1 Meldung, 1 ok, **0 fehlgeschlagen** (am 22.11. noch 1 fehlgeschlagen). Die zweite Meldung kommt von der zweiten Inneneinheit (Meister an beiden eingetragen), kein Befund. Ebenso doppelt und erwartet: „ClearBell neu gestartet – AU-1 … power-on“ beim Einschalten am Morgen (AU-1 `remote.pushes_ok` 2 = je ein Handy EG und OG) |
+| FW-B-32+33_Entkoppeln | AU-1 + IN-2 + Handy | ✓ AU-1 per `button-sim long` in der Wartung (fiel beim ersten Mal nach 10 min ungenutzt zurück – wie gebaut); Meister entfernt die OG-Kopplung „Barkow“ (Rückfrage „Kopplung „…“ (Taste …) wirklich entfernen?“; Wortlaut der Meldung danach nicht mitgeschrieben, laut Meister passend). IN-2 05:58:46 „pairing: the outdoor unit removed this pairing - 1 phone(s) and the link dropped, restarting“, Neustart (Start 64) mit 0 Kopplungen, „remote: outage notice off (not paired)“; bis zur Neukopplung 10 min später **keine** Ausfallmeldung (`outage.notices` 0). Am Handy „ClearBell: Abo ungültig – … (die Kopplung der Wohnung wurde entfernt)“ auf dem alten OG-Abo; der Neustart-Push von AU-1 danach kam dort nicht mehr an (nur EG). AU-1-Seite lud nach ≈ 19 s selbst neu. Neukopplung über „Inneneinheiten suchen“ + Gerätecode: IN-2 06:08:13 „paired with outdoor unit … as OG“, Neustart, „outage notice on“, „flat name 'Barkow' handed to the outdoor unit“; AU-1 „EG ok, OG ok“; Seite lud wieder selbst neu (Meister) |
+| FW-B-34_Handy_Bestaetigung | IN-2 + Handy | ✓ Wartung per echtem Taster; Handy „andre“ hinzugefügt: Abo in ntfy „ClearBell Barkow · andre NN9“, auf der Seite „andre · NN9“; Test → am Handy „ClearBell Test“ mit Knopf „Ja, angekommen“, getippt → Seite „✓ Test bestätigt – Nachrichten kommen an“; denselben Namen erneut hinzugefügt → „Dieses Handy gibt es schon – hier sein bestehender Link (der Schlüssel bleibt gleich)“. `ring og` → quittiert nach 43 ms, „Es klingelt – Barkow“ mit „Tür öffnen“ lag auf dem Topic, kam aber **nicht** als Push (erst nach manuellem Aktualisieren in ntfy sichtbar). Gegenprobe 06:40 mit gesperrtem Handy: `ring eg` + `ring og` → beide als Push angekommen; AU-1 `remote` 4 Pushes ok, 0 fehlgeschlagen. Aussetzer liegt bei ntfy/Android (Abo eine Minute alt), kein Firmware-Befund (siehe unten, A-1) |
+| FW-B-34_Abschied_Werksreset | IN-2 + Handy | ✓ Meister am echten Taster (Wartung → Einrichtung → 15 s): vor dem Löschen am Handy „ClearBell: Abo ungültig – … (die Einheit wurde auf Werkszustand gesetzt)“. Danach Start 66, Einrichtungsmodus, Selbsttest ok; Lautstärke per Konsole `vol 15`. Die `nvs-liste` wurde vorher nicht gesichert (Reset kam vor der Sicherung) |
+| WLAN-Probe_Name_als_zweiter_Link | IN-2 + Handy im Zugangspunkt | ✓ Einrichtung im Fenster „In ClearBell-… anmelden“: WLAN, Taste oben, Name „Barkow“ → „Verbunden mit „…“. Die Einheit startet in 45 s neu …“, darunter „Adresse: http://<Adresse>“ und „Name: http://clearbell-<Gerätenummer>.local“. Nach dem Neustart im Heim-WLAN öffnen beide; Seite zeigt „Barkow · Taste oben“, 15 %, „nicht gekoppelt“. Anmeldung verlangte der Browser nicht (Zugangsdaten vom früheren Besuch gespeichert, nach dem Reset gilt wieder der Gerätecode – nicht im Inkognito-Tab gegengeprüft). Werkzeug mit `anlage-webpasswort IN-2 label` zurückgestellt |
+| Neukopplung nach Werksreset | AU-1 + IN-2 + Handy | ✓ AU-1 listete die OG-Kopplung weiter grün als „gekoppelt“ (Konsole: „OG UNREACHABLE“) → **FW-B-37**. Gerätecode bei „Barkow · Taste oben“ eingegeben → AU-1 „EG ok, OG ok“; Handy „andre“ neu (Kennung KJA), Test bestätigt (`confirm.state ok`); `ring og` quittiert nach 76 ms; dieser Klingel-Push kam wieder erst nach Aktualisieren (Abo wenige Minuten alt), `ring og` 07:08 (Abo ≈ 10 min alt) kam bei gesperrtem Handy von selbst |
+
+Befunde und Wünsche 27.11.2026:
+- **FW-B-37_Kopplungsliste_zeigt_gekoppelt_obwohl_unerreichbar:** Nach dem Werksreset der Inneneinheit zeigt die Seite
+  der Außeneinheit die Kopplung weiter grün „gekoppelt“ (es ist nur der gespeicherte Schlüssel gemeint), obwohl die
+  Außeneinheit die Wohnung als „UNREACHABLE“ führt und dieselbe Einheit darunter in der Suche als koppelbar erscheint.
+  Der Meister fragte, ob die Außeneinheit den Werksreset nicht mitbekommen habe. Vorschlag: „gekoppelt, nicht
+  erreichbar“ (gelb); erscheint die Einheit in der Suche ungekoppelt, Hinweis „Inneneinheit wurde zurückgesetzt – neu
+  koppeln“. Das Behalten der Kopplung selbst bleibt wie entschieden (VK-01).
+- **Beobachtung_ntfy_neues_Abo_verzoegert:** Zweimal kam der erste Klingel-Push an ein 1–5 min altes Abo nicht von
+  selbst (lag auf dem Topic, sichtbar erst nach Aktualisieren); an 10 bzw. 25 min alte Abos kam er sofort. Die
+  Firmware verschickt korrekt (AU-1 alle Pushes ok). Vermutung, nicht belegt: die ntfy-App meldet ein neues Abo erst
+  verzögert beim Push-Dienst an. Meister: damit leben, aber **unbedingt in die Bedienungsanleitung** →
+  `Bedienungsanleitung_Merkliste.md` A-1.
+- **SW-Wunsch_WLAN-Passwort_anzeigen:** Klarsicht-Knopf am WLAN-Passwortfeld der Einrichtungsseite (lange Passwörter);
+  zur optischen Überarbeitung am Schluss.
 
 ### Sammeltermin Teil 3 – WLAN-Probe, Anmeldefenster, Werkszustand-403, LED und Ton (24.11.2026 abends, TOWER, mit dem Meister; Firmware `d319cdf` auf allen drei, IN-2 ab dem zweiten Anlauf mit FW-B-35/FW-B-36)
 
