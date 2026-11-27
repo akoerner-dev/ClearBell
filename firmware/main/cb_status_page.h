@@ -164,7 +164,7 @@ function render(d){
   T.append(tile('shield','Gerät',healthy?'in Ordnung':'prüfen','läuft seit '+dur(sy.uptime_s),healthy?'ok':'warn'));
   // ---- cards
   if(d.settings)m.append(settings(d,maint));
-  if(d.pairing)m.append(pairing(d.pairing,maint,sy.role,maint&&!sy.maint_by_event));
+  if(d.pairing)m.append(pairing(d.pairing,maint,sy.role,maint&&!sy.maint_by_event,d.protocol));
   if(d.phones&&d.phones.available)m.append(phones(d.phones,maint));
   if(d.remote&&d.remote.enabled)m.append(remote(d.remote));
   m.append(doorlog(d.doorlog));
@@ -186,13 +186,17 @@ function settings(d,maint){
 // change and the update do), instead of showing the old state until the buyer reloads by hand.
 function reloadAfterRestart(){paused=true;let n=15;const tick=()=>{byId('err').textContent='Die Einheit startet neu – Seite lädt in '+n+' s neu …';
   if(n--<=0)location.reload();else setTimeout(tick,1000)};setTimeout(tick,4000)}
-function pairing(p,maint,R,full){
+// FW-B-37: "gekoppelt" alone only means a stored key; a paired unit that does not answer shows as not reachable
+// (e.g. the indoor unit was reset to factory state - the outdoor unit keeps the pairing until the next pairing, VK-01).
+function pairing(p,maint,R,full,pr){
   const c=card('link','Kopplung'),l=$('div','list');
+  const reach=u=>{const q=((pr&&pr.peers)||[]).find(x=>x.unit===u);return !q||q.reachable};
   const item=(av,title,sub,state,txt)=>{const it=$('div','item');it.append($('span','av',av));const g=$('div','grow');g.append($('b','',title),$('span','',sub));
     it.append(g,$('span','pill '+state,txt));l.append(it);return it};
   if(p.paired!==undefined){  // indoor unit
     item(R==='OG'?'↑':'↓',flat(R),KEY[R]+' an der Haustür','c-info',p.own_name?'eigener Name':'Standardname');
-    item('AU','Außeneinheit',p.outdoor?'Nr. '+p.outdoor:'',p.paired?'c-ok':'c-bad',p.paired?'gekoppelt':'nicht gekoppelt');c.append(l);
+    const au=p.paired&&reach('AUSSEN');
+    item('AU','Außeneinheit',p.outdoor?'Nr. '+p.outdoor:'',!p.paired?'c-bad':au?'c-ok':'c-warn',!p.paired?'nicht gekoppelt':au?'gekoppelt':'gekoppelt, nicht erreichbar');c.append(l);
     if(maint){c.append($('h3','','Name der Wohnung'));const row=$('div','row');const n=$('input');n.value=p.own_name;n.maxLength=40;
       n.placeholder='z. B. Familie Müller';n.autocomplete='off';const s=btn('Speichern','');row.append(n,s);
       s.onclick=async()=>{s.disabled=true;const r=await post('/flat/name',{name:n.value});toast(r);s.disabled=false;if(r.ok)load(true)};
@@ -202,7 +206,8 @@ function pairing(p,maint,R,full){
       c.append(b,$('p','mute','Für 10 min – Töne, Update, Pulslänge der Außeneinheit, ohne ihr Gehäuse zu öffnen.'))}
     return c}
   for(const f of ['og','eg']){const ok=p[f+'_paired'],F=f.toUpperCase();
-    const it=item(f==='og'?'↑':'↓',ok?flat(F):KEY[F],ok?KEY[F]+(p[f]?' · Nr. '+p[f]:''):'',ok?'c-ok':'c-mute',ok?'gekoppelt':'frei');
+    const on=ok&&reach(F);
+    const it=item(f==='og'?'↑':'↓',ok?flat(F):KEY[F],ok?KEY[F]+(p[f]?' · Nr. '+p[f]:''):'',!ok?'c-mute':on?'c-ok':'c-warn',!ok?'frei':on?'gekoppelt':'gekoppelt, nicht erreichbar');
     if(full&&ok){const b=btn('Entfernen','','danger sm');b.onclick=async()=>{if(confirm('Kopplung „'+flat(F)+'“ ('+KEY[F]+') wirklich entfernen?')){const r=await post('/pair/remove',{flat:f});toast(r);if(r.ok)reloadAfterRestart()}};it.append(b)}}
   c.append(l);
   // R31: pairing - also the first one - only in maintenance opened by the button of the outdoor unit, or in setup
@@ -213,6 +218,8 @@ function pairing(p,maint,R,full){
       if(!r.units.length)list.append($('p','mute','Keine Inneneinheit im Netz gefunden – ist sie eingerichtet (WLAN, Klingeltaste)?'));
       for(const u of r.units){const it=$('div');it.style.padding='12px 0';it.style.borderTop='1px solid var(--line)';
         it.append($('b','',u.name+' · '+u.key+' · Nr. '+u.id+(u.paired?' · schon gekoppelt':'')));
+        // FW-B-37: this very unit is paired here but reports itself as unpaired - it was reset to factory state
+        if(!u.paired&&p[u.flat+'_paired']&&p[u.flat]===u.id)it.append($('p','warn','Diese Inneneinheit wurde zurückgesetzt (Werkszustand) und kennt die Kopplung nicht mehr – hier neu koppeln. Die Handys dieser Wohnung dort danach neu hinzufügen.'));
         const row=$('div','row');const code=$('input');code.placeholder='Gerätecode vom Etikett';code.autocomplete='off';code.spellcheck=false;
         const k=btn('Koppeln','link');k.onclick=async()=>{k.disabled=true;const r=await post('/pair/start',{ip:u.ip,id:u.id,flat:u.flat,code:code.value});toast(r);if(r.ok)reloadAfterRestart();else k.disabled=false};
         row.append(code,k);it.append(row);list.append(it)}}

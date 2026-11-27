@@ -5,6 +5,13 @@ Versionen nach SemVer; `version.txt` ist die Quelle. Solange die Portierung läu
 
 ## 0.2.0-dev (in Arbeit)
 
+### Sammeltermin Teil 4 (27.11.2026, FW-B-37)
+
+- **Kopplungsliste (FW-B-37):** Eine gekoppelte Einheit, die nicht antwortet, steht jetzt gelb als „gekoppelt, nicht
+  erreichbar“ statt grün „gekoppelt“ (Außeneinheit je Wohnung, Inneneinheit für die Außeneinheit). Taucht eine
+  gekoppelte Inneneinheit in der Suche als ungekoppelt auf, sagt die Seite, dass sie zurückgesetzt wurde und neu
+  gekoppelt werden muss.
+
 ### Sammeltermin Teil 3 (24.11.2026 abends, FW-B-35, FW-B-36)
 
 - **WLAN-Probe (FW-B-35, FW-B-36):** Die Probe über den Zugangspunkt brach bisher sofort ab – erst am eigenen
